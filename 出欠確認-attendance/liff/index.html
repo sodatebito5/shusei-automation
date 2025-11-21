@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>出欠確認</title>
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #f5f5f5;
+      min-height:100vh;
+      display:flex;
+      justify-content:center;
+      align-items:center;
+      padding:20px;
+    }
+
+    .container {
+      background:#fff;
+      padding:40px 30px;
+      border-radius:12px;
+      width:100%;
+      max-width:400px;
+      box-shadow:0 2px 10px rgba(0,0,0,0.1);
+      text-align:center;
+    }
+
+    h1 { font-size:24px; margin-bottom:30px; color:#333; }
+
+    .btn {
+      width:100%;
+      border:none;
+      border-radius:8px;
+      font-size:18px;
+      font-weight:bold;
+      cursor:pointer;
+    }
+    .btn-attend { background:#06c755; color:#fff; padding:20px; margin-bottom:15px; }
+    .btn-absent { background:#ff5c5c; color:#fff; padding:15px; }
+
+    .btn-close { background:#ddd; color:#333; padding:15px; margin-top:20px; }
+
+    .result-text { font-size:18px; margin:20px 0; }
+
+    .hidden { display:none; }
+
+    /* ▼ UI追加：中央寄せ＋位置揃え */
+    .booth-block {
+      margin-top:28px;
+      text-align:center;
+      color:#333;
+    }
+    .booth-title {
+      font-size:16px;
+      font-weight:bold;
+      margin-bottom:10px;
+    }
+    .booth-options {
+      display:inline-block; 
+      text-align:left;
+    }
+    .booth-option {
+      display:flex;
+      align-items:center;
+      gap:6px;
+      margin-bottom:6px;
+    }
+    .booth-option input { margin:0; }
+  </style>
+</head>
+
+<body>
+
+  <!-- 選択画面 -->
+  <div id="selectScreen" class="container">
+    <h1>次回例会に</h1>
+
+    <button class="btn btn-attend" onclick="submitStatus('出席')">出席します！</button>
+    <button class="btn btn-absent" onclick="submitStatus('欠席')">欠席します。</button>
+
+    <!-- ▼ ブース出店 -->
+    <div class="booth-block">
+      <div class="booth-title">ブース出店しますか？</div>
+
+      <div class="booth-options">
+        <label class="booth-option">
+          <input type="radio" name="booth" value="出店したいです。">
+          <span>出店したいです。</span>
+        </label>
+
+        <label class="booth-option">
+          <input type="radio" name="booth" value="出店しません。" checked>
+          <span>出店しません。</span>
+        </label>
+      </div>
+    </div>
+
+    <p id="loading" class="hidden">送信中...</p>
+  </div>
+
+  <!-- 完了画面 -->
+  <div id="resultScreen" class="container hidden">
+    <h1 style="color:#06c755;">出欠連絡完了！</h1>
+    <p id="resultText" class="result-text"></p>
+    <button class="btn btn-close" onclick="closeLiff()">閉じる</button>
+  </div>
+
+  <script>
+    const LIFF_ID = '2008446831-256wkWVY';
+    const GAS_URL = 'https://script.google.com/macros/s/AKfycby-rXLMy1lKIhyl60ZaS_tCob20cAuCgrkzf9B0Ky738DyvTWNBh_7AuDb1iNrEhf7ElA/exec';
+
+    let profile = null;
+
+    // LIFF初期化
+    liff.init({ liffId: LIFF_ID })
+      .then(() => {
+        if (!liff.isLoggedIn()) return liff.login();
+        return liff.getProfile();
+      })
+      .then(p => { profile = p; })
+      .catch(err => alert("LIFFエラー: " + err));
+
+    // 送信
+    function submitStatus(status) {
+
+      if (!profile) {
+        alert("ユーザー情報が取得できません。再読み込みしてください。");
+        return;
+      }
+
+      const boothInput = document.querySelector('input[name="booth"]:checked');
+      const booth = boothInput ? boothInput.value : '出店しません。';
+
+      document.getElementById("loading").classList.remove("hidden");
+
+      const data = {
+        userId: profile.userId,
+        displayName: profile.displayName,
+        status: status,
+        booth: booth
+      };
+
+      fetch(GAS_URL, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'text/plain' },
+        body: JSON.stringify(data)
+      })
+      .then(() => showResult(status, booth))
+      .catch(err => alert("通信エラー: " + err));
+    }
+
+    function showResult(status, booth) {
+      document.getElementById("selectScreen").classList.add("hidden");
+      document.getElementById("resultScreen").classList.remove("hidden");
+      document.getElementById("resultText").textContent = `「${status} ／ ${booth}」で受付けました。`;
+    }
+
+    function closeLiff() { liff.closeWindow(); }
+  </script>
+
+</body>
+</html>
