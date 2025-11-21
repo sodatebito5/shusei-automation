@@ -1,8 +1,8 @@
 // ===============================
-// seat-maker：自動配席アプリ用 API（統合版）
+// seat-maker：自動配席アプリ用 API
 // ===============================
 
-// 参加者一覧を置いているスプレッドシート
+// 参加者一覧を置いているシート
 const SEAT_SHEET_ID   = '1IPyjDi3uD-pSxtkF9JK7Uc5isi4lNw6nQKpv9hWUvic';
 const SEAT_SHEET_NAME = '自動配席用';
 
@@ -23,37 +23,8 @@ const GUEST_RANGE_END   = 42;
 
 
 // ===============================
-// タイトル（例会名）取得 API
-// mode=getTitle
-// ===============================
-function handleGetTitle_() {
-  const ss = SpreadsheetApp.openById(SEAT_SHEET_ID);
-  const sh = ss.getSheetByName('他会場/ゲスト_参加者名簿（自動）');
-
-  if (!sh) {
-    return ContentService
-      .createTextOutput(JSON.stringify({
-        success: false,
-        error: 'sheet not found: 他会場/ゲスト_参加者名簿（自動）'
-      }))
-      .setMimeType(ContentService.MimeType.JSON);
-  }
-
-  const title = sh.getRange('B2').getValue();
-
-  return ContentService
-    .createTextOutput(JSON.stringify({
-      success: true,
-      title: String(title || '')
-    }))
-    .setMimeType(ContentService.MimeType.JSON);
-}
-
-
-
-// ===============================
 // 参加者一覧取得（自動配席用）
-// mode=seatParticipants
+// mode=seatParticipants で呼び出し
 // ===============================
 function handleSeatGetParticipants_() {
   const ss = SpreadsheetApp.openById(SEAT_SHEET_ID);
@@ -124,7 +95,7 @@ function handleSeatGetParticipants_() {
 
 
 // ===============================
-// 座席情報の書き込み（内部処理）
+// STEP1：内部処理（会員・他会場/ゲストへの書き込み）
 // ===============================
 function syncSeatsInternal_(assignments) {
   const ss = SpreadsheetApp.openById(SEAT_SHEET_ID);
@@ -168,7 +139,6 @@ function syncSeatsInternal_(assignments) {
 
     if (!name || !table) continue;
 
-    // 会員
     if (category === '会員') {
       let found = false;
 
@@ -189,7 +159,6 @@ function syncSeatsInternal_(assignments) {
       }
 
     } else {
-      // 他会場・ゲスト
       let found = false;
 
       for (let r = 1; r < otherValues.length; r++) {
@@ -221,7 +190,7 @@ function syncSeatsInternal_(assignments) {
 
 
 // ===============================
-// doPost：座席反映 API
+// STEP2：本番 doPost API
 // mode=syncSeats
 // ===============================
 function handleSyncSeats_(jsonText) {
@@ -257,11 +226,36 @@ function handleSyncSeats_(jsonText) {
 
 
 // ===============================
-// doPost：モード切り替え
+// seat-maker 用 共通エンドポイント
+// （ここが実際に Web から叩かれる doGet / doPost）
 // ===============================
+
+function doGet(e) {
+  const mode = (e && e.parameter && e.parameter.mode) || '';
+
+  // 参加者一覧取得
+  if (mode === 'seatParticipants') {
+    return handleSeatGetParticipants_();
+  }
+
+  // タイトル取得（B2セル）
+  if (mode === 'getTitle') {
+    return handleGetTitle_();
+  }
+
+  // それ以外
+  return ContentService
+    .createTextOutput(JSON.stringify({
+      success: false,
+      error: 'invalid mode (doGet)'
+    }))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
 function doPost(e) {
   const mode = (e && e.parameter && e.parameter.mode) || '';
 
+  // 座席反映
   if (mode === 'syncSeats') {
     const jsonText = (e.postData && e.postData.contents) || '{}';
     return handleSyncSeats_(jsonText);
@@ -276,33 +270,35 @@ function doPost(e) {
 }
 
 
-
 // ===============================
-// doGet：座席一覧 or タイトル取得
+// タイトル取得（他会場/ゲスト_参加者名簿（自動）のB2セル）
+// mode=getTitle で呼び出し
 // ===============================
-function doGet(e) {
-  const mode = (e && e.parameter && e.parameter.mode) || '';
-
-  if (mode === 'seatParticipants') {
-    return handleSeatGetParticipants_();
+function handleGetTitle_() {
+  const ss = SpreadsheetApp.openById(SEAT_SHEET_ID);
+  const sh = ss.getSheetByName('他会場/ゲスト_参加者名簿（自動）');
+  
+  if (!sh) {
+    return ContentService
+      .createTextOutput(JSON.stringify({
+        success: false,
+        error: 'sheet not found: 他会場/ゲスト_参加者名簿（自動）'
+      }))
+      .setMimeType(ContentService.MimeType.JSON);
   }
-
-  if (mode === 'getTitle') {
-    return handleGetTitle_();
-  }
-
+  
+  const title = sh.getRange('B2').getValue();
+  
   return ContentService
     .createTextOutput(JSON.stringify({
-      success: false,
-      error: 'invalid mode'
+      success: true,
+      title: String(title || '')
     }))
     .setMimeType(ContentService.MimeType.JSON);
 }
 
-
-
 // ===============================
-// ★ テスト：内部処理
+// ★ テスト用：STEP1 の単体テスト
 // ===============================
 function test_syncSeatsInternal_() {
   const payload = {
@@ -318,10 +314,26 @@ function test_syncSeatsInternal_() {
   Logger.log(JSON.stringify(result, null, 2));
 }
 
+// ===============================
+// ★ オプション：単体テスト用
+// ===============================
+function test_syncSeatsInternal() {
+  const payload = {
+    assignments: [
+      { name: '佐藤 太郎', table: 'A',  category: '会員' },
+      { name: '鈴木 花子', table: 'B',  category: '他会場' },
+      { name: '山本 和夫', table: 'PA', category: '会員' },
+      { name: '鈴木 幸則', table: 'MC', category: 'ゲスト' }
+    ]
+  };
+
+  const result = syncSeatsInternal_(payload.assignments);
+  Logger.log(JSON.stringify(result, null, 2));
+}
 
 
 // ===============================
-// ★ テスト：doPost 経由
+// ★ テスト用：STEP2 doPost 経由テスト
 // ===============================
 function test_syncSeatsByDoPost_() {
   const e = {

@@ -292,23 +292,90 @@ function handleGuestPost(data) {
 }
 
 
-
 // ===============================
-// ■ 配席：参加者一覧取得（未実装の場合はコメントアウト）
+// ■ 配席：参加者一覧取得（seatParticipants）
 // ===============================
 function handleSeatGetParticipants_() {
-  // TODO: 配席用の参加者取得処理
-  return _out({ success: false, error: 'not implemented' });
+  const ss = SpreadsheetApp.openById(SHEET_ID);
+  const sh = ss.getSheetByName('自動配席用');  // 参加者一覧のシート名
+
+  if (!sh) {
+    return _out({
+      success: false,
+      error: 'sheet not found: 自動配席用'
+    });
+  }
+
+  const values = sh.getDataRange().getValues();
+  if (values.length < 2) {
+    return _out({
+      success: true,
+      participants: []
+    });
+  }
+
+  const [header, ...rows] = values;
+
+  // 見出し名 → 列インデックス
+  const idx = {};
+  header.forEach((h, i) => {
+    const key = String(h || '').trim();
+    if (key) idx[key] = i;
+  });
+  const col = (name) => (typeof idx[name] === 'number' ? idx[name] : -1);
+
+  const colId    = col('ID');
+  const colName  = col('氏名');
+  const colType  = col('区分');
+  const colAff   = col('所属');
+  const colRole  = col('役割');
+  const colTeam  = col('チーム');
+  const colBiz   = col('営業内容');
+  const colTable = col('卓');
+  const colSeat  = col('席');
+
+  const participants = rows
+    .filter(r => String(colName >= 0 ? (r[colName] || '') : '').trim() !== '')
+    .map(r => ({
+      id:          colId    >= 0 ? String(r[colId]    || '') : '',
+      name:        colName  >= 0 ? String(r[colName]  || '') : '',
+      category:    colType  >= 0 ? String(r[colType]  || '') : '',
+      affiliation: colAff   >= 0 ? String(r[colAff]   || '') : '',
+      role:        colRole  >= 0 ? String(r[colRole]  || '') : '',
+      team:        colTeam  >= 0 ? String(r[colTeam]  || '') : '',
+      business:    colBiz   >= 0 ? String(r[colBiz]   || '') : '',
+      table:       colTable >= 0 ? String(r[colTable] || '') : '',
+      seat:        colSeat  >= 0 ? String(r[colSeat]  || '') : ''
+    }));
+
+  return _out({
+    success: true,
+    participants: participants
+  });
 }
 
 
 
 // ===============================
-// ■ 配席：タイトル取得（未実装の場合はコメントアウト）
+// ■ 配席：タイトル取得（getTitle）
 // ===============================
 function handleGetTitle_() {
-  // TODO: タイトル取得処理
-  return _out({ success: false, error: 'not implemented' });
+  const ss = SpreadsheetApp.openById(SHEET_ID);
+  const sh = ss.getSheetByName('他会場/ゲスト_参加者名簿（自動）'); // B2セルを読むシート
+
+  if (!sh) {
+    return _out({
+      success: false,
+      error: 'sheet not found: 他会場/ゲスト_参加者名簿（自動）'
+    });
+  }
+
+  const title = sh.getRange('B2').getValue();
+
+  return _out({
+    success: true,
+    title: String(title || '')
+  });
 }
 
 
