@@ -1,6 +1,4 @@
-// ===============================
-// 自動配席アプリ main.js
-// ===============================
+// main.js
 
 const API_URL = 'https://script.google.com/macros/s/AKfycby-rXLMy1lKIhyl60ZaS_tCob20cAuCgrkzf9B0Ky738DyvTWNBh_7AuDb1iNrEhf7ElA/exec';
 
@@ -13,14 +11,7 @@ let mcMembers = [];
 let selectedCard = null;
 
 // テーブルマスター優先順位
-const MASTER_ROLES = [
-  '代表世話人',
-  '会計長',
-  '筆頭副代表世話人',
-  '副会計',
-  '副代表世話人',
-  '世話人'
-];
+const MASTER_ROLES = ['代表世話人', '会計長', '筆頭副代表世話人', '副会計', '副代表世話人', '世話人'];
 
 // テーブルマトリックス関連
 let layoutCandidates = [];
@@ -31,7 +22,6 @@ let currentLayout = null;
 let currentPaperSize = 'a3';
 
 // ========== データ管理関数 ==========
-
 function initTables() {
   tables = {};
   waitingZone = [];
@@ -58,22 +48,22 @@ function setParticipants(rawParticipants) {
     };
   });
 
-  // PA・司会は専用ゾーン
+  // PA・司会は専用ゾーンへ
   paMembers = participants.filter(p => p.role === 'PA');
   mcMembers = participants.filter(p => p.role === '事務局長');
 
-  // 待機ゾーン（PA・司会以外）
+  // 待機ゾーンには PA・司会を除いたメンバー
   waitingZone = participants.filter(p => p.role !== 'PA' && p.role !== '事務局長');
 }
 
 function generateTables(count, minCap, maxCap) {
   tables = {};
   for (let i = 0; i < count; i++) {
-    const tableId = String.fromCharCode(65 + i); // A,B,C...
+    const tableId = String.fromCharCode(65 + i);
     tables[tableId] = {
       id: tableId,
       master: null,
-      members: Array(maxCap - 1).fill(null), // 残りの席
+      members: Array(maxCap - 1).fill(null),
       minCap,
       maxCap
     };
@@ -89,13 +79,14 @@ function getTableCount(tableId) {
 function findEmptySeatIndex(tableId) {
   const table = tables[tableId];
   for (let i = 0; i < table.members.length; i++) {
-    if (table.members[i] === null) return i;
+    if (table.members[i] === null) {
+      return i;
+    }
   }
   return -1;
 }
 
 // ========== カード生成 ==========
-
 function createPersonCard(person, fromTable, fromSeat) {
   const card = document.createElement('div');
   card.className = 'person-card';
@@ -136,11 +127,13 @@ function createPersonCard(person, fromTable, fromSeat) {
 
   const name = document.createElement('div');
   name.className = 'person-name';
+
   if (isGuest || isOtherVenue) {
     name.textContent = `${person.name} 様`;
   } else {
     name.textContent = person.name;
   }
+
   card.appendChild(name);
 
   card.addEventListener('dragstart', handleDragStart);
@@ -151,7 +144,6 @@ function createPersonCard(person, fromTable, fromSeat) {
 }
 
 // ========== バリデーション ==========
-
 function validateDrop(personId, toTable, toSeat, toZone, fromTable, fromSeat) {
   const person = participants.find(p => p.id === personId);
   if (!person) return { valid: false, message: '参加者が見つかりません' };
@@ -176,20 +168,27 @@ function validateDrop(personId, toTable, toSeat, toZone, fromTable, fromSeat) {
   return { valid: true };
 }
 
-// ========== 移動・入れ替え ==========
-
 function movePerson(personId, fromTable, fromSeat, toTable, toSeat, toZone, dropZone) {
   const person = participants.find(p => p.id === personId);
   if (!person) return;
 
-  // 元から削除
+  if (toZone === 'waiting') {
+    const alreadyExists = waitingZone.some(p => p.id === personId);
+    if (alreadyExists) {
+      console.warn('既に待機ゾーンに存在:', personId);
+      return;
+    }
+  }
+
   if (fromTable && fromTable !== 'waiting' && fromTable !== 'pa' && fromTable !== 'mc') {
     const table = tables[fromTable];
     if (fromSeat === 'master') {
       table.master = null;
     } else {
       const idx = table.members.findIndex(m => m && m.id === personId);
-      if (idx !== -1) table.members[idx] = null;
+      if (idx !== -1) {
+        table.members[idx] = null;
+      }
     }
   } else if (fromTable === 'waiting') {
     const idx = waitingZone.findIndex(p => p.id === personId);
@@ -202,10 +201,8 @@ function movePerson(personId, fromTable, fromSeat, toTable, toSeat, toZone, drop
     if (idx !== -1) mcMembers.splice(idx, 1);
   }
 
-  // 行き先へ追加
   if (toZone === 'waiting') {
-    const exists = waitingZone.some(p => p.id === personId);
-    if (!exists) waitingZone.push(person);
+    waitingZone.push(person);
     person.assignedTable = 'waiting';
   } else if (toTable) {
     const table = tables[toTable];
@@ -228,11 +225,13 @@ function swapPersons(personId1, fromTable1, fromSeat1, personId2, fromTable2, fr
 
   const table1 = tables[fromTable1];
   const table2 = tables[fromTable2];
+
   if (!table1 || !table2) return;
 
   const idx1 = fromSeat1 === 'member'
     ? table1.members.findIndex(m => m && m.id === personId1)
     : null;
+
   const idx2 = fromSeat2 === 'member'
     ? table2.members.findIndex(m => m && m.id === personId2)
     : null;
@@ -265,7 +264,6 @@ function swapPersons(personId1, fromTable1, fromSeat1, personId2, fromTable2, fr
 }
 
 // ========== 自動配席 ==========
-
 function autoSeat(mode) {
   if (!confirm(`${mode === 'team' ? '同チーム優先' : '営業相性優先'}で自動配席しますか？\n現在の配席はリセットされます。`)) {
     return;
@@ -294,7 +292,6 @@ function autoSeat(mode) {
 
   const tableIds = Object.keys(tables).sort();
 
-  // マスター配置
   tableIds.forEach((tableId, idx) => {
     if (masters[idx]) {
       tables[tableId].master = masters[idx];
@@ -302,7 +299,6 @@ function autoSeat(mode) {
     }
   });
 
-  // ゲスト・他会場を分配
   distributeGuests(guests, tableIds);
   distributeOtherVenue(otherVenue, tableIds);
 
@@ -518,25 +514,26 @@ function balanceTables(tableIds) {
 }
 
 // ========== 初期化 ==========
-
 window.addEventListener('DOMContentLoaded', () => {
   initTables();
 
   document.getElementById('load-btn').addEventListener('click', loadFromSheet);
   document.getElementById('reset-btn').addEventListener('click', resetSeats);
   document.getElementById('generateBtn').addEventListener('click', generateSeating);
+  document.getElementById('sync-btn').addEventListener('click', handleSyncClick);
 
-  // 自動配席（モーダル内ボタン）
+
+  // 自動配席ボタンはモーダル内
   document.getElementById('autoTeamBtnModal').addEventListener('click', () => {
     document.getElementById('autoSeatModal').style.display = 'none';
     autoSeat('team');
   });
+  
   document.getElementById('autoBusinessBtnModal').addEventListener('click', () => {
     document.getElementById('autoSeatModal').style.display = 'none';
     autoSeat('business');
   });
 
-  // 設定変更
   document.getElementById('minCapacity').addEventListener('change', updateConfigSummary);
   document.getElementById('maxCapacity').addEventListener('change', updateConfigSummary);
   document.getElementById('tableCount').addEventListener('change', () => {
@@ -545,17 +542,10 @@ window.addEventListener('DOMContentLoaded', () => {
     updateConfigSummary();
   });
 
-  // 座席反映ボタン
-  const syncBtn = document.getElementById('sync-btn');
-  if (syncBtn) {
-    syncBtn.addEventListener('click', handleSyncClick);
-  }
-
   rebuildLayoutCandidates();
 });
 
 // ========== スプレッドシート読込 ==========
-
 async function loadFromSheet() {
   const statusEl = document.getElementById('status');
   const summaryEl = document.getElementById('summary');
@@ -598,25 +588,9 @@ async function loadFromSheet() {
     } else {
       const rows = first10.map(p => {
         const isMaster = MASTER_ROLES.includes(p.role);
-        const badge = p.category === 'ゲスト'
-          ? 'guest'
-          : isMaster
-            ? 'master'
-            : p.category === '他会場'
-              ? 'other'
-              : 'member';
-        const badgeLabel = isMaster ? 'TM' : p.category === 'ゲスト'
-          ? 'G'
-          : p.category === '他会場'
-            ? '他'
-            : 'M';
-        return `
-          <div class="person-row person-${badge}">
-            <span class="person-badge">${badgeLabel}</span>
-            <span class="person-name">${p.name}</span>
-            <span class="person-meta">${p.affiliation || ''} / ${p.team || ''}</span>
-          </div>
-        `;
+        const badge = p.category === 'ゲスト' ? 'guest' : isMaster ? 'master' : p.category === '他会場' ? 'other' : 'member';
+        const badgeLabel = isMaster ? 'TM' : p.category === 'ゲスト' ? 'G' : p.category === '他会場' ? '他' : 'M';
+        return `<div class="person-row person-${badge}"><span class="person-badge">${badgeLabel}</span><span class="person-name">${p.name}</span><span class="person-meta">${p.affiliation || ''} / ${p.team || ''}</span></div>`;
       }).join('');
       previewEl.innerHTML = rows;
     }
@@ -624,12 +598,6 @@ async function loadFromSheet() {
     configSection.style.display = 'block';
     rebuildLayoutCandidates();
     updateConfigSummary();
-
-    // 読み込み完了後に座席反映ボタンを表示
-    const syncBtn = document.getElementById('sync-btn');
-    if (syncBtn) {
-      syncBtn.style.display = 'inline-flex';
-    }
   } catch (err) {
     console.error(err);
     statusEl.textContent = '読み込みに失敗しました：' + err.message;
@@ -646,13 +614,11 @@ function updateConfigSummary() {
   const totalParticipants = participants.length - paMembers.length - mcMembers.length;
   const minRequired = minCap * tableCount;
   const maxCapacity = maxCap * tableCount;
-  const canGenerateRange = totalParticipants >= minRequired && totalParticipants <= maxCapacity;
+  let canGenerate = totalParticipants >= minRequired && totalParticipants <= maxCapacity;
 
-  summaryEl.innerHTML =
-    `総参加者数：<strong>${totalParticipants}</strong>人（PA・司会除く）` +
-    `<br>収容可能人数：<strong>${minRequired}〜${maxCapacity}</strong>人`;
+  summaryEl.innerHTML = `総参加者数：<strong>${totalParticipants}</strong>人（PA・司会除く）<br>収容可能人数：<strong>${minRequired}〜${maxCapacity}</strong>人`;
 
-  if (canGenerateRange) {
+  if (canGenerate) {
     summaryEl.style.color = '#065f46';
   } else {
     summaryEl.style.color = '#dc2626';
@@ -665,7 +631,7 @@ function updateConfigSummary() {
   if (requireLayout && !selectedLayout) {
     generateBtn.disabled = true;
   } else {
-    generateBtn.disabled = !canGenerateRange;
+    generateBtn.disabled = !canGenerate;
   }
 }
 
@@ -689,13 +655,16 @@ function rebuildLayoutCandidates() {
   function dfs(remaining, rows, current) {
     if (rows > 5) return;
     if (remaining === 0) {
-      if (rows >= 2) rawLayouts.push(current.slice());
+      if (rows >= 2) {
+        rawLayouts.push(current.slice());
+      }
       return;
     }
 
     [3, 2].forEach(size => {
       if (remaining - size < 0) return;
-      if (rows === 0 && size !== 3) return; // 一番上は必ず3列
+      if (rows === 0 && size !== 3) return;
+
       current.push(size);
       dfs(remaining - size, rows + 1, current);
       current.pop();
@@ -799,8 +768,6 @@ function renderLayoutOptions(tableCount) {
   });
 }
 
-// ========== 配席生成 / リセット ==========
-
 function generateSeating() {
   const tableCount = parseInt(document.getElementById('tableCount').value);
   const minCap = parseInt(document.getElementById('minCapacity').value);
@@ -813,8 +780,8 @@ function generateSeating() {
 
   renderAll();
   initDragDrop();
-
-  // 自動配席方法モーダル
+  
+  // 自動配席選択モーダルを表示
   document.getElementById('autoSeatModal').style.display = 'flex';
 }
 
@@ -840,7 +807,6 @@ function resetSeats() {
 }
 
 // ========== レンダリング ==========
-
 function renderAll() {
   renderTables();
   renderWaitingZone();
@@ -854,13 +820,15 @@ function renderTables() {
   grid.innerHTML = '';
 
   const tableIds = Object.keys(tables).sort();
-
+  
   if (!currentLayout || currentLayout.length === 0) {
     const row = document.createElement('div');
     row.className = 'table-row';
+    
     tableIds.forEach(tableId => {
       row.appendChild(createTableCard(tableId));
     });
+    
     grid.appendChild(row);
     return;
   }
@@ -893,15 +861,12 @@ function createTableCard(tableId) {
 
   const header = document.createElement('div');
   header.className = 'table-header';
-  header.innerHTML =
-    `<div class="table-title">👥 テーブル ${table.id}</div>` +
-    `<div class="table-count">${totalCount}/${table.maxCap}人</div>`;
+  header.innerHTML = `<div class="table-title">👥 テーブル ${table.id}</div><div class="table-count">${totalCount}/${table.maxCap}人</div>`;
   card.appendChild(header);
 
   const seatsGrid = document.createElement('div');
   seatsGrid.className = 'seats-grid';
 
-  // マスター席
   const masterSeat = document.createElement('div');
   masterSeat.className = 'seat master';
   masterSeat.dataset.table = table.id;
@@ -919,19 +884,18 @@ function createTableCard(tableId) {
   masterSeat.addEventListener('click', e => handleSeatClick(e, table.id, 'master', null));
   seatsGrid.appendChild(masterSeat);
 
-  // メンバー席
   for (let i = 0; i < table.members.length; i++) {
     const seat = document.createElement('div');
     seat.className = 'seat';
     seat.dataset.table = table.id;
     seat.dataset.seat = 'member';
     seat.dataset.index = i;
-
+    
     if (table.members[i]) {
       seat.classList.add('occupied');
       seat.appendChild(createPersonCard(table.members[i], table.id, 'member'));
     }
-
+    
     seat.addEventListener('click', e => handleSeatClick(e, table.id, 'member', seat));
     seatsGrid.appendChild(seat);
   }
@@ -940,10 +904,7 @@ function createTableCard(tableId) {
 
   const summary = document.createElement('div');
   summary.className = 'table-summary';
-  summary.innerHTML =
-    `<span>会員:${memberCount}</span>` +
-    `<span>ゲスト:${guestCount}</span>` +
-    `<span>他会場:${otherCount}</span>`;
+  summary.innerHTML = `<span>会員:${memberCount}</span><span>ゲスト:${guestCount}</span><span>他会場:${otherCount}</span>`;
   card.appendChild(summary);
 
   return card;
@@ -990,7 +951,6 @@ function renderMCZone() {
 }
 
 // ========== タッチ / クリック操作 ==========
-
 function handleSeatClick(e, toTable, toSeat, dropZone) {
   if (e.target.closest('.person-card')) return;
   if (selectedCard) {
@@ -1066,74 +1026,7 @@ function clearSelection() {
   }
 }
 
-// ===============================
-// 座席反映：自動配席用シート H列「卓」へ書き込み
-// ===============================
-async function syncSeats() {
-  const statusEl = document.getElementById('status');
-
-  // GAS 側と合わせる固定ID（好きな文字でOK）
-  const userId = 'seat-maker-app';
-  const secretKey = 'seat-maker-secret-2025'; // GAS と必ず同じ文字列にする
-
-  // waiting 以外（テーブルに座っている人）だけ送る
-  const assignments = participants
-    .filter(p => p.assignedTable && p.assignedTable !== 'waiting')
-    .map(p => ({
-      name: p.name,
-      table: p.assignedTable          // テーブルIDは A / B / C ... の1文字
-    }));
-
-  if (assignments.length === 0) {
-    alert('まだテーブルに誰も座っていません。');
-    return;
-  }
-
-  statusEl.textContent = '座席をスプレッドシートに反映中...';
-
-  try {
-    const url = `${API_URL}?mode=syncSeats`
-      + `&userId=${encodeURIComponent(userId)}`
-      + `&secretKey=${encodeURIComponent(secretKey)}`;
-
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ assignments })
-    });
-
-    if (!res.ok) throw new Error('HTTPエラー: ' + res.status);
-
-    const json = await res.json();
-    if (!json.success) throw new Error(json.error || 'unknown error');
-
-    statusEl.textContent =
-      `スプレッドシートへ反映しました（更新件数: ${json.updated}件）`;
-
-    if (json.unmatched && json.unmatched.length) {
-      console.warn('未マッチ行があります:', json.unmatched);
-      alert(
-        `反映できなかった氏名が ${json.unmatched.length} 件あります。\n` +
-        '（F12→Console で詳細を確認できます）'
-      );
-    } else {
-      alert('座席をスプレッドシートに反映しました！');
-    }
-  } catch (err) {
-    console.error(err);
-    statusEl.textContent = '座席反映に失敗しました：' + err.message;
-    alert('座席反映に失敗しました：' + err.message);
-  }
-}
-
-
-// 「座席反映」ボタンクリックハンドラ
-function handleSyncClick() {
-  syncSeats();
-}
-
 // ========== ドラッグ＆ドロップ ==========
-
 function initDragDrop() {
   document.querySelectorAll('.seat, .waiting-slot').forEach(zone => {
     zone.addEventListener('dragover', handleDragOver);
@@ -1239,7 +1132,9 @@ function handleDrop(e) {
   const toZone = dropZone.dataset.zone || null;
 
   const hasCard = dropZone.querySelector('.person-card');
-  if (hasCard) return;
+  if (hasCard) {
+    return;
+  }
 
   const check = validateDrop(personId, toTable, toSeat, toZone, fromTable, fromSeat);
   if (!check.valid) {
@@ -1253,11 +1148,96 @@ function handleDrop(e) {
 }
 
 // ===============================
-// 印刷プレビュー
+// 座席反映：GAS に書き戻し
+// ===============================
+async function handleSyncClick() {
+  if (!confirm('現在の配席を受付名簿に反映してよろしいですか？')) return;
+
+  // 1. tables から assignments を作成
+  const assignments = buildAssignmentsFromTables();
+
+  if (!assignments.length) {
+    alert('反映するデータがありません。');
+    return;
+  }
+
+  try {
+    // ★ ここがポイント：headers を付けずに body だけ JSON で送る
+    const res = await fetch(API_URL, {
+      method: 'POST',
+      body: JSON.stringify({
+        mode: 'syncSeats',
+        assignments: assignments,
+      }),
+    });
+
+    if (!res.ok) throw new Error('HTTPエラー: ' + res.status);
+
+    const json = await res.json();
+    console.log('syncSeats result:', json);
+
+    if (!json.success) {
+      alert('反映に失敗しました：' + (json.error || 'unknown error'));
+      return;
+    }
+
+    const msg =
+      `会員：${json.updatedMain || 0}件\n` +
+      `他会場/ゲスト：${json.updatedOther || 0}件\n` +
+      (json.unmatched && json.unmatched.length
+        ? `未一致：${json.unmatched.length}件（コンソールを確認してください）`
+        : '');
+
+    if (json.unmatched && json.unmatched.length) {
+      console.warn('未一致データ:', json.unmatched);
+    }
+
+    alert('受付名簿への反映が完了しました！\n\n' + msg);
+
+  } catch (err) {
+    console.error(err);
+    alert('エラーが発生しました：' + err.message);
+  }
+}
+
+// tables オブジェクトから assignments を作る
+function buildAssignmentsFromTables() {
+  const result = [];
+
+  const tableIds = Object.keys(tables).sort();
+  tableIds.forEach(tableId => {
+    const table = tables[tableId];
+
+    // マスター（世話人）席
+    if (table.master) {
+      result.push({
+        name: table.master.name,
+        table: tableId,
+        category: table.master.category, // "会員" / "他会場" / "ゲスト"
+      });
+    }
+
+    // メンバー席
+    table.members.forEach(m => {
+      if (!m) return;
+      result.push({
+        name: m.name,
+        table: tableId,
+        category: m.category,
+      });
+    });
+  });
+
+  return result;
+}
+
+
+// ===============================
+// 印刷プレビュー機能
 // ===============================
 
 // モーダル開閉
-document.getElementById('print-preview-btn').addEventListener('click', () => {
+document.getElementById('print-preview-btn').addEventListener('click', async () => {
   generatePrintPreview();
   document.getElementById('printModal').style.display = 'flex';
 });
@@ -1281,60 +1261,66 @@ document.getElementById('executePrintBtn').addEventListener('click', () => {
   window.print();
 });
 
+// ===============================
 // 印刷プレビュー生成
+// ===============================
 function generatePrintPreview() {
   const previewArea = document.getElementById('printPreviewArea');
-
+  
   const mcPerson = document.querySelector('#mcList .person-card');
   const paPerson = document.querySelector('#paList .person-card');
-
-  const mcName = mcPerson ? (mcPerson.querySelector('.person-name')?.textContent || '') : '';
-  const paName = paPerson ? (paPerson.querySelector('.person-name')?.textContent || '') : '';
-
-  let tableCardSizeClass = currentPaperSize === 'a4' ? 'medium' : 'large';
-
+  
+  const mcName = mcPerson ? mcPerson.querySelector('.person-name')?.textContent || '' : '';
+  const paName = paPerson ? paPerson.querySelector('.person-name')?.textContent || '' : '';
+  
+  let tableCardSizeClass = 'large';
+  if (currentPaperSize === 'a4') {
+    tableCardSizeClass = 'medium';
+  }
+  
   let html = `
     <div class="print-page ${currentPaperSize}">
       <div class="print-stage">ステージ</div>
-
+      
       <div class="print-special-box">
         <div class="print-special-label">🎙️ 司会</div>
         <div class="print-special-card">${mcName}</div>
       </div>
-
+      
       <div class="print-pa-box">
         <div class="print-special-label">🎤 PA</div>
         <div class="print-special-card">${paName}</div>
       </div>
-
+      
       <div class="print-tables-grid">
   `;
-
+  
   const tableRows = document.querySelectorAll('.table-row');
-
+  
   tableRows.forEach(row => {
     html += '<div class="print-table-row">';
-
-    const tablesDom = row.querySelectorAll('.table-card');
-    tablesDom.forEach(table => {
+    
+    const tables = row.querySelectorAll('.table-card');
+    tables.forEach(table => {
       const tableTitle = table.querySelector('.table-title')?.textContent || '';
       const seats = table.querySelectorAll('.seat');
-
+      
       html += `
         <div class="print-table-card ${tableCardSizeClass}">
           <div class="print-table-header">${tableTitle}</div>
           <div class="print-seats-grid">
       `;
-
+      
       seats.forEach((seat, idx) => {
         const personCard = seat.querySelector('.person-card');
+        
         if (personCard) {
           const nameEl = personCard.querySelector('.person-name');
           const name = nameEl ? nameEl.textContent : '';
-
+          
           let seatClass = '';
           let label = '';
-
+          
           if (personCard.classList.contains('jikai')) {
             seatClass = 'jikai';
           } else if (personCard.classList.contains('guest')) {
@@ -1347,7 +1333,7 @@ function generatePrintPreview() {
               label = titleEl.textContent.replace('会場', '') + '会場';
             }
           }
-
+          
           if (idx === 0) {
             html += `
               <div class="print-seat master">
@@ -1367,20 +1353,20 @@ function generatePrintPreview() {
           }
         }
       });
-
+      
       html += `
           </div>
         </div>
       `;
     });
-
+    
     html += '</div>';
   });
-
+  
   html += `
       </div>
     </div>
   `;
-
+  
   previewArea.innerHTML = html;
 }
