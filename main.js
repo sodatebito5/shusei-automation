@@ -520,8 +520,6 @@ window.addEventListener('DOMContentLoaded', () => {
   document.getElementById('load-btn').addEventListener('click', loadFromSheet);
   document.getElementById('reset-btn').addEventListener('click', resetSeats);
   document.getElementById('generateBtn').addEventListener('click', generateSeating);
-  document.getElementById('sync-btn').addEventListener('click', handleSyncClick);
-
 
   // 自動配席ボタンはモーダル内
   document.getElementById('autoTeamBtnModal').addEventListener('click', () => {
@@ -1146,91 +1144,6 @@ function handleDrop(e) {
   renderAll();
   initDragDrop();
 }
-
-// ===============================
-// 座席反映：GAS に書き戻し
-// ===============================
-async function handleSyncClick() {
-  if (!confirm('現在の配席を受付名簿に反映してよろしいですか？')) return;
-
-  // 1. tables から assignments を作成
-  const assignments = buildAssignmentsFromTables();
-
-  if (!assignments.length) {
-    alert('反映するデータがありません。');
-    return;
-  }
-
-  try {
-    // ★ ここがポイント：headers を付けずに body だけ JSON で送る
-    const res = await fetch(API_URL, {
-      method: 'POST',
-      body: JSON.stringify({
-        mode: 'syncSeats',
-        assignments: assignments,
-      }),
-    });
-
-    if (!res.ok) throw new Error('HTTPエラー: ' + res.status);
-
-    const json = await res.json();
-    console.log('syncSeats result:', json);
-
-    if (!json.success) {
-      alert('反映に失敗しました：' + (json.error || 'unknown error'));
-      return;
-    }
-
-    const msg =
-      `会員：${json.updatedMain || 0}件\n` +
-      `他会場/ゲスト：${json.updatedOther || 0}件\n` +
-      (json.unmatched && json.unmatched.length
-        ? `未一致：${json.unmatched.length}件（コンソールを確認してください）`
-        : '');
-
-    if (json.unmatched && json.unmatched.length) {
-      console.warn('未一致データ:', json.unmatched);
-    }
-
-    alert('受付名簿への反映が完了しました！\n\n' + msg);
-
-  } catch (err) {
-    console.error(err);
-    alert('エラーが発生しました：' + err.message);
-  }
-}
-
-// tables オブジェクトから assignments を作る
-function buildAssignmentsFromTables() {
-  const result = [];
-
-  const tableIds = Object.keys(tables).sort();
-  tableIds.forEach(tableId => {
-    const table = tables[tableId];
-
-    // マスター（世話人）席
-    if (table.master) {
-      result.push({
-        name: table.master.name,
-        table: tableId,
-        category: table.master.category, // "会員" / "他会場" / "ゲスト"
-      });
-    }
-
-    // メンバー席
-    table.members.forEach(m => {
-      if (!m) return;
-      result.push({
-        name: m.name,
-        table: tableId,
-        category: m.category,
-      });
-    });
-  });
-
-  return result;
-}
-
 
 // ===============================
 // 印刷プレビュー機能
