@@ -46,6 +46,15 @@
       background: #ef4444;
       color: #fff;
     }
+    .optional-badge {
+      display: inline-block;
+      margin-left: 6px;
+      padding: 0 6px;
+      font-size: 10px;
+      border-radius: 8px;
+      background: #e5e7eb;
+      color: #374151;
+    }
     select, input[type="text"], textarea, input[type="file"] {
       width: 100%;
       padding: 8px 10px;
@@ -144,11 +153,27 @@
       color: #111827;
       cursor: pointer;
     }
+
+    .upload-block {
+      margin-top: 12px;
+      padding: 12px;
+      border-radius: 12px;
+      border: 1px solid #e5e7eb;
+      background: #f9fafb;
+    }
+    .upload-label-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+      font-size: 13px;
+      font-weight: 600;
+    }
   </style>
 </head>
 
 <body>
-  <!-- -------------- フォーム本体 -------------- -->
+  <!-- -------------- ページ1：入力フォーム -------------- -->
   <div class="card" id="form-card">
     <h1>ゲスト申請フォーム</h1>
     <div class="subtitle">
@@ -169,7 +194,8 @@
       2. ゲスト氏名
       <span class="required-badge">必須</span>
     </label>
-    <input id="guest-name" placeholder="山田 太郎" />
+    <!-- プレースホルダ削除 -->
+    <input id="guest-name" />
 
     <label>
       3. ゲスト氏名フリガナ
@@ -199,40 +225,6 @@
     <textarea id="business" placeholder="事業内容をご記入ください。"></textarea>
 
     <label>
-      7. 名刺の添付（表面）
-      <span class="required-badge">必須</span>
-    </label>
-    <div class="helper">名刺の表面を撮影 or 画像で添付してください。</div>
-    <input id="card-front" type="file" accept="image/*" />
-
-    <div id="card-front-preview" class="helper"></div>
-
-    <button type="button" id="card-front-confirm" class="btn-secondary" disabled>
-      表面を確定する
-    </button>
-
-    <div id="card-back-section" class="hidden">
-      <label>裏面の添付</label>
-      <div class="helper">裏面にも情報がある場合のみ添付してください。</div>
-
-      <div style="margin:8px 0;">
-        <label style="font-size:12px;">
-          <input type="radio" name="card-back-mode" value="front-only" checked />
-          表面だけ添付でOK
-        </label><br>
-        <label style="font-size:12px;">
-          <input type="radio" name="card-back-mode" value="with-back" />
-          裏面も添付する
-        </label>
-      </div>
-
-      <div id="card-back-input-wrap" class="hidden">
-        <input id="card-back" type="file" accept="image/*" />
-        <div id="card-back-preview" class="helper"></div>
-      </div>
-    </div>
-
-    <label>
       申請前に以下内容にチェックしてください。
       <span class="required-badge">必須</span>
     </label>
@@ -254,10 +246,46 @@
       </div>
     </div>
 
+    <!-- 次ページへ -->
+    <button id="to-card-page-btn" class="btn" disabled>
+      名刺添付画面に進む
+    </button>
+  </div>
+
+  <!-- -------------- ページ2：名刺添付 -------------- -->
+  <div class="card hidden" id="card-card">
+    <h1>名刺の添付</h1>
+    <div class="subtitle">
+      表面は必須、裏面は任意です。<br>
+      撮影または画像ファイルで添付してください。
+    </div>
+
+    <div class="upload-block">
+      <div class="upload-label-row">
+        <span>表面</span>
+        <span class="required-badge">必須</span>
+      </div>
+      <input id="card-front" type="file" accept="image/*" />
+      <div id="card-front-preview" class="helper"></div>
+    </div>
+
+    <div class="upload-block">
+      <div class="upload-label-row">
+        <span>裏面</span>
+        <span class="optional-badge">任意</span>
+      </div>
+      <input id="card-back" type="file" accept="image/*" />
+      <div id="card-back-preview" class="helper"></div>
+    </div>
+
     <button id="submit-btn" class="btn" disabled>
       ゲストを申請します
     </button>
     <div id="status" class="status"></div>
+
+    <button id="back-to-form-btn" class="btn-secondary" type="button">
+      入力画面に戻る
+    </button>
   </div>
 
   <!-- -------------- 完了画面 -------------- -->
@@ -276,7 +304,7 @@
   <script>
     const LIFF_ID = '2008498539-Ak3Vxy1X';
 
-    // ★新しいゲスト専用GASのURLに差し替え
+    // ★ ゲスト専用GASのURL
     const GAS_ENDPOINT_URL =
       'https://script.google.com/macros/s/AKfycbzcJ3B-YKuAEZkuynE-7362Pp1u--ATuP_2TN487gPodEYS5eh_T6TTgwm6pDtJ0LHW/exec';
 
@@ -318,7 +346,7 @@
         const dateStr = `${y}年${labelMonth}月${d.getDate()}日（水）`;
         const label = `${dateStr} ${labelMonth}月例会`;
 
-        // value を「2025年12月例会」形式に
+        // value を「2025年12月例会」形式のまま利用
         const value = `${y}年${labelMonth}月例会`;
 
         const opt = document.createElement('option');
@@ -330,7 +358,7 @@
       helper.textContent = '※ 福岡飯塚会場（第2水曜日）／最大2ヶ月先まで選択可能';
     }
 
-    /* --- 名刺（表面／裏面）関連のヘルパー --- */
+    /* --- 名刺（表面／裏面） --- */
     function onCardFrontChange() {
       const input = $('card-front');
       const preview = $('card-front-preview');
@@ -343,25 +371,23 @@
         preview.textContent = '';
         cardFrontSelected = false;
       }
-      $('card-front-confirm').disabled = !cardFrontSelected;
+      validateStep2();
     }
 
-    function onCardFrontConfirm() {
-      if (!cardFrontSelected) return;
-      $('card-back-section').classList.remove('hidden');
-    }
+    function onCardBackChange() {
+      const input = $('card-back');
+      const preview = $('card-back-preview');
 
-    function onCardBackModeChange() {
-      const mode = document.querySelector('input[name="card-back-mode"]:checked').value;
-      if (mode === 'with-back') {
-        $('card-back-input-wrap').classList.remove('hidden');
+      if (input.files && input.files[0]) {
+        const file = input.files[0];
+        preview.textContent = `選択中：${file.name}`;
       } else {
-        $('card-back-input-wrap').classList.add('hidden');
+        preview.textContent = '';
       }
     }
 
-    /* --- 入力チェック --- */
-    function validateForm() {
+    /* --- 入力チェック（ページ1） --- */
+    function validateStep1() {
       const ok =
         $('event-select').value &&
         $('guest-name').value.trim() &&
@@ -371,9 +397,14 @@
         $('business').value.trim() &&
         $('chk-1').checked &&
         $('chk-2').checked &&
-        $('chk-3').checked &&
-        cardFrontSelected;
+        $('chk-3').checked;
 
+      $('to-card-page-btn').disabled = !ok;
+    }
+
+    /* --- 入力チェック（ページ2：名刺） --- */
+    function validateStep2() {
+      const ok = cardFrontSelected;
       $('submit-btn').disabled = !ok;
     }
 
@@ -381,6 +412,7 @@
     async function onSubmit() {
       $('submit-btn').disabled = true;
       $('status').textContent = '送信中です…';
+      $('status').className = 'status';
 
       const payload = {
         mode: 'guest',
@@ -403,12 +435,9 @@
         formData.append('card_front', frontFile);
       }
 
-      const backMode = document.querySelector('input[name="card-back-mode"]:checked')?.value;
-      if (backMode === 'with-back') {
-        const backFile = $('card-back').files[0];
-        if (backFile) {
-          formData.append('card_back', backFile);
-        }
+      const backFile = $('card-back').files[0];
+      if (backFile) {
+        formData.append('card_back', backFile);
       }
 
       try {
@@ -421,11 +450,12 @@
           throw new Error('HTTP ' + res.status);
         }
 
-        $('form-card').classList.add('hidden');
+        $('card-card').classList.add('hidden');
         $('done-card').classList.remove('hidden');
       } catch (e) {
         console.error(e);
         $('status').textContent = '通信エラーが発生しました。';
+        $('status').className = 'status err';
         $('submit-btn').disabled = false;
       }
     }
@@ -457,7 +487,7 @@
         if (ctx && ctx.userId) lineUserId = ctx.userId;
       } catch {}
 
-      validateForm();
+      validateStep1();
     }
 
     /* --- 初期化 --- */
@@ -465,6 +495,7 @@
       setupEventSelect();
       initLiff();
 
+      // ページ1入力監視
       [
         'event-select',
         'guest-name',
@@ -479,20 +510,25 @@
         const el = $(id);
         if (!el) return;
         const evt = (el.type === 'checkbox' || el.tagName === 'SELECT') ? 'change' : 'input';
-        el.addEventListener(evt, validateForm);
+        el.addEventListener(evt, validateStep1);
       });
 
-      $('card-front').addEventListener('change', () => {
-        onCardFrontChange();
-        validateForm();
+      // ページ遷移
+      $('to-card-page-btn').addEventListener('click', () => {
+        $('form-card').classList.add('hidden');
+        $('card-card').classList.remove('hidden');
       });
 
-      $('card-front-confirm').addEventListener('click', onCardFrontConfirm);
-
-      document.querySelectorAll('input[name="card-back-mode"]').forEach(el => {
-        el.addEventListener('change', onCardBackModeChange);
+      $('back-to-form-btn').addEventListener('click', () => {
+        $('card-card').classList.add('hidden');
+        $('form-card').classList.remove('hidden');
       });
 
+      // 名刺添付
+      $('card-front').addEventListener('change', onCardFrontChange);
+      $('card-back').addEventListener('change', onCardBackChange);
+
+      // 送信・閉じる
       $('submit-btn').addEventListener('click', onSubmit);
       $('close-btn').addEventListener('click', onClose);
     });
