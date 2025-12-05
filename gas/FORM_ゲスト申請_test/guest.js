@@ -10,7 +10,7 @@ const GUEST_SHEET_NAME = 'ゲスト出欠状況（自動）';
 
 // LINE Messaging API
 const CHANNEL_ACCESS_TOKEN =
-  'h0EwnRvQt+stn4OpyTv12UdZCpYa+KOm736YQuULhuygATdHdXaGmXqwLben8m9TxPnT5UZ59Uzd3gchFemLEmbFXHuaF5TRo44nZV+Qvs36njrFWUxfqhf7zoQTxOCHfpOUofjisza9VwhN+ZzNoAdB04t89/1O/w1cDnyilFU=';
+  '0bpbYqJNtUI6f8Xbo0ZpgNm43ptT6rDteTF+JmwHpM0N9RNBc/Hu/oSlSWkObbiD7eA1JgBQYifNnkhkIac5xAHjaakI5DfoM5udktGipdmdXsJmm+Lws6FiLu5w8qKR8FqY/Q0vXH8AkMLS+YNlFQdB04t89/1O/w1cDnyilFU=';
 const OWNER_USER_ID = 'U9e236db4178e6dd6a11ec761b0612a73';
 
 // 名刺画像を保存するフォルダID
