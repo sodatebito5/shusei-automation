@@ -490,6 +490,7 @@ async function onSubmit() {
     $('done-card').classList.remove('hidden');
   } catch (e) {
     console.error('fetch error', e);
+    alert('エラー: ' + e.message);
     $('status').textContent = '通信エラーが発生しました。';
     $('status').className = 'status err';
     $('submit-btn').disabled = false;
