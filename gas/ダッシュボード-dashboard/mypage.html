@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>マイページ</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- LIFF SDK -->
+  <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+</head>
+
+<body class="bg-slate-100">
+  <div class="max-w-2xl mx-auto px-4 py-6 space-y-4">
+    
+    <!-- ヘッダー -->
+    <header class="bg-white rounded-xl shadow p-4">
+      <h1 class="text-lg font-bold">👤 <span id="userName">読み込み中...</span>さんのマイページ</h1>
+      <p class="text-xs text-slate-500 mt-1">対象例会: <span id="eventName">-</span></p>
+    </header>
+
+    <!-- あなたの活動状況 -->
+    <section class="bg-white rounded-xl shadow p-4">
+      <h2 class="text-sm font-semibold mb-3">📊 あなたの活動状況</h2>
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <div class="text-xs text-slate-500 mb-1">今月の紹介</div>
+          <div id="myReferralCount" class="text-3xl font-extrabold text-blue-600">-</div>
+          <div class="text-xs text-slate-400 mt-1">成約: <span id="myClosedCount">-</span>件</div>
+        </div>
+        <div>
+          <div class="text-xs text-slate-500 mb-1">ランキング</div>
+          <div id="myRanking" class="text-3xl font-extrabold text-green-600">-</div>
+          <div class="text-xs text-slate-400 mt-1">全<span id="totalMembers">-</span>名中</div>
+        </div>
+      </div>
+      
+      <!-- 売上インパクト -->
+      <div class="mt-4 pt-4 border-t border-slate-200">
+        <div class="text-xs text-slate-500 mb-1">💰 あなたの紹介インパクト</div>
+        <div id="myTotalAmount" class="text-2xl font-bold text-slate-800">-</div>
+      </div>
+    </section>
+
+    <!-- 今月の目標 -->
+    <section class="bg-white rounded-xl shadow p-4">
+      <h2 class="text-sm font-semibold mb-3">🎯 今月の目標</h2>
+      <div class="space-y-2 text-sm">
+        <label class="flex items-center gap-2">
+          <input type="checkbox" id="goal1" disabled class="w-4 h-4">
+          <span>例会に出席する</span>
+        </label>
+        <label class="flex items-center gap-2">
+          <input type="checkbox" id="goal2" disabled class="w-4 h-4">
+          <span>紹介を3件する</span>
+        </label>
+        <label class="flex items-center gap-2">
+          <input type="checkbox" id="goal3" disabled class="w-4 h-4">
+          <span>紹介チェーンを作る</span>
+        </label>
+      </div>
+    </section>
+
+    <!-- 紹介報告ボタン -->
+    <section>
+      <button 
+        onclick="alert('ここにLIFFの紹介報告フォームURLを設定してください')"
+        class="block w-full bg-blue-600 hover:bg-blue-700 text-white text-center py-4 rounded-xl font-bold transition">
+        📝 今すぐ紹介を報告する
+      </button>
+    </section>
+
+  </div>
+
+  <script>
+    // LIFF初期化
+    liff.init({ liffId: '2008589491-X4w1Odb1' })
+      .then(() => {
+        if (!liff.isLoggedIn()) {
+          liff.login();
+        } else {
+          // LINEユーザーIDを取得
+          return liff.getProfile();
+        }
+      })
+      .then(profile => {
+        const userId = profile.userId;
+        
+        // GASからデータ取得
+        google.script.run
+          .withSuccessHandler(renderMyPage)
+          .getMyData(userId);
+      })
+      .catch(err => {
+        console.error('LIFF初期化エラー:', err);
+        alert('ログインに失敗しました');
+      });
+
+    function renderMyPage(data) {
+      if (!data) return;
+      
+      // ヘッダー
+      document.getElementById('userName').textContent = data.userName || '名前不明';
+      document.getElementById('eventName').textContent = data.eventName || '-';
+      
+      // 紹介実績
+      const ref = data.myReferrals || {};
+      document.getElementById('myReferralCount').textContent = ref.count || 0;
+      document.getElementById('myClosedCount').textContent = ref.closedCount || 0;
+      document.getElementById('myTotalAmount').textContent = 
+        ref.totalAmount ? `${ref.totalAmount.toLocaleString()} 円` : '0 円';
+      
+      // ランキング
+      const rank = data.myRanking || {};
+      document.getElementById('myRanking').textContent = 
+        rank.rank ? `${rank.rank}位` : '圏外';
+      document.getElementById('totalMembers').textContent = rank.total || 0;
+      
+      // 目標達成状況
+      const att = data.myAttendance || {};
+      document.getElementById('goal1').checked = att.attended || false;
+      document.getElementById('goal2').checked = (ref.count || 0) >= 3;
+      document.getElementById('goal3').checked = ref.hasChain || false;
+    }
+  </script>
+</body>
+</html>
