@@ -304,7 +304,7 @@
   <script>
     const LIFF_ID = '2008498539-Ak3Vxy1X';
 
-    // ★ ゲスト専用GASのURL
+    // ゲスト専用 GAS Webアプリ URL
     const GAS_ENDPOINT_URL =
       'https://script.google.com/macros/s/AKfycbzcJ3B-YKuAEZkuynE-7362Pp1u--ATuP_2TN487gPodEYS5eh_T6TTgwm6pDtJ0LHW/exec';
 
@@ -346,7 +346,7 @@
         const dateStr = `${y}年${labelMonth}月${d.getDate()}日（水）`;
         const label = `${dateStr} ${labelMonth}月例会`;
 
-        // value を「2025年12月例会」形式のまま利用
+        // value を「2025年12月例会」形式に
         const value = `${y}年${labelMonth}月例会`;
 
         const opt = document.createElement('option');
@@ -373,25 +373,6 @@
       }
       validateStep2();
     }
-
-    function fileToBase64Info(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      // "data:image/png;base64,AAAA..." 形式が返ってくるので","以降だけ抜く
-      const result = reader.result;
-      const base64 = result.split(',')[1];
-      resolve({
-        name: file.name,
-        type: file.type || 'application/octet-stream',
-        base64: base64
-      });
-    };
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-}
-
 
     function onCardBackChange() {
       const input = $('card-back');
@@ -428,75 +409,72 @@
     }
 
     /* --- 送信 --- */
-async function onSubmit() {
-  $('submit-btn').disabled = true;
-  $('status').textContent = '送信中です…';
-  $('status').className = 'status';
+    async function onSubmit() {
+      $('submit-btn').disabled = true;
+      $('status').textContent = '送信中です…';
+      $('status').className = 'status';
 
-  const payload = {
-    mode: 'guest',
-    eventKey: $('event-select').value,
-    name: $('guest-name').value.trim(),
-    kana: $('guest-kana').value.trim(),
-    company: $('company').value.trim(),
-    title: $('title').value.trim(),
-    business: $('business').value.trim(),
-    lineUserId: lineUserId,
-    displayName: lineDisplayName,
-    introducer: $('introducer').value.trim()
-  };
+      const payload = {
+        mode: 'guest',
+        eventKey: $('event-select').value,
+        name: $('guest-name').value.trim(),
+        kana: $('guest-kana').value.trim(),
+        company: $('company').value.trim(),
+        title: $('title').value.trim(),
+        business: $('business').value.trim(),
+        lineUserId: lineUserId,
+        displayName: lineDisplayName,
+        introducer: $('introducer').value.trim()
+      };
 
-  // 表面（必須）
-  const frontFile = $('card-front').files[0];
-  if (frontFile) {
-    payload.frontImage = await fileToBase64Info(frontFile);
-  }
+      const formData = new FormData();
+      formData.append('payload', JSON.stringify(payload));
 
-  // 裏面（任意）
-  const backFile = $('card-back').files[0];
-  if (backFile) {
-    payload.backImage = await fileToBase64Info(backFile);
-  }
+      const frontFile = $('card-front').files[0];
+      if (frontFile) {
+        formData.append('card_front', frontFile);
+      }
 
-  try {
-    const res = await fetch(GAS_ENDPOINT_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
+      const backFile = $('card-back').files[0];
+      if (backFile) {
+        formData.append('card_back', backFile);
+      }
 
-    const text = await res.text();
-    console.log('GAS res status=', res.status, 'body=', text);
+      try {
+        const res = await fetch(GAS_ENDPOINT_URL, {
+          method: 'POST',
+          body: formData   // Content-Type は指定しない（ブラウザに任せる）
+        });
 
-    let json;
-    try {
-      json = JSON.parse(text);
-    } catch (e) {
-      json = null;
+        const text = await res.text();
+        console.log('GAS res status=', res.status, 'body=', text);
+
+        let json = null;
+        try {
+          json = JSON.parse(text);
+        } catch (e) {}
+
+        if (!res.ok || (json && json.success === false)) {
+          const msg =
+            (json && json.error) ||
+            ('サーバーエラー: ' + res.status);
+          $('status').textContent = msg;
+          $('status').className = 'status err';
+          $('submit-btn').disabled = false;
+          return;
+        }
+
+        // 成功時
+        $('form-card').classList.add('hidden');
+        $('card-card').classList.add('hidden');
+        $('done-card').classList.remove('hidden');
+      } catch (e) {
+        console.error('fetch error', e);
+        $('status').textContent = '通信エラーが発生しました。';
+        $('status').className = 'status err';
+        $('submit-btn').disabled = false;
+      }
     }
-
-    if (!res.ok || (json && json.success === false)) {
-      const msg =
-        (json && json.error) ||
-        ('サーバーエラー: ' + res.status);
-      $('status').textContent = msg;
-      $('status').className = 'status err';
-      $('submit-btn').disabled = false;
-      return;
-    }
-
-    $('form-card').classList.add('hidden');
-    $('card-card').classList.add('hidden');
-    $('done-card').classList.remove('hidden');
-  } catch (e) {
-    console.error('fetch error', e);
-    alert('エラー: ' + e.message);
-    $('status').textContent = '通信エラーが発生しました。';
-    $('status').className = 'status err';
-    $('submit-btn').disabled = false;
-  }
-}
-
 
     /* --- 閉じるボタン --- */
     function onClose() {
