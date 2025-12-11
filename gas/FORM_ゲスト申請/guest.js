@@ -9,23 +9,32 @@ const SHEET_ID = '1IPyjDi3uD-pSxtkF9JK7Uc5isi4lNw6nQKpv9hWUvic';
 const GUEST_SHEET_NAME = 'ゲスト出欠状況（自動）';
 
 // LINE Messaging API
-const CHANNEL_ACCESS_TOKEN = 'h0EwnRvQt+stn4OpyTv12UdZCpYa+KOm736YQuULhuygATdHdXaGmXqwLben8m9TxPnT5UZ59Uzd3gchFemLEmbFXHuaF5TRo44nZV+Qvs36njrFWUxfqhf7zoQTxOCHfpOUofjisza9VwhN+ZzNoAdB04t89/1O/w1cDnyilFU=';
+const CHANNEL_ACCESS_TOKEN =
+  'h0EwnRvQt+stn4OpyTv12UdZCpYa+KOm736YQuULhuygATdHdXaGmXqwLben8m9TxPnT5UZ59Uzd3gchFemLEmbFXHuaF5TRo44nZV+Qvs36njrFWUxfqhf7zoQTxOCHfpOUofjisza9VwhN+ZzNoAdB04t89/1O/w1cDnyilFU=';
 const OWNER_USER_ID = 'U9e236db4178e6dd6a11ec761b0612a73';
+
+// 名刺画像を保存するフォルダID
+const CARD_FOLDER_ID = '1krsSv1oAKIyhWm3MY3iekGoUX-_NJ5Lf';
 
 
 // ===============================
 // ★ エンドポイント：doPost（guest専用）
 // ===============================
 function doPost(e) {
-  const data = JSON.parse((e && e.postData && e.postData.contents) || '{}');
-  return handleGuestPost(data);
+  // テキスト系は JSON でまとめて渡す想定
+  const payloadJson = (e && e.parameter && e.parameter.payload) || '{}';
+  const data = JSON.parse(payloadJson);
+
+  const files = (e && e.files) || {};  // card_front, card_back が入ってくる
+
+  return handleGuestPost(data, files);
 }
 
 
 // ===============================
-// ■ ゲスト申請：登録処理（現状と同じロジック）
+// ■ ゲスト申請：登録処理
 // ===============================
-function handleGuestPost(data) {
+function handleGuestPost(data, files) {
   const ss    = SpreadsheetApp.openById(SHEET_ID);
   const sheet = ss.getSheetByName(GUEST_SHEET_NAME);
 
@@ -44,6 +53,7 @@ function handleGuestPost(data) {
   const now = new Date();
   const nextGuestId = getNextGuestId(sheet);
 
+  // ① 先にシートへ行を作る
   const rowBeforeH = [
     nextGuestId,
     now,
@@ -60,7 +70,7 @@ function handleGuestPost(data) {
   ];
 
   const targetRow = findFirstEmptyRowFrom3(sheet, 1);
-  const maxRows = sheet.getMaxRows();
+  const maxRows   = sheet.getMaxRows();
 
   if (targetRow > maxRows) {
     sheet.getRange(maxRows + 1, 1, 1, 7).setValues([rowBeforeH]);
@@ -70,16 +80,50 @@ function handleGuestPost(data) {
     sheet.getRange(targetRow, 9, 1, 2).setValues([rowAfterH]);
   }
 
-  try {
-    const msg =
-      '【ゲスト申請を登録しました】\n' +
-      `Guest_ID : ${nextGuestId}\n` +
-      `例会     : ${data.eventKey || ''}\n` +
-      `氏名     : ${data.name || ''}\n` +
-      `会社名   : ${data.company || ''}\n` +
-      `役職     : ${data.title || ''}\n` +
-      `営業内容 : ${data.business || ''}`;
+  // 実際に書き込まれた行番号
+  const writeRow = (targetRow > maxRows) ? maxRows + 1 : targetRow;
 
+  // ② 名刺画像をドライブに保存
+  const folder = DriveApp.getFolderById(CARD_FOLDER_ID);
+  let frontUrl = '';
+  let backUrl  = '';
+
+  if (files.card_front) {
+    const blob = files.card_front;
+    blob.setName(`Guest_${nextGuestId}_front_${blob.getName()}`);
+    const file = folder.createFile(blob);
+    frontUrl = file.getUrl();
+  }
+
+  if (files.card_back) {
+    const blob = files.card_back;
+    blob.setName(`Guest_${nextGuestId}_back_${blob.getName()}`);
+    const file = folder.createFile(blob);
+    backUrl = file.getUrl();
+  }
+
+  // ③ シートにURLを書き込み（例：K列=表, L列=裏）
+  if (frontUrl || backUrl) {
+    const range  = sheet.getRange(writeRow, 11, 1, 2); // K列=11, L列=12
+    range.setValues([[frontUrl, backUrl]]);
+  }
+
+  // ④ LINE 通知（管理者向け）
+  try {
+    const msgLines = [
+      '【ゲスト申請を登録しました】',
+      `Guest_ID : ${nextGuestId}`,
+      `例会     : ${data.eventKey || ''}`,
+      `氏名     : ${data.name || ''}`,
+      `会社名   : ${data.company || ''}`,
+      `役職     : ${data.title || ''}`,
+      `営業内容 : ${data.business || ''}`
+    ];
+
+    if (frontUrl) msgLines.push(`名刺(表): ${frontUrl}`);
+    if (backUrl)  msgLines.push(`名刺(裏): ${backUrl}`);
+
+    const msg = msgLines.join('\n');
     pushLineMessage(OWNER_USER_ID, msg);
   } catch (err) {
     Logger.log('push error: ' + err);
@@ -88,7 +132,8 @@ function handleGuestPost(data) {
   return _out({
     success: true,
     mode: 'guest',
-    message: 'ゲスト申請を登録しました。'
+    message: 'ゲスト申請を登録しました。',
+    guestId: nextGuestId
   });
 }
 

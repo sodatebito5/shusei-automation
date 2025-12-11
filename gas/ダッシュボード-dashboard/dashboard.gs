@@ -1,3 +1,4 @@
+
 /** =========================================================
  *  設定（のぶさん環境用）
  * ======================================================= */
@@ -19,7 +20,7 @@ const MEMBER_SHEET_NAME = '会員名簿マスター';
 const SALES_SHEET_ID = '1QYLHr7wMj0jQW5ApgWf-l1Bk9_9M5EV54FDHQp2Rkic';
 const SALES_SHEET_NAME = 'sales';
 
-// 紹介記録シート名（追加）
+// 紹介記録シート名
 const REFERRAL_SHEET_NAME = '紹介記録';
 
 
