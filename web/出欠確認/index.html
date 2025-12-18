@@ -96,7 +96,7 @@
   <!-- ▼ ステータス表示エリア -->
   <div id="prevStatus" class="prev-status">⏳ 読み込み中...</div>
 
-  <h1>次回例会に</h1>
+  <h1 id="eventTitle">読み込み中...</h1>
 
     <button class="btn btn-attend" onclick="submitStatus('出席')">出席します！</button>
     <button class="btn btn-absent" onclick="submitStatus('欠席')">欠席します。</button>
@@ -179,7 +179,11 @@ function showPrevStatus(eventKey, status, booth) {
     el.innerHTML = `✅ <strong>${monthText}</strong>に「${status}」で回答済み${boothText}`;
     el.classList.remove('unanswered');
   }
+  
+  // タイトル更新
+  document.getElementById('eventTitle').textContent = monthText + 'に';
 }
+
 
     // 送信
     function submitStatus(status) {
