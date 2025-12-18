@@ -10,7 +10,7 @@ const GUEST_SHEET_NAME = 'ゲスト出欠状況（自動）';
 
 // LINE Messaging API
 const CHANNEL_ACCESS_TOKEN =
-  'h0EwnRvQt+stn4OpyTv12UdZCpYa+KOm736YQuULhuygATdHdXaGmXqwLben8m9TxPnT5UZ59Uzd3gchFemLEmbFXHuaF5TRo44nZV+Qvs36njrFWUxfqhf7zoQTxOCHfpOUofjisza9VwhN+ZzNoAdB04t89/1O/w1cDnyilFU=';
+  '0bpbYqJNtUI6f8Xbo0ZpgNm43ptT6rDteTF+JmwHpM0N9RNBc/Hu/oSlSWkObbiD7eA1JgBQYifNnkhkIac5xAHjaakI5DfoM5udktGipdmdXsJmm+Lws6FiLu5w8qKR8FqY/Q0vXH8AkMLS+YNlFQdB04t89/1O/w1cDnyilFU=';
 const OWNER_USER_ID = 'U9e236db4178e6dd6a11ec761b0612a73';
 
 // 名刺画像を保存するフォルダID
@@ -21,20 +21,22 @@ const CARD_FOLDER_ID = '1krsSv1oAKIyhWm3MY3iekGoUX-_NJ5Lf';
 // ★ エンドポイント：doPost（guest専用）
 // ===============================
 function doPost(e) {
-  // テキスト系は JSON でまとめて渡す想定
-  const payloadJson = (e && e.parameter && e.parameter.payload) || '{}';
-  const data = JSON.parse(payloadJson);
-
-  const files = (e && e.files) || {};  // card_front, card_back が入ってくる
-
-  return handleGuestPost(data, files);
+  try {
+    const body = e.postData.contents;
+    const data = JSON.parse(body);
+    return handleGuestPost(data);
+  } catch (err) {
+    Logger.log('doPost error: ' + err);
+    return _out({ success: false, error: 'リクエスト解析エラー: ' + err.message });
+  }
 }
+
 
 
 // ===============================
 // ■ ゲスト申請：登録処理
 // ===============================
-function handleGuestPost(data, files) {
+function handleGuestPost(data) {
   const ss    = SpreadsheetApp.openById(SHEET_ID);
   const sheet = ss.getSheetByName(GUEST_SHEET_NAME);
 
@@ -50,10 +52,31 @@ function handleGuestPost(data, files) {
     }
   }
 
+  // ★名刺表面は必須チェック
+  if (!data.cardFront) {
+    return _out({ success:false, error:'名刺画像（表面）は必須です' });
+  }
+
   const now = new Date();
   const nextGuestId = getNextGuestId(sheet);
+  const guestName = String(data.name || '');
 
-  // ① 先にシートへ行を作る
+  // ★名刺画像をDriveに保存
+  let cardFrontUrl = '';
+  let cardBackUrl = '';
+
+  try {
+    if (data.cardFront) {
+      cardFrontUrl = saveBase64ToDrive(data.cardFront, `Guest_${nextGuestId}_${guestName}_名刺_表`);
+    }
+    if (data.cardBack) {
+      cardBackUrl = saveBase64ToDrive(data.cardBack, `Guest_${nextGuestId}_${guestName}_名刺_裏`);
+    }
+  } catch (err) {
+    Logger.log('Drive save error: ' + err);
+    return _out({ success:false, error:'画像保存に失敗しました: ' + err.message });
+  }
+
   const rowBeforeH = [
     nextGuestId,
     now,
@@ -64,66 +87,47 @@ function handleGuestPost(data, files) {
     String(data.title || '')
   ];
 
-  const rowAfterH = [
-    String(data.displayName || ''),
-    String(data.business || '')
-  ];
+  const cardUrls = [];
+if (cardFrontUrl) cardUrls.push(cardFrontUrl);
+if (cardBackUrl) cardUrls.push(cardBackUrl);
 
-  const targetRow = findFirstEmptyRowFrom3(sheet, 1);
-  const maxRows   = sheet.getMaxRows();
+// I〜J列に書き込む
+const rowIJ = [
+  String(data.displayName || ''),  // I列
+  String(data.business || '')      // J列
+];
 
-  if (targetRow > maxRows) {
-    sheet.getRange(maxRows + 1, 1, 1, 7).setValues([rowBeforeH]);
-    sheet.getRange(maxRows + 1, 9, 1, 2).setValues([rowAfterH]);
-  } else {
-    sheet.getRange(targetRow, 1, 1, 7).setValues([rowBeforeH]);
-    sheet.getRange(targetRow, 9, 1, 2).setValues([rowAfterH]);
-  }
+// M〜N列に書き込む
+const rowMN = [
+  cardFrontUrl,                     // M列：名刺表面URL
+  cardBackUrl                       // N列：名刺裏面URL
+];
 
-  // 実際に書き込まれた行番号
-  const writeRow = (targetRow > maxRows) ? maxRows + 1 : targetRow;
+const targetRow = findFirstEmptyRowFrom3(sheet, 1);
+const maxRows = sheet.getMaxRows();
 
-  // ② 名刺画像をドライブに保存
-  const folder = DriveApp.getFolderById(CARD_FOLDER_ID);
-  let frontUrl = '';
-  let backUrl  = '';
+if (targetRow > maxRows) {
+  sheet.getRange(maxRows + 1, 1, 1, 7).setValues([rowBeforeH]);
+  sheet.getRange(maxRows + 1, 9, 1, 2).setValues([rowIJ]);   // I〜J
+  sheet.getRange(maxRows + 1, 13, 1, 2).setValues([rowMN]);  // M〜N
+} else {
+  sheet.getRange(targetRow, 1, 1, 7).setValues([rowBeforeH]);
+  sheet.getRange(targetRow, 9, 1, 2).setValues([rowIJ]);     // I〜J
+  sheet.getRange(targetRow, 13, 1, 2).setValues([rowMN]);    // M〜N
+}
 
-  if (files.card_front) {
-    const blob = files.card_front;
-    blob.setName(`Guest_${nextGuestId}_front_${blob.getName()}`);
-    const file = folder.createFile(blob);
-    frontUrl = file.getUrl();
-  }
-
-  if (files.card_back) {
-    const blob = files.card_back;
-    blob.setName(`Guest_${nextGuestId}_back_${blob.getName()}`);
-    const file = folder.createFile(blob);
-    backUrl = file.getUrl();
-  }
-
-  // ③ シートにURLを書き込み（例：K列=表, L列=裏）
-  if (frontUrl || backUrl) {
-    const range  = sheet.getRange(writeRow, 11, 1, 2); // K列=11, L列=12
-    range.setValues([[frontUrl, backUrl]]);
-  }
-
-  // ④ LINE 通知（管理者向け）
   try {
-    const msgLines = [
-      '【ゲスト申請を登録しました】',
-      `Guest_ID : ${nextGuestId}`,
-      `例会     : ${data.eventKey || ''}`,
-      `氏名     : ${data.name || ''}`,
-      `会社名   : ${data.company || ''}`,
-      `役職     : ${data.title || ''}`,
-      `営業内容 : ${data.business || ''}`
-    ];
+    const msg =
+      '【ゲスト申請を登録しました】\n' +
+      `Guest_ID : ${nextGuestId}\n` +
+      `例会     : ${data.eventKey || ''}\n` +
+      `氏名     : ${data.name || ''}\n` +
+      `会社名   : ${data.company || ''}\n` +
+      `役職     : ${data.title || ''}\n` +
+      `営業内容 : ${data.business || ''}\n` +
+      `名刺表   : ${cardFrontUrl ? 'あり' : 'なし'}\n` +
+      `名刺裏   : ${cardBackUrl ? 'あり' : 'なし'}`;
 
-    if (frontUrl) msgLines.push(`名刺(表): ${frontUrl}`);
-    if (backUrl)  msgLines.push(`名刺(裏): ${backUrl}`);
-
-    const msg = msgLines.join('\n');
     pushLineMessage(OWNER_USER_ID, msg);
   } catch (err) {
     Logger.log('push error: ' + err);
@@ -132,9 +136,41 @@ function handleGuestPost(data, files) {
   return _out({
     success: true,
     mode: 'guest',
-    message: 'ゲスト申請を登録しました。',
-    guestId: nextGuestId
+    message: 'ゲスト申請を登録しました。'
   });
+}
+
+/**
+ * Base64画像をDriveに保存してURLを返す
+ */
+function saveBase64ToDrive(base64Data, fileName) {
+  // data:image/jpeg;base64,xxxxx の形式から分離
+  const matches = base64Data.match(/^data:(.+);base64,(.+)$/);
+  if (!matches) {
+    throw new Error('Invalid base64 format');
+  }
+
+  const mimeType = matches[1];  // image/jpeg など
+  const base64 = matches[2];
+  
+  // 拡張子を決定
+  let ext = 'jpg';
+  if (mimeType.includes('png')) ext = 'png';
+  else if (mimeType.includes('gif')) ext = 'gif';
+  else if (mimeType.includes('webp')) ext = 'webp';
+
+  const blob = Utilities.newBlob(
+    Utilities.base64Decode(base64),
+    mimeType,
+    `${fileName}.${ext}`
+  );
+
+  const folder = DriveApp.getFolderById(CARD_FOLDER_ID);
+  const file = folder.createFile(blob);
+  
+  // 閲覧可能なリンクを返す
+  file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+  return file.getUrl();
 }
 
 
