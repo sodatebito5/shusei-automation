@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -49,6 +48,20 @@
 
     .hidden { display:none; }
 
+    /* ▼ 前回回答表示 */
+    .prev-status {
+      background: #e8f5e9;
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 20px;
+      font-size: 14px;
+      color: #2e7d32;
+    }
+    .prev-status.unanswered {
+      background: #fff3e0;
+      color: #e65100;
+    }
+
     /* ▼ UI追加：中央寄せ＋位置揃え */
     .booth-block {
       margin-top:28px;
@@ -79,6 +92,9 @@
   <!-- 選択画面 -->
   <div id="selectScreen" class="container">
     <h1>次回例会に</h1>
+
+    <!-- ▼ 前回回答表示エリア -->
+    <div id="prevStatus" class="prev-status hidden"></div>
 
     <button class="btn btn-attend" onclick="submitStatus('出席')">出席します！</button>
     <button class="btn btn-absent" onclick="submitStatus('欠席')">欠席します。</button>
@@ -112,7 +128,7 @@
 
   <script>
     const LIFF_ID = '2008446831-256wkWVY';
-    const GAS_URL = 'https://script.google.com/macros/s/AKfycby-rXLMy1lKIhyl60ZaS_tCob20cAuCgrkzf9B0Ky738DyvTWNBh_7AuDb1iNrEhf7ElA/exec';
+    const GAS_URL = 'https://script.google.com/macros/s/AKfycbxcNqeprsDLgGHINU2rgrJ_4Vr8bzO0KwDjLbC6gM9P-mUJP0MpSnDY_yrHj6wlCTxq-Q/exec';
 
     let profile = null;
 
@@ -122,8 +138,44 @@
         if (!liff.isLoggedIn()) return liff.login();
         return liff.getProfile();
       })
-      .then(p => { profile = p; })
+      .then(p => {
+        profile = p;
+        // 前回ステータス取得
+        if (profile && profile.userId) {
+          fetchPrevStatus(profile.userId);
+        }
+      })
       .catch(err => alert("LIFFエラー: " + err));
+
+    // 前回ステータス取得
+    function fetchPrevStatus(userId) {
+      const url = GAS_URL + '?mode=getAttendanceStatus&userId=' + encodeURIComponent(userId);
+      
+      fetch(url)
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            showPrevStatus(data.status, data.booth);
+          }
+        })
+        .catch(err => console.log('前回ステータス取得エラー:', err));
+    }
+
+    // 前回ステータス表示
+    function showPrevStatus(status, booth) {
+      const el = document.getElementById('prevStatus');
+      
+      if (status === '未回答') {
+        el.textContent = '📝 まだ回答していません';
+        el.classList.add('unanswered');
+      } else {
+        const boothText = booth === '○' ? '出店する' : '出店しない';
+        el.textContent = `📋 前回の回答：${status} ／ ブース ${boothText}`;
+        el.classList.remove('unanswered');
+      }
+      
+      el.classList.remove('hidden');
+    }
 
     // 送信
     function submitStatus(status) {
