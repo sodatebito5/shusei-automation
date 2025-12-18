@@ -94,10 +94,10 @@
 
   <!-- 選択画面 -->
   <div id="selectScreen" class="container">
-    <h1>次回例会に</h1>
+  <!-- ▼ ステータス表示エリア -->
+  <div id="prevStatus" class="prev-status">⏳ 読み込み中...</div>
 
-    <!-- ▼ 前回回答表示エリア -->
-    <div id="prevStatus" class="prev-status">⏳ 読み込み中...</div>
+  <h1>次回例会に</h1>
 
     <button class="btn btn-attend" onclick="submitStatus('出席')">出席します！</button>
     <button class="btn btn-absent" onclick="submitStatus('欠席')">欠席します。</button>
@@ -158,27 +158,29 @@
         .then(res => res.json())
         .then(data => {
           if (data.success) {
-            showPrevStatus(data.status, data.booth);
-          }
+  showPrevStatus(data.eventKey, data.status, data.booth);
+}
         })
         .catch(err => console.log('前回ステータス取得エラー:', err));
     }
 
-    // 前回ステータス表示
-    function showPrevStatus(status, booth) {
-      const el = document.getElementById('prevStatus');
-      
-      if (status === '未回答') {
-        el.textContent = '📝 まだ回答していません';
-        el.classList.add('unanswered');
-      } else {
-        const boothText = booth === '○' ? '出店する' : '出店しない';
-        el.textContent = `📋 前回の回答：${status} ／ ブース ${boothText}`;
-        el.classList.remove('unanswered');
-      }
-      
-      el.classList.remove('hidden');
-    }
+    // ステータス表示
+function showPrevStatus(eventKey, status, booth) {
+  const el = document.getElementById('prevStatus');
+  
+  // eventKeyから「○月例会」部分を抽出（例：2026年1月例会 → 1月例会）
+  const match = eventKey.match(/(\d+月例会)/);
+  const monthText = match ? match[1] : eventKey;
+  
+  if (status === '未回答') {
+    el.innerHTML = `📝 <strong>${monthText}</strong>の出欠を回答してください`;
+    el.classList.add('unanswered');
+  } else {
+    const boothText = booth === '○' ? '（ブース出店あり）' : '';
+    el.innerHTML = `✅ <strong>${monthText}</strong>に「${status}」で回答済み${boothText}`;
+    el.classList.remove('unanswered');
+  }
+}
 
     // 送信
     function submitStatus(status) {
