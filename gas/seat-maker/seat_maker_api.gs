@@ -1,5 +1,18 @@
 // ===============================
-// seat-maker：自動配席アプリ用 API
+// ⚠️ DEPRECATED - 2026-01-12
+// ===============================
+// このファイルは非推奨です。
+// 配席APIは shusei-dashboard-v3 に統合されました。
+//
+// 新しいAPI:
+//   - getSeatingParticipants()
+//   - syncSeats()
+//   - getSeatingArchive()
+//   - listSeatingArchives()
+//
+// 参照: docs/seat-maker-redesign.md
+// ===============================
+// seat-maker：自動配席アプリ用 API（旧版）
 // ===============================
 
 // 参加者一覧を置いているシート

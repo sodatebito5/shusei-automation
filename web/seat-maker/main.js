@@ -1,6 +1,7 @@
 // main.js
 
-const API_URL = 'https://script.google.com/macros/s/AKfycby-rXLMy1lKIhyl60ZaS_tCob20cAuCgrkzf9B0Ky738DyvTWNBh_7AuDb1iNrEhf7ElA/exec';
+// ダッシュボードGAS（配席API統合版 @182）
+const API_URL = 'https://script.google.com/macros/s/AKfycbwBTcwICVAQnjnIXRcxdm2icpA6kwJNSNNRnbjY1egnIfa0cCV8Y6crMAJCW-nKSbnB9Q/exec';
 
 // ========== グローバル変数 ==========
 let participants = [];
@@ -33,13 +34,20 @@ function setParticipants(rawParticipants) {
 
   participants = rawParticipants.map(p => {
     const affiliation = String(p.affiliation || p.所属 || '').trim();
-    const isGuest = !affiliation;
-    const isOtherVenue = affiliation && affiliation !== '福岡飯塚';
+
+    // ★修正: APIから受け取ったcategoryをそのまま使用
+    // category が無い場合のみ従来ロジックでフォールバック
+    let category = String(p.category || '').trim();
+    if (!category) {
+      const isGuest = !affiliation;
+      const isOtherVenue = affiliation && affiliation !== '福岡飯塚';
+      category = isGuest ? 'ゲスト' : (isOtherVenue ? '他会場' : '会員');
+    }
 
     return {
       id: p.id || p.ID || Math.random().toString(36),
       name: p.name || p.氏名 || '名前なし',
-      category: isGuest ? 'ゲスト' : (isOtherVenue ? '他会場' : '会員'),
+      category: category,
       role: p.role || p.役割 || '',
       team: p.team || p.チーム || '',
       affiliation: affiliation,
@@ -108,7 +116,7 @@ function createPersonCard(person, fromTable, fromSeat) {
   card.dataset.fromSeat = fromSeat;
   card.draggable = true;
 
-  if (isMaster && fromSeat === 'master') {
+  if (fromSeat === 'master') {
     const title = document.createElement('div');
     title.className = 'person-title';
     title.textContent = '👑 テーブルマスター';
@@ -148,10 +156,9 @@ function validateDrop(personId, toTable, toSeat, toZone, fromTable, fromSeat) {
   const person = participants.find(p => p.id === personId);
   if (!person) return { valid: false, message: '参加者が見つかりません' };
 
-  const isMaster = MASTER_ROLES.includes(person.role);
-
-  if (toSeat === 'master' && !isMaster) {
-    return { valid: false, message: 'テーブルマスター席には世話人のみ配置できます' };
+  // テーブルマスター席は役割があればOK
+  if (toSeat === 'master' && (!person.role || person.role.trim() === '')) {
+    return { valid: false, message: 'テーブルマスター席には役割のある人のみ配置できます' };
   }
 
   if (toZone === 'waiting') {
@@ -172,6 +179,7 @@ function movePerson(personId, fromTable, fromSeat, toTable, toSeat, toZone, drop
   const person = participants.find(p => p.id === personId);
   if (!person) return;
 
+  // 移動先の重複チェック
   if (toZone === 'waiting') {
     const alreadyExists = waitingZone.some(p => p.id === personId);
     if (alreadyExists) {
@@ -180,6 +188,23 @@ function movePerson(personId, fromTable, fromSeat, toTable, toSeat, toZone, drop
     }
   }
 
+  if (toZone === 'pa') {
+    const alreadyExists = paMembers.some(p => p.id === personId);
+    if (alreadyExists) {
+      console.warn('既にPA枠に存在:', personId);
+      return;
+    }
+  }
+
+  if (toZone === 'mc') {
+    const alreadyExists = mcMembers.some(p => p.id === personId);
+    if (alreadyExists) {
+      console.warn('既に司会枠に存在:', personId);
+      return;
+    }
+  }
+
+  // 移動元からの削除処理
   if (fromTable && fromTable !== 'waiting' && fromTable !== 'pa' && fromTable !== 'mc') {
     const table = tables[fromTable];
     if (fromSeat === 'master') {
@@ -201,9 +226,16 @@ function movePerson(personId, fromTable, fromSeat, toTable, toSeat, toZone, drop
     if (idx !== -1) mcMembers.splice(idx, 1);
   }
 
+  // 移動先への配置処理
   if (toZone === 'waiting') {
     waitingZone.push(person);
     person.assignedTable = 'waiting';
+  } else if (toZone === 'pa') {
+    paMembers = [person]; // 1人だけ
+    person.assignedTable = 'pa';
+  } else if (toZone === 'mc') {
+    mcMembers = [person]; // 1人だけ
+    person.assignedTable = 'mc';
   } else if (toTable) {
     const table = tables[toTable];
     if (toSeat === 'master') {
@@ -217,7 +249,6 @@ function movePerson(personId, fromTable, fromSeat, toTable, toSeat, toZone, drop
     person.assignedTable = toTable;
   }
 }
-
 function swapPersons(personId1, fromTable1, fromSeat1, personId2, fromTable2, fromSeat2) {
   const person1 = participants.find(p => p.id === personId1);
   const person2 = participants.find(p => p.id === personId2);
@@ -314,6 +345,10 @@ function autoSeat(mode) {
   balanceTables(tableIds);
 
   waitingZone = [];
+
+　// ← ここに追加
+  document.getElementById('sync-btn').style.display = 'block';
+
   renderAll();
   initDragDrop();
   alert('自動配席が完了しました！');
@@ -520,12 +555,159 @@ window.addEventListener('DOMContentLoaded', () => {
   document.getElementById('load-btn').addEventListener('click', loadFromSheet);
   document.getElementById('reset-btn').addEventListener('click', resetSeats);
   document.getElementById('generateBtn').addEventListener('click', generateSeating);
+  
+  // 📤 座席反映ボタン
+document.getElementById('sync-btn').addEventListener('click', async () => {
+  const button = document.getElementById('sync-btn');
+  button.disabled = true;
+  button.textContent = '反映中...';
 
-  // 自動配席ボタンはモーダル内
-  document.getElementById('autoTeamBtnModal').addEventListener('click', () => {
-    document.getElementById('autoSeatModal').style.display = 'none';
-    autoSeat('team');
+  try {
+    // LIFFから userId を取得
+    let userId = '';
+    if (typeof liff !== 'undefined' && liff.isLoggedIn()) {
+      const profile = await liff.getProfile();
+      userId = profile.userId;
+    }
+
+    // userId がなければダミーを送る（テスト用）
+    if (!userId) {
+      userId = 'test_user_' + Date.now();
+    }
+
+    // 配席データを収集
+    const assignments = collectAssignments();
+
+    if (assignments.length === 0) {
+      alert('配席データがありません。先に配席を行ってください。');
+      return;
+    }
+
+    // 確認ダイアログ
+    if (!confirm(`${assignments.length}名の座席情報を反映します。よろしいですか？`)) {
+      return;
+    }
+
+    const payload = {
+      eventKey: window.currentEventKey || '',
+      userId: userId,
+      assignments: assignments
+    };
+
+    // Note: Content-Typeヘッダーを省略してCORSプリフライトを回避
+    // GAS側でJSON.parse(e.postData.contents)で解析可能
+    const res = await fetch(`${API_URL}?action=syncSeats`, {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    });
+
+    if (!res.ok) throw new Error('HTTPエラー: ' + res.status);
+
+    const json = await res.json();
+
+    if (json.success) {
+      alert(`反映完了しました！\n\n${json.archivedCount}名の座席情報を保存しました。`);
+    } else {
+      alert('エラー: ' + (json.error || 'unknown'));
+    }
+
+  } catch (err) {
+    console.error(err);
+    alert('通信エラー: ' + err.message);
+  } finally {
+    button.disabled = false;
+    button.textContent = '📤 座席反映';
+  }
+});
+
+/**
+ * 現在の配席状態からassignments配列を生成
+ */
+function collectAssignments() {
+  const assignments = [];
+  const addedIds = new Set();  // ★重複防止用
+
+  // 各テーブルから収集
+  Object.keys(tables).forEach(tableId => {
+    const table = tables[tableId];
+
+    // マスター
+    if (table.master) {
+      const person = participants.find(p => p.id === table.master.id);
+      if (person && !addedIds.has(person.id)) {  // ★重複チェック
+        addedIds.add(person.id);
+        assignments.push({
+          id: person.id,
+          name: person.name,
+          category: person.category,
+          affiliation: person.affiliation || '',
+          role: person.role || '',
+          team: person.team || '',
+          table: tableId,
+          seat: 0
+        });
+      }
+    }
+
+    // メンバー
+    table.members.forEach((member, idx) => {
+      if (member) {
+        const person = participants.find(p => p.id === member.id);
+        if (person && !addedIds.has(person.id)) {  // ★重複チェック
+          addedIds.add(person.id);
+          assignments.push({
+            id: person.id,
+            name: person.name,
+            category: person.category,
+            affiliation: person.affiliation || '',
+            role: person.role || '',
+            team: person.team || '',
+            table: tableId,
+            seat: idx + 1
+          });
+        }
+      }
+    });
   });
+
+  // PA
+  paMembers.forEach((person, idx) => {
+    if (!addedIds.has(person.id)) {  // ★重複チェック
+      addedIds.add(person.id);
+      assignments.push({
+        id: person.id,
+        name: person.name,
+        category: person.category,
+        affiliation: person.affiliation || '',
+        role: person.role || '',
+        team: person.team || '',
+        table: 'PA',
+        seat: idx
+      });
+    }
+  });
+
+  // MC
+  mcMembers.forEach((person, idx) => {
+    if (!addedIds.has(person.id)) {  // ★重複チェック
+      addedIds.add(person.id);
+      assignments.push({
+        id: person.id,
+        name: person.name,
+        category: person.category,
+        affiliation: person.affiliation || '',
+        role: person.role || '',
+        team: person.team || '',
+        table: 'MC',
+        seat: idx
+      });
+    }
+  });
+
+  return assignments;
+}
+
+
   
   document.getElementById('autoBusinessBtnModal').addEventListener('click', () => {
     document.getElementById('autoSeatModal').style.display = 'none';
@@ -555,11 +737,15 @@ async function loadFromSheet() {
   previewEl.innerHTML = '';
 
   try {
-    const res = await fetch(`${API_URL}?mode=seatParticipants`);
+    const res = await fetch(`${API_URL}?action=getSeatingParticipants`);
     if (!res.ok) throw new Error('HTTPエラー: ' + res.status);
 
     const json = await res.json();
     if (!json.success) throw new Error(json.error || 'unknown error');
+
+    // イベント情報をグローバルに保持
+    window.currentEventKey = json.eventKey || '';
+    window.currentEventName = json.eventName || '';
 
     setParticipants(json.participants || []);
     statusEl.textContent = '読み込み完了！';
@@ -577,6 +763,7 @@ async function loadFromSheet() {
         <li>ゲスト：<strong>${guests}</strong> 名</li>
         <li>他会場：<strong>${others}</strong> 名</li>
         <li>テーブルマスター：<strong>${masters}</strong> 名</li>
+        <li id="tableCountLi" style="display: none;">テーブル数：<strong id="tableCountValue">0</strong> 卓</li>
       </ul>
     `;
 
@@ -775,6 +962,9 @@ function generateSeating() {
 
   document.getElementById('configSection').style.display = 'none';
   document.getElementById('mainContainer').style.display = 'grid';
+  
+  // ← ここに追加
+  document.getElementById('sync-btn').style.display = 'block';
 
   renderAll();
   initDragDrop();
@@ -797,6 +987,9 @@ function resetSeats() {
 
   document.getElementById('configSection').style.display = 'block';
   document.getElementById('mainContainer').style.display = 'none';
+  
+  // ← ここに追加
+  document.getElementById('sync-btn').style.display = 'none';
 
   rebuildLayoutCandidates();
   updateConfigSummary();
@@ -806,6 +999,14 @@ function resetSeats() {
 
 // ========== レンダリング ==========
 function renderAll() {
+  // テーブル数の表示更新
+  const tableCountLi = document.getElementById('tableCountLi');
+  const tableCountValue = document.getElementById('tableCountValue');
+  if (tableCountLi && tableCountValue && Object.keys(tables).length > 0) {
+    tableCountValue.textContent = Object.keys(tables).length;
+    tableCountLi.style.display = 'list-item';
+  }
+
   renderTables();
   renderWaitingZone();
   renderPAZone();
@@ -938,16 +1139,46 @@ function renderPAZone() {
   const list = document.getElementById('paList');
   if (!list) return;
   list.innerHTML = '';
-  paMembers.forEach(p => list.appendChild(createPersonCard(p, 'pa', '')));
-}
 
+  // 1スロット固定
+  const slot = document.createElement('div');
+  slot.className = 'special-slot';
+  slot.dataset.zone = 'pa';
+
+  const person = paMembers[0]; // 1人だけ
+  if (person) {
+    slot.appendChild(createPersonCard(person, 'pa', ''));
+  } else {
+    const placeholder = document.createElement('div');
+    placeholder.className = 'special-placeholder';
+    placeholder.textContent = '空き枠';
+    slot.appendChild(placeholder);
+  }
+
+  list.appendChild(slot);
+}
 function renderMCZone() {
   const list = document.getElementById('mcList');
   if (!list) return;
   list.innerHTML = '';
-  mcMembers.forEach(p => list.appendChild(createPersonCard(p, 'mc', '')));
-}
 
+  // 1スロット固定
+  const slot = document.createElement('div');
+  slot.className = 'special-slot';
+  slot.dataset.zone = 'mc';
+
+  const person = mcMembers[0]; // 1人だけ
+  if (person) {
+    slot.appendChild(createPersonCard(person, 'mc', ''));
+  } else {
+    const placeholder = document.createElement('div');
+    placeholder.className = 'special-placeholder';
+    placeholder.textContent = '空き枠';
+    slot.appendChild(placeholder);
+  }
+
+  list.appendChild(slot);
+}
 // ========== タッチ / クリック操作 ==========
 function handleSeatClick(e, toTable, toSeat, dropZone) {
   if (e.target.closest('.person-card')) return;
@@ -988,8 +1219,8 @@ function handleCardClick(e) {
     }
 
     const person = participants.find(p => p.id === personId);
-    if (toSeat === 'master' && !MASTER_ROLES.includes(person.role)) {
-      alert('テーブルマスター席には世話人のみ配置できます');
+    if (toSeat === 'master' && (!person.role || person.role.trim() === '')) {
+      alert('テーブルマスター席には役割のある人のみ配置できます');
       clearSelection();
       return;
     }
@@ -1024,14 +1255,15 @@ function clearSelection() {
   }
 }
 
-// ========== ドラッグ＆ドロップ ==========
 function initDragDrop() {
-  document.querySelectorAll('.seat, .waiting-slot').forEach(zone => {
+  // 待機ゾーン + PA枠 + 司会枠のスロット全てにイベント設定
+  document.querySelectorAll('.seat, .waiting-slot, .special-slot').forEach(zone => {
     zone.addEventListener('dragover', handleDragOver);
     zone.addEventListener('drop', handleDrop);
     zone.addEventListener('dragleave', handleDragLeave);
   });
 
+  // 以下は既存のまま
   document.querySelectorAll('.person-card').forEach(card => {
     card.addEventListener('dragstart', handleDragStart);
     card.addEventListener('dragend', handleDragEnd);
@@ -1106,8 +1338,8 @@ function handleCardDrop(e) {
   }
 
   const person = participants.find(p => p.id === draggedPersonId);
-  if (toSeat === 'master' && !MASTER_ROLES.includes(person.role)) {
-    alert('テーブルマスター席には世話人のみ配置できます');
+  if (toSeat === 'master' && (!person.role || person.role.trim() === '')) {
+    alert('テーブルマスター席には役割のある人のみ配置できます');
     return;
   }
 
@@ -1134,6 +1366,17 @@ function handleDrop(e) {
     return;
   }
 
+  // PA枠・司会枠への移動制限（役割が入っていればOK）
+  if (toZone === 'pa' || toZone === 'mc') {
+    const person = participants.find(p => p.id === personId);
+    if (!person) return;
+    
+    if (!person.role || person.role.trim() === '') {
+      alert('PA枠・司会枠には役割のある人のみ配置できます');
+      return;
+    }
+  }
+
   const check = validateDrop(personId, toTable, toSeat, toZone, fromTable, fromSeat);
   if (!check.valid) {
     alert(check.message);
@@ -1144,6 +1387,7 @@ function handleDrop(e) {
   renderAll();
   initDragDrop();
 }
+
 
 // ===============================
 // 印刷プレビュー機能
@@ -1169,9 +1413,78 @@ document.querySelectorAll('.btn-paper-size').forEach(btn => {
   });
 });
 
-// 印刷実行
-document.getElementById('executePrintBtn').addEventListener('click', () => {
-  window.print();
+// 印刷実行（PDF生成方式）
+document.getElementById('executePrintBtn').addEventListener('click', async () => {
+  const button = document.getElementById('executePrintBtn');
+  button.disabled = true;
+  button.textContent = '生成中...';
+  
+  try {
+    const element = document.querySelector('.print-page');
+    const { jsPDF } = window.jspdf;
+    
+    // A4もA3も縦向き
+    const format = currentPaperSize === 'a4' ? 'a4' : 'a3';
+    
+    const pdf = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: format,
+      compress: true
+    });
+    
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
+    
+    // 余白設定（A3のみ15mm、A4は5mm）
+    const margin = currentPaperSize === 'a3' ? 15 : 5;
+    const contentWidth = pageWidth - (margin * 2);
+    const contentHeight = pageHeight - (margin * 2);
+    
+    // コンテンツ領域に合わせてキャプチャ（scale調整）
+    const canvas = await html2canvas(element, {
+      scale: 3,  // 高解像度化
+      useCORS: true,
+      logging: false,
+      width: element.scrollWidth,
+      height: element.scrollHeight
+    });
+    
+    const imgData = canvas.toDataURL('image/png');
+    
+    // アスペクト比を維持しつつ、コンテンツ領域に収める
+    const imgAspect = canvas.width / canvas.height;
+    const contentAspect = contentWidth / contentHeight;
+    
+    let imgWidth, imgHeight;
+    if (imgAspect > contentAspect) {
+      // 横長：幅に合わせる
+      imgWidth = contentWidth;
+      imgHeight = contentWidth / imgAspect;
+    } else {
+      // 縦長：高さに合わせる
+      imgHeight = contentHeight;
+      imgWidth = contentHeight * imgAspect;
+    }
+    
+    // 中央配置
+    const x = (pageWidth - imgWidth) / 2;
+    const y = (pageHeight - imgHeight) / 2;
+    
+    pdf.addImage(imgData, 'PNG', x, y, imgWidth, imgHeight);
+    
+    // PDFを新しいタブで開く
+    const pdfBlob = pdf.output('blob');
+    const pdfUrl = URL.createObjectURL(pdfBlob);
+    window.open(pdfUrl, '_blank');
+    
+  } catch (err) {
+    console.error(err);
+    alert('PDF生成に失敗しました: ' + err.message);
+  } finally {
+    button.disabled = false;
+    button.textContent = '印刷する';
+  }
 });
 
 // ===============================
