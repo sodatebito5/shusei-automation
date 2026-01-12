@@ -12,40 +12,6 @@
 
 ## 🔥 進行中
 
-### 配席アプリ再設計 [重要]
-> 設計書: docs/seat-maker-redesign.md
-
-#### Phase 1: 準備
-- [x] 「配席アーカイブ」シート作成
-- [x] 「自動配席用」シートの内容バックアップ
-- [x] 「自動配席用」シートの更新元確認・停止
-
-#### Phase 2: API実装
-- [x] getSeatingParticipants() 実装
-- [x] getSeatingArchive() 実装
-- [x] syncSeats() 移植・拡張（アーカイブ保存追加）
-- [x] listSeatingArchives() 実装
-- [x] doGet/doPost ルーティング追加
-- [x] clasp push & デプロイ（@59）
-
-#### Phase 3: 配席アプリ改修
-- [x] API_URL を ダッシュボードGAS に変更（@59）
-- [x] データ形式の調整（action=getSeatingParticipants）
-- [x] 座席確定時に syncSeats() 呼び出し追加
-- [x] ステージングデプロイ（https://a041c912.seat-maker2.pages.dev）
-
-#### Phase 4: 検証
-- [x] 参加者データ取得テスト（getSeatingParticipants）
-- [x] 座席確定→アーカイブ保存テスト（syncSeats）
-- [x] 受付名簿への反映テスト（受付名簿シートに座席反映）
-- [x] 過去配席の取得テスト（listSeatingArchives）
-
-#### Phase 5: 本番移行
-- [x] 配席アプリ本番デプロイ（seat-maker2.pages.dev）
-- [x] 「自動配席用」シートを非表示（手動）
-- [x] gas/seat-maker/ を deprecated マーク
-- [x] ドキュメント更新
-
 ### 式次第機能
 - [ ] プレビュー画面実装
 - [ ] 項目並び替え機能
@@ -86,27 +52,40 @@
 
 ### ダッシュボード連携
 - [x] SHUSEI-DASHBOARD-V3 に配席アプリへのリンクボタン追加
-- [ ] 出席者データ取得API確認・整備
-- [ ] 座席表反映API確認・整備
-- [ ] 連携テスト
+- [x] 出席者データ取得API確認・整備（getSeatingParticipants）
+- [x] 座席表反映API確認・整備（syncSeats）
+- [x] 連携テスト
 
 ### インフラ・共通
 - [ ] エラー通知の仕組み
 - [ ] ログ出力整備
+- [x] システム構成ドキュメント作成（docs/SYSTEM_CONFIG.md）
 - [ ] 引き継ぎドキュメント作成
 
 ---
 
 ## ✅ 完了
 
-### 2025-01-12
+### 2026-01-12
+- [x] **配席アプリ再設計 Phase 1-5 完了**
+  - getSeatingParticipants(), syncSeats(), listSeatingArchives() 実装
+  - 配席アーカイブ機能
+  - 受付名簿への座席反映
+- [x] **バグ修正**
+  - ゲストが「他会場」扱いになるバグ修正
+  - ID重複バグ修正（guest_/other_ プレフィックス追加）
+  - 座席反映時の重複エントリ防止
+  - syncSeats ヘッダー行インデックス修正
+- [x] GASプロジェクト統合（守成ダッシュボード_v3 に一本化）
+- [x] docs/SYSTEM_CONFIG.md 作成
+- [x] タイムゾーン修正（Asia/Tokyo）
 - [x] 自動配席アプリ本番デプロイ（seat-maker2.pages.dev）
 - [x] ダッシュボードに配席リンク追加
 - [x] 自動配席アプリ再設計（設計完了）
 - [x] docs/seat-maker-redesign.md 作成
 - [x] プロジェクト構造整理
 
-### 2025-01-XX（過去）
+### 2026-01-XX（過去）
 - [x] CLAUDE.md 作成
 - [x] PROGRESS.md 作成
 - [x] docs/ ディレクトリ作成

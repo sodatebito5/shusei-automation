@@ -1,7 +1,7 @@
 // main.js
 
-// ダッシュボードGAS（配席API統合版 @182）
-const API_URL = 'https://script.google.com/macros/s/AKfycbwBTcwICVAQnjnIXRcxdm2icpA6kwJNSNNRnbjY1egnIfa0cCV8Y6crMAJCW-nKSbnB9Q/exec';
+// ダッシュボードGAS（本番環境）
+const API_URL = 'https://script.google.com/macros/s/AKfycbzgVIzNjfW_UHihZS5bwrWM7xix0U4dnodZSlq7nPC8eGXGu_Fj6haCzivxiARVDPGL/exec';
 
 // ========== グローバル変数 ==========
 let participants = [];
