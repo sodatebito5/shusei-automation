@@ -639,6 +639,79 @@ function doGet(e) {
     }
   }
 
+  // ★チェックイン用API: チェックイン実行（LIFF用）
+  if (action === 'checkin') {
+    try {
+      const lineUserId = e.parameter.userId || '';
+      const result = doCheckin(lineUserId);
+      return ContentService
+        .createTextOutput(JSON.stringify(result))
+        .setMimeType(ContentService.MimeType.JSON);
+    } catch (err) {
+      return ContentService
+        .createTextOutput(JSON.stringify({ success: false, error: err.message }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+
+  // ★チェックイン用API: チェックインキャンセル（LIFF用）
+  if (action === 'cancelCheckin') {
+    try {
+      const lineUserId = e.parameter.userId || '';
+      const result = cancelCheckin(lineUserId);
+      return ContentService
+        .createTextOutput(JSON.stringify(result))
+        .setMimeType(ContentService.MimeType.JSON);
+    } catch (err) {
+      return ContentService
+        .createTextOutput(JSON.stringify({ success: false, error: err.message }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+
+  // ★チェックイン用API: 参加者情報取得（LIFF用）
+  if (action === 'getParticipantInfo') {
+    try {
+      const lineUserId = e.parameter.userId || '';
+      const result = getParticipantInfo(lineUserId);
+      return ContentService
+        .createTextOutput(JSON.stringify(result))
+        .setMimeType(ContentService.MimeType.JSON);
+    } catch (err) {
+      return ContentService
+        .createTextOutput(JSON.stringify({ success: false, error: err.message }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+
+  // ★チェックイン用API: チェックイン状況一覧取得（ダッシュボード用）
+  if (action === 'getCheckinStatus') {
+    try {
+      const result = getCheckinStatus();
+      return ContentService
+        .createTextOutput(JSON.stringify(result))
+        .setMimeType(ContentService.MimeType.JSON);
+    } catch (err) {
+      return ContentService
+        .createTextOutput(JSON.stringify({ success: false, error: err.message }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+
+  // ★チェックインデータ初期化（例会当日の朝に実行）
+  if (action === 'initCheckinData') {
+    try {
+      const result = initCheckinData();
+      return ContentService
+        .createTextOutput(JSON.stringify(result))
+        .setMimeType(ContentService.MimeType.JSON);
+    } catch (err) {
+      return ContentService
+        .createTextOutput(JSON.stringify({ success: false, error: err.message }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+
   // ★ダッシュボード用API: 式次第データ取得
   if (action === 'getShikidaiData') {
     try {
@@ -1505,6 +1578,7 @@ function aggregatePrep_(eventName) {
       const cPosition = 8;  // I列: 役職
       const cIntro    = 9;  // J列: 紹介者
       const cBusiness = 10; // K列: 営業内容
+      const cBooth    = 12; // M列: ブース
 
       rowsO.forEach(row => {
         const event = String(row[cEvent] || '').trim();
@@ -1515,6 +1589,7 @@ function aggregatePrep_(eventName) {
 
         otherVenueList.push({
           badge:      String(row[cBadge] || '').trim(),
+          booth:      String(row[cBooth] || '').trim(),
           name:       name,
           furigana:   String(row[cFurigana] || '').trim(),
           venue:      String(row[cVenue] || '').trim(),
@@ -3795,6 +3870,48 @@ function doPost(e) {
     }
   }
 
+  // ★チェックイン: フィールド更新（ダッシュボード用）
+  if (action === 'updateCheckinField') {
+    try {
+      const jsonText = (e.postData && e.postData.contents) || '{}';
+      const payload = JSON.parse(jsonText);
+      const result = updateCheckinField(
+        payload.rowIndex,
+        payload.field,
+        payload.value
+      );
+      return ContentService
+        .createTextOutput(JSON.stringify(result))
+        .setMimeType(ContentService.MimeType.JSON);
+    } catch (err) {
+      return ContentService
+        .createTextOutput(JSON.stringify({
+          success: false,
+          error: 'invalid JSON: ' + err.message
+        }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+
+  // ★チェックイン: 手動チェックイン（ダッシュボード用）
+  if (action === 'manualCheckin') {
+    try {
+      const jsonText = (e.postData && e.postData.contents) || '{}';
+      const payload = JSON.parse(jsonText);
+      const result = manualCheckin(payload.rowIndex);
+      return ContentService
+        .createTextOutput(JSON.stringify(result))
+        .setMimeType(ContentService.MimeType.JSON);
+    } catch (err) {
+      return ContentService
+        .createTextOutput(JSON.stringify({
+          success: false,
+          error: 'invalid JSON: ' + err.message
+        }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+
   // 未対応のaction
   return ContentService
     .createTextOutput(JSON.stringify({
@@ -4950,4 +5067,634 @@ function runFormSync() {
   const result = syncFormResponsesToOtherVenueMaster();
   Logger.log(JSON.stringify(result, null, 2));
   return result;
+}
+
+/** =========================================================
+ *  チェックイン機能（専用シート版）
+ *  - initCheckinData: 受付名簿から参加者をチェックインシートにコピー
+ *  - doCheckin: 参加者のチェックイン実行（LIFF用）
+ *  - getCheckinStatus: 全員のチェックイン状況取得（ダッシュボード用）
+ *  - updateCheckinField: チェックイン関連フィールド更新（ダッシュボード用）
+ *  - manualCheckin: 手動チェックイン（ダッシュボード用）
+ * ======================================================= */
+
+// チェックインシート名
+const CHECKIN_SHEET_NAME = 'チェックイン';
+
+// チェックインシートの列インデックス（0始まり）
+const CHECKIN_COL = {
+  EVENT_KEY: 0,      // A列: 例会キー
+  NAME: 1,           // B列: 氏名
+  CATEGORY: 2,       // C列: 区分
+  AFFILIATION: 3,    // D列: 所属
+  SEAT: 4,           // E列: 座席
+  CHECKIN: 5,        // F列: チェックイン
+  CHECKIN_TIME: 6,   // G列: チェックイン時刻
+  BADGE_LENT: 7,     // H列: バッジ貸出
+  BADGE_RETURNED: 8, // I列: バッジ返却
+  RECEIPT_NO: 9      // J列: 領収書番号
+};
+
+/**
+ * 受付名簿から参加者データをチェックインシートに初期化
+ * ★例会当日の朝にダッシュボードから実行
+ * ※出欠状況が「出席」の人のみをコピー
+ */
+function initCheckinData() {
+  const lock = LockService.getScriptLock();
+
+  try {
+    lock.waitLock(10000);
+
+    const ss = SpreadsheetApp.openById(ATTEND_GUEST_SHEET_ID);
+    const checkinSheet = ss.getSheetByName(CHECKIN_SHEET_NAME);
+
+    if (!checkinSheet) {
+      return { success: false, message: 'チェックインシートが見つかりません' };
+    }
+
+    const eventInfo = getCurrentEventInfo_();
+    const eventKey = eventInfo.key;
+    const eventName = eventInfo.name;
+
+    // 既存データをクリア（ヘッダー行は残す）
+    const lastRow = checkinSheet.getLastRow();
+    if (lastRow > 1) {
+      checkinSheet.getRange(2, 1, lastRow - 1, 10).clearContent();
+    }
+
+    // ========================================
+    // 0. 出欠状況から出席者を取得
+    // ========================================
+    const attendeeByUserId = {};
+    const attendeeByName = {};
+
+    const shAttend = ss.getSheetByName(ATTEND_SHEET_NAME);
+    if (shAttend) {
+      const valuesA = shAttend.getDataRange().getValues();
+      if (valuesA.length >= 4) {
+        const HEADER_ROW_INDEX = 2;
+        const headerA = valuesA[HEADER_ROW_INDEX];
+        const rowsA = valuesA.slice(HEADER_ROW_INDEX + 1);
+
+        const idxEventKey = findColumnIndex_(headerA, ['eventKey', 'イベントキー']);
+        const idxUserId = findColumnIndex_(headerA, ['userId', 'LINE_userId', 'ユーザーID']);
+        const idxDisplayName = findColumnIndex_(headerA, ['displayName', '氏名', '名前']);
+        const idxStatus = findColumnIndex_(headerA, ['status', '出欠', '出欠状況', 'ステータス']);
+
+        rowsA.forEach(row => {
+          if (idxEventKey === -1 || idxStatus === -1) return;
+
+          const key = String(row[idxEventKey] || '').trim();
+          if (key !== eventName) return;
+
+          const st = String(row[idxStatus] || '').trim();
+          if (st !== '○' && st !== '出席') return;
+
+          const userId = idxUserId !== -1 ? String(row[idxUserId] || '').trim() : '';
+          const displayName = idxDisplayName !== -1 ? String(row[idxDisplayName] || '').trim() : '';
+
+          if (userId) attendeeByUserId[userId] = true;
+          if (displayName) attendeeByName[displayName] = true;
+        });
+      }
+    }
+
+    const newRows = [];
+
+    // ========================================
+    // 1. 会員名簿マスターから出席者のみ取得
+    // ========================================
+    const memberSheet = ss.getSheetByName(MEMBER_SHEET_NAME);
+    if (memberSheet) {
+      const memberValues = memberSheet.getDataRange().getValues();
+      const idxName = 2;         // C列: 氏名
+      const idxUserId = 15;      // P列: LINE_userId
+      const idxDisplayName = 14; // O列: displayName
+
+      // 受付名簿（自動）から座席情報を取得
+      const seatMap = {};
+      const mainSheet = ss.getSheetByName(RECEPTION_MAIN_SHEET);
+      if (mainSheet) {
+        const mainValues = mainSheet.getDataRange().getValues();
+        const mainHeader = mainValues[1] || [];
+        const idxMainName = mainHeader.indexOf('氏名');
+        const idxMainSeat = mainHeader.indexOf('座席');
+
+        for (let r = 2; r < mainValues.length; r++) {
+          const name = String(mainValues[r][idxMainName] || '').trim();
+          const seat = idxMainSeat >= 0 ? String(mainValues[r][idxMainSeat] || '').trim() : '';
+          if (name) seatMap[name] = seat;
+        }
+      }
+
+      for (let i = 2; i < memberValues.length; i++) {
+        const name = String(memberValues[i][idxName] || '').trim();
+        if (!name) continue;
+
+        const userId = String(memberValues[i][idxUserId] || '').trim();
+        const displayName = String(memberValues[i][idxDisplayName] || '').trim();
+
+        // 出席者チェック
+        const isAttendee =
+          (userId && attendeeByUserId[userId]) ||
+          (displayName && attendeeByName[displayName]);
+
+        if (!isAttendee) continue;
+
+        const seat = seatMap[name] || '';
+
+        newRows.push([
+          eventKey,
+          name,
+          '会員',
+          '福岡飯塚',
+          seat,
+          '',
+          '',
+          '',
+          '',
+          ''
+        ]);
+      }
+    }
+
+    // ========================================
+    // 2. 受付名簿（他会場・ゲスト）からデータ取得
+    // ========================================
+    const otherSheet = ss.getSheetByName(RECEPTION_OTHER_SHEET);
+    if (otherSheet) {
+      const otherValues = otherSheet.getDataRange().getValues();
+      const otherHeader = otherValues[1] || [];
+      const idxName = otherHeader.indexOf('氏名');
+      const idxSeat = otherHeader.indexOf('座席');
+      const idxCategory = otherHeader.indexOf('区分');
+      const idxAffiliation = otherHeader.indexOf('所属');
+
+      for (let r = 2; r < otherValues.length; r++) {
+        const name = String(otherValues[r][idxName] || '').trim();
+        if (!name) continue;
+
+        const seat = idxSeat >= 0 ? String(otherValues[r][idxSeat] || '').trim() : '';
+        const category = idxCategory >= 0 ? String(otherValues[r][idxCategory] || '').trim() : '他会場';
+        const affiliation = idxAffiliation >= 0 ? String(otherValues[r][idxAffiliation] || '').trim() : '';
+
+        newRows.push([
+          eventKey,
+          name,
+          category || '他会場',
+          affiliation,
+          seat,
+          '',
+          '',
+          '',
+          '',
+          ''
+        ]);
+      }
+    }
+
+    // データを書き込み
+    if (newRows.length > 0) {
+      checkinSheet.getRange(2, 1, newRows.length, 10).setValues(newRows);
+    }
+
+    Logger.log('チェックインデータ初期化完了: ' + newRows.length + '件');
+    return { success: true, count: newRows.length, eventKey: eventKey };
+
+  } catch (e) {
+    Logger.log('initCheckinData error: ' + e.message);
+    return { success: false, message: e.message };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/**
+ * チェックイン実行（参加者向けLIFF用）
+ * @param {string} lineUserId - LINE UserID
+ * @returns {Object} チェックイン結果
+ */
+function doCheckin(lineUserId) {
+  const lock = LockService.getScriptLock();
+
+  try {
+    lock.waitLock(5000);
+
+    if (!lineUserId) {
+      return { success: false, message: 'LINE UserIDが必要です' };
+    }
+
+    const ss = SpreadsheetApp.openById(ATTEND_GUEST_SHEET_ID);
+    const memberSs = SpreadsheetApp.openById(ATTEND_GUEST_SHEET_ID);
+    const eventInfo = getCurrentEventInfo_();
+    const eventKey = eventInfo.key;
+
+    // 1. 会員名簿からLINE UserIDで会員を検索
+    const memberSheet = memberSs.getSheetByName(MEMBER_SHEET_NAME);
+    if (!memberSheet) {
+      return { success: false, message: '会員名簿が見つかりません' };
+    }
+
+    const memberValues = memberSheet.getDataRange().getValues();
+    let memberInfo = null;
+    const idxUserId = 15;  // P列: LINE_userId
+    const idxName = 2;     // C列: 氏名
+    const idxCompany = 5;  // F列: 会社名
+
+    for (let i = 2; i < memberValues.length; i++) {
+      const userId = String(memberValues[i][idxUserId] || '').trim();
+      if (userId === lineUserId) {
+        memberInfo = {
+          name: String(memberValues[i][idxName] || '').trim(),
+          company: String(memberValues[i][idxCompany] || '').trim(),
+          category: '会員'
+        };
+        break;
+      }
+    }
+
+    if (!memberInfo) {
+      return {
+        success: false,
+        message: '会員情報が見つかりません。受付係にお声がけください。',
+        isUnknown: true
+      };
+    }
+
+    // 2. チェックインシートで該当者を検索・更新
+    const checkinSheet = ss.getSheetByName(CHECKIN_SHEET_NAME);
+    if (!checkinSheet) {
+      return { success: false, message: 'チェックインシートが見つかりません。initCheckinData()を実行してください。' };
+    }
+
+    const checkinValues = checkinSheet.getDataRange().getValues();
+    let checkinSuccess = false;
+    let seatInfo = '';
+
+    for (let r = 1; r < checkinValues.length; r++) {
+      const rowEventKey = String(checkinValues[r][CHECKIN_COL.EVENT_KEY] || '').trim();
+      const rowName = String(checkinValues[r][CHECKIN_COL.NAME] || '').trim();
+
+      if (rowEventKey === eventKey && rowName === memberInfo.name) {
+        // 既にチェックイン済みかチェック
+        const currentCheckin = String(checkinValues[r][CHECKIN_COL.CHECKIN] || '').trim();
+        seatInfo = String(checkinValues[r][CHECKIN_COL.SEAT] || '').trim();
+
+        if (currentCheckin === '○') {
+          return {
+            success: true,
+            alreadyCheckedIn: true,
+            message: '既にチェックイン済みです',
+            participant: {
+              name: memberInfo.name,
+              company: memberInfo.company,
+              category: memberInfo.category,
+              seat: seatInfo
+            }
+          };
+        }
+
+        // チェックイン記録
+        const now = new Date();
+        checkinSheet.getRange(r + 1, CHECKIN_COL.CHECKIN + 1).setValue('○');
+        checkinSheet.getRange(r + 1, CHECKIN_COL.CHECKIN_TIME + 1).setValue(now);
+        checkinSuccess = true;
+        break;
+      }
+    }
+
+    if (checkinSuccess) {
+      return {
+        success: true,
+        message: 'チェックイン完了',
+        participant: {
+          name: memberInfo.name,
+          company: memberInfo.company,
+          category: memberInfo.category,
+          seat: seatInfo
+        }
+      };
+    } else {
+      return {
+        success: false,
+        message: '参加者名簿に名前が見つかりません。initCheckinData()を実行してください。',
+        memberFound: true
+      };
+    }
+
+  } catch (e) {
+    Logger.log('doCheckin error: ' + e.message);
+    return { success: false, message: 'エラーが発生しました: ' + e.message };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/**
+ * チェックインキャンセル（LIFF用）
+ * @param {string} lineUserId - LINE UserID
+ * @returns {Object} キャンセル結果
+ */
+function cancelCheckin(lineUserId) {
+  const lock = LockService.getScriptLock();
+
+  try {
+    lock.waitLock(5000);
+
+    if (!lineUserId) {
+      return { success: false, message: 'LINE UserIDが必要です' };
+    }
+
+    const ss = SpreadsheetApp.openById(ATTEND_GUEST_SHEET_ID);
+    const memberSs = SpreadsheetApp.openById(ATTEND_GUEST_SHEET_ID);
+    const eventInfo = getCurrentEventInfo_();
+    const eventKey = eventInfo.key;
+
+    // 1. 会員名簿からLINE UserIDで会員を検索
+    const memberSheet = memberSs.getSheetByName(MEMBER_SHEET_NAME);
+    if (!memberSheet) {
+      return { success: false, message: '会員名簿が見つかりません' };
+    }
+
+    const memberValues = memberSheet.getDataRange().getValues();
+    let memberName = null;
+    const idxUserId = 15;  // P列: LINE_userId
+    const idxName = 2;     // C列: 氏名
+
+    for (let i = 2; i < memberValues.length; i++) {
+      const userId = String(memberValues[i][idxUserId] || '').trim();
+      if (userId === lineUserId) {
+        memberName = String(memberValues[i][idxName] || '').trim();
+        break;
+      }
+    }
+
+    if (!memberName) {
+      return { success: false, message: '会員情報が見つかりません' };
+    }
+
+    // 2. チェックインシートで該当者を検索・更新
+    const checkinSheet = ss.getSheetByName(CHECKIN_SHEET_NAME);
+    if (!checkinSheet) {
+      return { success: false, message: 'チェックインシートが見つかりません' };
+    }
+
+    const checkinValues = checkinSheet.getDataRange().getValues();
+
+    for (let r = 1; r < checkinValues.length; r++) {
+      const rowEventKey = String(checkinValues[r][CHECKIN_COL.EVENT_KEY] || '').trim();
+      const rowName = String(checkinValues[r][CHECKIN_COL.NAME] || '').trim();
+
+      if (rowEventKey === eventKey && rowName === memberName) {
+        // チェックインをキャンセル（クリア）
+        checkinSheet.getRange(r + 1, CHECKIN_COL.CHECKIN + 1).clearContent();
+        checkinSheet.getRange(r + 1, CHECKIN_COL.CHECKIN_TIME + 1).clearContent();
+
+        return {
+          success: true,
+          message: 'チェックインをキャンセルしました',
+          name: memberName
+        };
+      }
+    }
+
+    return { success: false, message: '該当するチェックイン記録が見つかりません' };
+
+  } catch (e) {
+    Logger.log('cancelCheckin error: ' + e.message);
+    return { success: false, message: 'エラーが発生しました: ' + e.message };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/**
+ * 参加者情報取得（LIFF用）
+ * @param {string} lineUserId - LINE UserID
+ * @returns {Object} 参加者情報
+ */
+function getParticipantInfo(lineUserId) {
+  if (!lineUserId) {
+    return { success: false, message: 'LINE UserIDが必要です' };
+  }
+
+  const ss = SpreadsheetApp.openById(ATTEND_GUEST_SHEET_ID);
+  const memberSs = SpreadsheetApp.openById(ATTEND_GUEST_SHEET_ID);
+  const eventInfo = getCurrentEventInfo_();
+  const eventKey = eventInfo.key;
+
+  // 会員名簿から検索
+  const memberSheet = memberSs.getSheetByName(MEMBER_SHEET_NAME);
+  if (!memberSheet) {
+    return { success: false, message: '会員名簿が見つかりません' };
+  }
+
+  const memberValues = memberSheet.getDataRange().getValues();
+  const idxUserId = 15;
+  const idxName = 2;
+  const idxCompany = 5;
+
+  for (let i = 2; i < memberValues.length; i++) {
+    const userId = String(memberValues[i][idxUserId] || '').trim();
+    if (userId === lineUserId) {
+      const name = String(memberValues[i][idxName] || '').trim();
+
+      // チェックインシートから状態と座席を取得
+      const checkinSheet = ss.getSheetByName(CHECKIN_SHEET_NAME);
+      let checkedIn = false;
+      let seat = '';
+
+      if (checkinSheet) {
+        const checkinValues = checkinSheet.getDataRange().getValues();
+        for (let r = 1; r < checkinValues.length; r++) {
+          const rowEventKey = String(checkinValues[r][CHECKIN_COL.EVENT_KEY] || '').trim();
+          const rowName = String(checkinValues[r][CHECKIN_COL.NAME] || '').trim();
+
+          if (rowEventKey === eventKey && rowName === name) {
+            checkedIn = String(checkinValues[r][CHECKIN_COL.CHECKIN] || '').trim() === '○';
+            seat = String(checkinValues[r][CHECKIN_COL.SEAT] || '').trim();
+            break;
+          }
+        }
+      }
+
+      return {
+        success: true,
+        participant: {
+          name: name,
+          company: String(memberValues[i][idxCompany] || '').trim(),
+          category: '会員',
+          seat: seat,
+          checkedIn: checkedIn
+        }
+      };
+    }
+  }
+
+  return { success: false, message: '会員情報が見つかりません' };
+}
+
+/**
+ * チェックイン状況を一括取得（ダッシュボード用）
+ * @returns {Object} チェックイン状況
+ */
+function getCheckinStatus() {
+  try {
+    const ss = SpreadsheetApp.openById(ATTEND_GUEST_SHEET_ID);
+    const eventInfo = getCurrentEventInfo_();
+    const eventKey = eventInfo.key;
+    const eventName = eventInfo.name;
+
+    const result = {
+      eventName: eventName,
+      eventKey: eventKey,
+      members: [],      // 福岡飯塚会員
+      otherVenue: [],   // 他会場
+      guests: [],       // ゲスト
+      summary: {
+        total: 0,
+        checkedIn: 0,
+        badgeLent: 0,
+        badgeNotReturned: 0
+      }
+    };
+
+    const checkinSheet = ss.getSheetByName(CHECKIN_SHEET_NAME);
+    if (!checkinSheet) {
+      return { success: false, message: 'チェックインシートが見つかりません。initCheckinData()を実行してください。', needsInit: true };
+    }
+
+    const values = checkinSheet.getDataRange().getValues();
+
+    for (let r = 1; r < values.length; r++) {
+      const rowEventKey = String(values[r][CHECKIN_COL.EVENT_KEY] || '').trim();
+      if (rowEventKey !== eventKey) continue;
+
+      const name = String(values[r][CHECKIN_COL.NAME] || '').trim();
+      if (!name) continue;
+
+      const category = String(values[r][CHECKIN_COL.CATEGORY] || '').trim();
+      const checkedIn = String(values[r][CHECKIN_COL.CHECKIN] || '').trim() === '○';
+      const badgeLent = String(values[r][CHECKIN_COL.BADGE_LENT] || '').trim() === '○';
+      const badgeReturned = String(values[r][CHECKIN_COL.BADGE_RETURNED] || '').trim() === '○';
+
+      const person = {
+        rowIndex: r + 1,  // シートの実際の行番号
+        name: name,
+        category: category,
+        affiliation: String(values[r][CHECKIN_COL.AFFILIATION] || '').trim(),
+        seat: String(values[r][CHECKIN_COL.SEAT] || '').trim(),
+        checkedIn: checkedIn,
+        checkinTime: values[r][CHECKIN_COL.CHECKIN_TIME] ? formatTime_(values[r][CHECKIN_COL.CHECKIN_TIME]) : '',
+        badgeLent: category === 'ゲスト' ? false : badgeLent,
+        badgeReturned: category === 'ゲスト' ? false : badgeReturned,
+        receiptNo: String(values[r][CHECKIN_COL.RECEIPT_NO] || '').trim()
+      };
+
+      // 区分に応じて振り分け
+      if (category === '会員') {
+        result.members.push(person);
+        if (badgeLent) result.summary.badgeLent++;
+        if (badgeLent && !badgeReturned) result.summary.badgeNotReturned++;
+      } else if (category === 'ゲスト') {
+        result.guests.push(person);
+      } else {
+        result.otherVenue.push(person);
+        if (badgeLent) result.summary.badgeLent++;
+        if (badgeLent && !badgeReturned) result.summary.badgeNotReturned++;
+      }
+
+      result.summary.total++;
+      if (checkedIn) result.summary.checkedIn++;
+    }
+
+    return { success: true, data: result };
+
+  } catch (e) {
+    Logger.log('getCheckinStatus error: ' + e.message);
+    return { success: false, message: e.message };
+  }
+}
+
+/**
+ * 時刻フォーマット
+ */
+function formatTime_(date) {
+  if (!date) return '';
+  if (date instanceof Date) {
+    return Utilities.formatDate(date, 'Asia/Tokyo', 'HH:mm');
+  }
+  return String(date);
+}
+
+/**
+ * チェックイン関連フィールドを更新（ダッシュボード用）
+ * @param {number} rowIndex - シートの行番号
+ * @param {string} field - 更新するフィールド
+ * @param {any} value - 設定する値
+ * @returns {Object} 結果
+ */
+function updateCheckinField(rowIndex, field, value) {
+  const lock = LockService.getScriptLock();
+
+  try {
+    lock.waitLock(5000);
+
+    const ss = SpreadsheetApp.openById(ATTEND_GUEST_SHEET_ID);
+    const sheet = ss.getSheetByName(CHECKIN_SHEET_NAME);
+
+    if (!sheet) {
+      return { success: false, message: 'チェックインシートが見つかりません' };
+    }
+
+    // フィールド名から列インデックスを取得
+    let colIndex = -1;
+    switch (field) {
+      case 'checkin':
+        colIndex = CHECKIN_COL.CHECKIN;
+        break;
+      case 'badgeLent':
+        colIndex = CHECKIN_COL.BADGE_LENT;
+        break;
+      case 'badgeReturned':
+        colIndex = CHECKIN_COL.BADGE_RETURNED;
+        break;
+      case 'receiptNo':
+        colIndex = CHECKIN_COL.RECEIPT_NO;
+        break;
+      default:
+        return { success: false, message: '不明なフィールド: ' + field };
+    }
+
+    // 値を設定
+    let setValue = value;
+    if (field === 'checkin' || field === 'badgeLent' || field === 'badgeReturned') {
+      setValue = value ? '○' : '';
+    }
+
+    sheet.getRange(rowIndex, colIndex + 1).setValue(setValue);
+
+    // チェックインの場合は時刻も記録
+    if (field === 'checkin' && value) {
+      sheet.getRange(rowIndex, CHECKIN_COL.CHECKIN_TIME + 1).setValue(new Date());
+    }
+
+    return { success: true };
+
+  } catch (e) {
+    Logger.log('updateCheckinField error: ' + e.message);
+    return { success: false, message: e.message };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/**
+ * 手動チェックイン（ダッシュボード用）
+ * @param {number} rowIndex - シートの行番号
+ * @returns {Object} 結果
+ */
+function manualCheckin(rowIndex) {
+  return updateCheckinField(rowIndex, 'checkin', true);
 }

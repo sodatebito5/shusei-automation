@@ -1,0 +1,705 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>チェックイン | 守成クラブ福岡飯塚</title>
+
+  <!-- Preconnect for faster resource loading -->
+  <link rel="preconnect" href="https://static.line-scdn.net">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;600;700&display=swap" rel="stylesheet">
+
+  <!-- LIFF SDK (同期読み込みでiOS対応) -->
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+
+  <style>
+    :root {
+      --color-primary: #f59e0b;
+      --color-primary-light: #fbbf24;
+      --color-primary-dark: #d97706;
+      --color-success: #10b981;
+      --color-success-light: #34d399;
+      --color-cancel: #a855f7;
+      --color-cancel-light: #c084fc;
+      --color-surface: rgba(255, 255, 255, 0.92);
+      --color-surface-solid: #ffffff;
+      --color-text: #1f2937;
+      --color-text-secondary: #6b7280;
+      --color-text-muted: #9ca3af;
+      --gradient-bg: linear-gradient(145deg, #fef3c7 0%, #fde68a 30%, #fcd34d 70%, #fbbf24 100%);
+      --gradient-success-bg: linear-gradient(145deg, #d1fae5 0%, #a7f3d0 30%, #6ee7b7 70%, #34d399 100%);
+      --gradient-cancel-bg: linear-gradient(145deg, #f3e8ff 0%, #e9d5ff 30%, #d8b4fe 70%, #c084fc 100%);
+      --shadow-card: 0 8px 32px rgba(245, 158, 11, 0.15), 0 2px 8px rgba(0, 0, 0, 0.04);
+      --shadow-btn: 0 4px 16px rgba(245, 158, 11, 0.35);
+      --radius-lg: 24px;
+      --radius-md: 16px;
+      --radius-sm: 12px;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      font-family: 'Noto Sans JP', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--gradient-bg);
+      min-height: 100vh;
+      min-height: 100dvh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+      position: relative;
+      overflow-x: hidden;
+      transition: background 0.5s ease;
+    }
+
+    body.success {
+      background: var(--gradient-success-bg);
+    }
+
+    body.cancelled {
+      background: var(--gradient-cancel-bg);
+    }
+
+    /* 背景装飾 */
+    body::before {
+      content: '';
+      position: fixed;
+      top: -50%;
+      right: -30%;
+      width: 80%;
+      height: 80%;
+      background: radial-gradient(circle, rgba(255,255,255,0.5) 0%, transparent 70%);
+      pointer-events: none;
+      animation: floatBg 20s ease-in-out infinite;
+    }
+
+    @keyframes floatBg {
+      0%, 100% { transform: translate(0, 0) scale(1); }
+      50% { transform: translate(20px, 30px) scale(1.05); }
+    }
+
+    /* カード */
+    .container {
+      background: var(--color-surface);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      padding: 36px 28px 32px;
+      border-radius: var(--radius-lg);
+      width: 100%;
+      max-width: 380px;
+      box-shadow: var(--shadow-card);
+      border: 1px solid rgba(255, 255, 255, 0.6);
+      position: relative;
+      z-index: 1;
+      animation: slideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+      transition: background 0.4s ease, border-color 0.4s ease;
+    }
+
+    .container.cancelled {
+      background: linear-gradient(135deg, #faf5ff 0%, #f3e8ff 50%, #ede9fe 100%);
+      border-color: rgba(168, 85, 247, 0.3);
+    }
+
+    @keyframes slideUp {
+      from {
+        opacity: 0;
+        transform: translateY(30px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    /* ヘッダー */
+    .header-section {
+      text-align: center;
+      margin-bottom: 24px;
+    }
+
+    .logo-icon {
+      font-size: 48px;
+      margin-bottom: 12px;
+      animation: bounce 0.6s ease-out;
+    }
+
+    @keyframes bounce {
+      0% { transform: scale(0.5); opacity: 0; }
+      60% { transform: scale(1.1); }
+      100% { transform: scale(1); opacity: 1; }
+    }
+
+    .title {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--color-text);
+      margin-bottom: 4px;
+    }
+
+    .subtitle {
+      font-size: 13px;
+      color: var(--color-text-secondary);
+    }
+
+    /* ローディング */
+    .loading-section {
+      text-align: center;
+      padding: 40px 0;
+    }
+
+    .spinner {
+      width: 48px;
+      height: 48px;
+      border: 4px solid rgba(245, 158, 11, 0.2);
+      border-top-color: var(--color-primary);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 16px;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .loading-text {
+      font-size: 14px;
+      color: var(--color-text-secondary);
+    }
+
+    /* チェックイン完了 */
+    .success-section {
+      text-align: center;
+      display: none;
+    }
+
+    .success-section.show {
+      display: block;
+    }
+
+    .success-icon {
+      font-size: 64px;
+      margin-bottom: 16px;
+      animation: successPop 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    @keyframes successPop {
+      0% { transform: scale(0); }
+      50% { transform: scale(1.2); }
+      100% { transform: scale(1); }
+    }
+
+    .success-title {
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--color-success);
+      margin-bottom: 8px;
+      transition: color 0.4s ease;
+    }
+
+    .success-title.cancelled {
+      color: var(--color-cancel);
+    }
+
+    .success-message {
+      font-size: 14px;
+      color: var(--color-text-secondary);
+      margin-bottom: 24px;
+    }
+
+    /* 参加者情報カード */
+    .participant-card {
+      background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+      border-radius: var(--radius-md);
+      padding: 20px;
+      margin-bottom: 24px;
+      border: 1px solid rgba(16, 185, 129, 0.2);
+      transition: background 0.4s ease, border-color 0.4s ease;
+    }
+
+    .participant-card.cancelled {
+      background: linear-gradient(135deg, #faf5ff 0%, #f3e8ff 100%);
+      border-color: rgba(168, 85, 247, 0.3);
+    }
+
+    .participant-name {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--color-text);
+      margin-bottom: 4px;
+    }
+
+    .participant-company {
+      font-size: 14px;
+      color: var(--color-text-secondary);
+      margin-bottom: 12px;
+    }
+
+    .participant-info {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .info-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 6px 12px;
+      background: white;
+      border-radius: 50px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--color-text);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+    }
+
+    .info-badge.seat {
+      background: linear-gradient(135deg, #3b82f6 0%, #60a5fa 100%);
+      color: white;
+    }
+
+    .info-badge.cancel-badge {
+      background: linear-gradient(135deg, #a855f7 0%, #c084fc 100%);
+      color: white;
+    }
+
+    /* エラー表示 */
+    .error-section {
+      text-align: center;
+      display: none;
+    }
+
+    .error-section.show {
+      display: block;
+    }
+
+    .error-icon {
+      font-size: 48px;
+      margin-bottom: 16px;
+    }
+
+    .error-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: #ef4444;
+      margin-bottom: 8px;
+    }
+
+    .error-message {
+      font-size: 14px;
+      color: var(--color-text-secondary);
+      margin-bottom: 24px;
+      white-space: pre-line;
+    }
+
+    /* ボタン */
+    .btn-row {
+      display: flex;
+      gap: 12px;
+      margin-top: 16px;
+    }
+
+    .btn {
+      flex: 1;
+      padding: 14px 20px;
+      border-radius: var(--radius-sm);
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      transition: all 0.2s ease;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--color-success) 0%, var(--color-success-light) 100%);
+      color: white;
+      box-shadow: 0 4px 16px rgba(16, 185, 129, 0.35);
+    }
+
+    .btn-primary:active {
+      transform: scale(0.98);
+    }
+
+    .btn-secondary {
+      background: #f3f4f6;
+      color: var(--color-text-secondary);
+    }
+
+    .btn-secondary:active {
+      background: #e5e7eb;
+    }
+
+    .btn-cancel {
+      background: linear-gradient(135deg, var(--color-cancel) 0%, var(--color-cancel-light) 100%);
+      color: white;
+      box-shadow: 0 4px 16px rgba(168, 85, 247, 0.35);
+    }
+
+    .btn-cancel:active {
+      transform: scale(0.98);
+    }
+
+    /* 既にチェックイン済み */
+    .already-section {
+      text-align: center;
+      display: none;
+    }
+
+    .already-section.show {
+      display: block;
+    }
+
+    .already-icon {
+      font-size: 48px;
+      margin-bottom: 16px;
+    }
+
+    .already-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--color-primary);
+      margin-bottom: 8px;
+      transition: color 0.4s ease;
+    }
+
+    .already-title.cancelled {
+      color: var(--color-cancel);
+    }
+
+    /* 非表示 */
+    .hidden {
+      display: none !important;
+    }
+  </style>
+</head>
+<body>
+  <div class="container" id="mainContainer">
+    <div class="header-section">
+      <div class="logo-icon">📋</div>
+      <h1 class="title">守成クラブ福岡飯塚</h1>
+      <p class="subtitle">例会チェックイン</p>
+    </div>
+
+    <!-- ローディング -->
+    <div id="loadingSection" class="loading-section">
+      <div class="spinner"></div>
+      <p class="loading-text">チェックイン処理中...</p>
+    </div>
+
+    <!-- チェックイン完了 -->
+    <div id="successSection" class="success-section">
+      <div class="success-icon" id="successIcon">🎉</div>
+      <h2 class="success-title" id="successTitle">チェックイン完了！</h2>
+      <p class="success-message" id="successMessage">ようこそ、例会へ！</p>
+
+      <div class="participant-card" id="successCard">
+        <div id="participantName" class="participant-name">-</div>
+        <div id="participantCompany" class="participant-company">-</div>
+        <div class="participant-info" id="successBadges">
+          <span class="info-badge">
+            <span>👔</span>
+            <span id="participantCategory">会員</span>
+          </span>
+          <span id="participantSeat" class="info-badge seat hidden">
+            <span>🪑</span>
+            <span id="seatLabel">-</span>
+          </span>
+        </div>
+      </div>
+
+      <div class="btn-row" id="successButtons">
+        <button class="btn btn-secondary" onclick="closeLiff()">閉じる</button>
+        <button class="btn btn-cancel" id="cancelBtn" onclick="cancelCheckin()">キャンセル</button>
+      </div>
+    </div>
+
+    <!-- 既にチェックイン済み -->
+    <div id="alreadySection" class="already-section">
+      <div class="already-icon" id="alreadyIcon">✅</div>
+      <h2 class="already-title" id="alreadyTitle">既にチェックイン済みです</h2>
+      <p class="success-message" id="alreadyMessage">本日もよろしくお願いします！</p>
+
+      <div class="participant-card" id="alreadyCard">
+        <div id="alreadyName" class="participant-name">-</div>
+        <div id="alreadyCompany" class="participant-company">-</div>
+        <div class="participant-info" id="alreadyBadges">
+          <span class="info-badge">
+            <span>👔</span>
+            <span id="alreadyCategory">会員</span>
+          </span>
+          <span id="alreadySeat" class="info-badge seat hidden">
+            <span>🪑</span>
+            <span id="alreadySeatLabel">-</span>
+          </span>
+        </div>
+      </div>
+
+      <div class="btn-row" id="alreadyButtons">
+        <button class="btn btn-secondary" onclick="closeLiff()">閉じる</button>
+        <button class="btn btn-cancel" id="alreadyCancelBtn" onclick="cancelCheckin()">キャンセル</button>
+      </div>
+    </div>
+
+    <!-- エラー -->
+    <div id="errorSection" class="error-section">
+      <div class="error-icon">😥</div>
+      <h2 class="error-title">チェックインできませんでした</h2>
+      <p id="errorMessage" class="error-message">-</p>
+
+      <div class="btn-row">
+        <button class="btn btn-secondary" onclick="closeLiff()">閉じる</button>
+        <button class="btn btn-primary" onclick="retryCheckin()">再試行</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ===========================================
+    // 設定
+    // ===========================================
+
+    // LIFF ID（LINE Developers Consoleで発行）
+    const LIFF_ID = '2009007608-Gp3PtFdJ';
+
+    // GAS API URL（ダッシュボードのデプロイURL）
+    const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbzgVIzNjfW_UHihZS5bwrWM7xix0U4dnodZSlq7nPC8eGXGu_Fj6haCzivxiARVDPGL/exec';
+
+    // ===========================================
+    // 初期化
+    // ===========================================
+
+    let lineUserId = null;
+    let currentParticipant = null;
+    let isCancelled = false;
+
+    document.addEventListener('DOMContentLoaded', initApp);
+
+    async function initApp() {
+      try {
+        // LIFF初期化
+        await liff.init({ liffId: LIFF_ID });
+        console.log('LIFF initialized, isInClient:', liff.isInClient());
+
+        // ログインしていなければログイン画面へ
+        if (!liff.isLoggedIn()) {
+          console.log('Not logged in, redirecting to login');
+          liff.login();
+          return;
+        }
+
+        // プロフィール取得
+        try {
+          const profile = await liff.getProfile();
+          lineUserId = profile.userId;
+          console.log('LINE User ID:', lineUserId);
+        } catch (profileError) {
+          console.error('Profile error:', profileError);
+          // IDトークンから取得を試みる
+          const idToken = liff.getDecodedIDToken();
+          if (idToken && idToken.sub) {
+            lineUserId = idToken.sub;
+            console.log('LINE User ID from token:', lineUserId);
+          } else {
+            throw new Error('プロフィール情報を取得できませんでした');
+          }
+        }
+
+        // チェックイン実行
+        await doCheckin();
+
+      } catch (error) {
+        console.error('LIFF init error:', error);
+        showError('LIFFの初期化に失敗しました。\n' + error.message);
+      }
+    }
+
+    // ===========================================
+    // チェックイン処理
+    // ===========================================
+
+    async function doCheckin() {
+      if (!lineUserId) {
+        showError('LINE IDを取得できませんでした');
+        return;
+      }
+
+      try {
+        const url = `${GAS_API_URL}?action=checkin&userId=${encodeURIComponent(lineUserId)}`;
+
+        // iOS Safari対応: redirect followを明示
+        const response = await fetch(url, {
+          method: 'GET',
+          redirect: 'follow',
+          credentials: 'omit'
+        });
+
+        const result = await response.json();
+        console.log('Checkin result:', result);
+
+        if (result.success) {
+          currentParticipant = result.participant;
+          if (result.alreadyCheckedIn) {
+            showAlreadyCheckedIn(result.participant);
+          } else {
+            showSuccess(result.participant);
+          }
+        } else {
+          showError(result.message || 'チェックインに失敗しました');
+        }
+
+      } catch (error) {
+        console.error('Checkin error:', error);
+        showError('通信エラーが発生しました。\n電波状況をご確認ください。\n\n' + error.message);
+      }
+    }
+
+    // ===========================================
+    // キャンセル処理
+    // ===========================================
+
+    async function cancelCheckin() {
+      if (isCancelled) return;
+
+      try {
+        // APIでチェックインをキャンセル
+        const url = `${GAS_API_URL}?action=cancelCheckin&userId=${encodeURIComponent(lineUserId)}`;
+        const response = await fetch(url, {
+          method: 'GET',
+          redirect: 'follow',
+          credentials: 'omit'
+        });
+        const result = await response.json();
+        console.log('Cancel result:', result);
+
+      } catch (error) {
+        console.error('Cancel API error:', error);
+        // APIエラーでもUIは変更する
+      }
+
+      // UIをキャンセル状態に変更
+      isCancelled = true;
+      document.body.classList.remove('success');
+      document.body.classList.add('cancelled');
+      document.getElementById('mainContainer').classList.add('cancelled');
+
+      // success-sectionの場合
+      const successSection = document.getElementById('successSection');
+      if (successSection.classList.contains('show')) {
+        document.getElementById('successIcon').textContent = '🚫';
+        document.getElementById('successTitle').textContent = 'キャンセルしました';
+        document.getElementById('successTitle').classList.add('cancelled');
+        document.getElementById('successMessage').textContent = 'チェックインを取り消しました';
+        document.getElementById('successCard').classList.add('cancelled');
+
+        // キャンセル済みバッジを追加
+        const badges = document.getElementById('successBadges');
+        const cancelBadge = document.createElement('span');
+        cancelBadge.className = 'info-badge cancel-badge';
+        cancelBadge.innerHTML = '<span>🚫</span><span>キャンセル</span>';
+        badges.appendChild(cancelBadge);
+
+        // ボタンを変更
+        document.getElementById('successButtons').innerHTML =
+          '<button class="btn btn-secondary" onclick="closeLiff()" style="flex:1">閉じる</button>';
+      }
+
+      // already-sectionの場合
+      const alreadySection = document.getElementById('alreadySection');
+      if (alreadySection.classList.contains('show')) {
+        document.getElementById('alreadyIcon').textContent = '🚫';
+        document.getElementById('alreadyTitle').textContent = 'キャンセルしました';
+        document.getElementById('alreadyTitle').classList.add('cancelled');
+        document.getElementById('alreadyMessage').textContent = 'チェックインを取り消しました';
+        document.getElementById('alreadyCard').classList.add('cancelled');
+
+        // キャンセル済みバッジを追加
+        const badges = document.getElementById('alreadyBadges');
+        const cancelBadge = document.createElement('span');
+        cancelBadge.className = 'info-badge cancel-badge';
+        cancelBadge.innerHTML = '<span>🚫</span><span>キャンセル</span>';
+        badges.appendChild(cancelBadge);
+
+        // ボタンを変更
+        document.getElementById('alreadyButtons').innerHTML =
+          '<button class="btn btn-secondary" onclick="closeLiff()" style="flex:1">閉じる</button>';
+      }
+    }
+
+    // ===========================================
+    // 画面表示
+    // ===========================================
+
+    function showSuccess(participant) {
+      document.getElementById('loadingSection').classList.add('hidden');
+      document.getElementById('errorSection').classList.remove('show');
+      document.getElementById('alreadySection').classList.remove('show');
+      document.getElementById('successSection').classList.add('show');
+      document.body.classList.add('success');
+
+      // 参加者情報を表示
+      document.getElementById('participantName').textContent = participant.name || '-';
+      document.getElementById('participantCompany').textContent = participant.company || '-';
+      document.getElementById('participantCategory').textContent = participant.category || '会員';
+
+      if (participant.seat) {
+        document.getElementById('participantSeat').classList.remove('hidden');
+        document.getElementById('seatLabel').textContent = participant.seat + '卓';
+      }
+    }
+
+    function showAlreadyCheckedIn(participant) {
+      document.getElementById('loadingSection').classList.add('hidden');
+      document.getElementById('errorSection').classList.remove('show');
+      document.getElementById('successSection').classList.remove('show');
+      document.getElementById('alreadySection').classList.add('show');
+      document.body.classList.add('success');
+
+      // 参加者情報を表示
+      document.getElementById('alreadyName').textContent = participant.name || '-';
+      document.getElementById('alreadyCompany').textContent = participant.company || '-';
+      document.getElementById('alreadyCategory').textContent = participant.category || '会員';
+
+      if (participant.seat) {
+        document.getElementById('alreadySeat').classList.remove('hidden');
+        document.getElementById('alreadySeatLabel').textContent = participant.seat + '卓';
+      }
+    }
+
+    function showError(message) {
+      document.getElementById('loadingSection').classList.add('hidden');
+      document.getElementById('successSection').classList.remove('show');
+      document.getElementById('alreadySection').classList.remove('show');
+      document.getElementById('errorSection').classList.add('show');
+
+      document.getElementById('errorMessage').textContent = message;
+    }
+
+    // ===========================================
+    // ユーザーアクション
+    // ===========================================
+
+    function retryCheckin() {
+      document.getElementById('errorSection').classList.remove('show');
+      document.getElementById('loadingSection').classList.remove('hidden');
+      doCheckin();
+    }
+
+    function closeLiff() {
+      if (liff.isInClient()) {
+        liff.closeWindow();
+      } else {
+        window.close();
+      }
+    }
+  </script>
+</body>
+</html>
