@@ -120,12 +120,15 @@ npm run deploy    # 本番デプロイ
 
 ### 自動配席アプリ（Cloudflare Pages）
 
+GitHub連携済み: `sodatebito5/shusei-seat-manager` → 自動デプロイ
+
 ```bash
+# 手動デプロイ（必要な場合）
 cd web/seat-maker
-npx wrangler pages deploy . --project-name=seat-maker2
+npx wrangler pages deploy . --project-name=shusei-seat-manager
 ```
 
-本番URL: https://seat-maker2.pages.dev/
+本番URL: https://shusei-seat-manager.pages.dev/
 
 ---
 
