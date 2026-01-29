@@ -568,6 +568,119 @@ function doGet(e) {
       .setMimeType(ContentService.MimeType.JSON);
   }
 
+  // ★ダッシュボード用API: ダッシュボードデータ取得（高速版）
+  if (action === 'getDashboardDataFast') {
+    try {
+      const result = getDashboardDataFast();
+      return ContentService
+        .createTextOutput(JSON.stringify({ success: true, data: result }))
+        .setMimeType(ContentService.MimeType.JSON);
+    } catch (err) {
+      return ContentService
+        .createTextOutput(JSON.stringify({ success: false, error: err.message }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+
+  // ★ダッシュボード用API: イベント当日データ取得
+  if (action === 'getEventDayData') {
+    try {
+      const result = getEventDayData();
+      return ContentService
+        .createTextOutput(JSON.stringify({ success: true, data: result }))
+        .setMimeType(ContentService.MimeType.JSON);
+    } catch (err) {
+      return ContentService
+        .createTextOutput(JSON.stringify({ success: false, error: err.message }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+
+  // ★ダッシュボード用API: イベントキー一覧取得
+  if (action === 'getEventKeyList') {
+    try {
+      const result = getEventKeyList();
+      return ContentService
+        .createTextOutput(JSON.stringify({ success: true, data: result }))
+        .setMimeType(ContentService.MimeType.JSON);
+    } catch (err) {
+      return ContentService
+        .createTextOutput(JSON.stringify({ success: false, error: err.message }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+
+  // ★ダッシュボード用API: 参加者履歴取得
+  if (action === 'getParticipantHistory') {
+    try {
+      const eventKey = e.parameter.eventKey || '';
+      const result = getParticipantHistory(eventKey);
+      return ContentService
+        .createTextOutput(JSON.stringify({ success: true, data: result }))
+        .setMimeType(ContentService.MimeType.JSON);
+    } catch (err) {
+      return ContentService
+        .createTextOutput(JSON.stringify({ success: false, error: err.message }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+
+  // ★ダッシュボード用API: 受付名簿データ取得
+  if (action === 'getReceptionRosterData') {
+    try {
+      const result = getReceptionRosterData();
+      return ContentService
+        .createTextOutput(JSON.stringify({ success: true, data: result }))
+        .setMimeType(ContentService.MimeType.JSON);
+    } catch (err) {
+      return ContentService
+        .createTextOutput(JSON.stringify({ success: false, error: err.message }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+
+  // ★ダッシュボード用API: 式次第データ取得
+  if (action === 'getShikidaiData') {
+    try {
+      const result = getShikidaiData();
+      return ContentService
+        .createTextOutput(JSON.stringify({ success: true, data: result }))
+        .setMimeType(ContentService.MimeType.JSON);
+    } catch (err) {
+      return ContentService
+        .createTextOutput(JSON.stringify({ success: false, error: err.message }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+
+  // ★ダッシュボード用API: PDF名簿生成
+  if (action === 'exportRosterPdf') {
+    try {
+      const result = exportRosterPdf();
+      return ContentService
+        .createTextOutput(JSON.stringify(result))
+        .setMimeType(ContentService.MimeType.JSON);
+    } catch (err) {
+      return ContentService
+        .createTextOutput(JSON.stringify({ success: false, error: err.message }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+
+  // ★ダッシュボード用API: 他会場スケジュール更新
+  if (action === 'updateOtherVenueSchedule') {
+    try {
+      const result = updateOtherVenueSchedule();
+      return ContentService
+        .createTextOutput(JSON.stringify({ success: true, data: result }))
+        .setMimeType(ContentService.MimeType.JSON);
+    } catch (err) {
+      return ContentService
+        .createTextOutput(JSON.stringify({ success: false, error: err.message }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+
   const userId = e.parameter.userId;
   
   if (!userId) {
@@ -3650,6 +3763,25 @@ function doPost(e) {
       const jsonText = (e.postData && e.postData.contents) || '{}';
       const payload = JSON.parse(jsonText);
       const result = saveRoleAssignments(payload.eventKey, payload.assignments);
+      return ContentService
+        .createTextOutput(JSON.stringify(result))
+        .setMimeType(ContentService.MimeType.JSON);
+    } catch (err) {
+      return ContentService
+        .createTextOutput(JSON.stringify({
+          success: false,
+          error: 'invalid JSON: ' + err.message
+        }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+
+  // ★式次第: 保存
+  if (action === 'saveTimeTableData') {
+    try {
+      const jsonText = (e.postData && e.postData.contents) || '{}';
+      const payload = JSON.parse(jsonText);
+      const result = saveTimeTableData(payload);
       return ContentService
         .createTextOutput(JSON.stringify(result))
         .setMimeType(ContentService.MimeType.JSON);
