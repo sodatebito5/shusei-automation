@@ -1500,6 +1500,36 @@ body {
   .print-controls {
     flex-wrap: wrap;
   }
+
+  .layout-options {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .layout-card {
+    flex: none;
+    width: 100%;
+    padding: 12px;
+  }
+
+  .layout-mini {
+    margin: 12px 0;
+    gap: 4px;
+  }
+
+  .layout-dot {
+    width: 24px;
+    height: 24px;
+    font-size: 10px;
+  }
+
+  .layout-row {
+    gap: 6px;
+  }
+
+  .layout-check {
+    font-size: 11px;
+  }
 }
 
 @media (max-width: 480px) {
