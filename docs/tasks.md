@@ -12,6 +12,18 @@
 
 ## 🔥 進行中
 
+### [バグ] 会員編集の保存が完了しない問題
+- [ ] 原因調査（Playwrightでデバッグ中）
+- [ ] 保存ボタン押下後、成功メッセージが表示されない
+- [ ] 変更履歴記録は一時的にコメントアウト中
+- [ ] GASのログ確認が必要
+
+### 会員変更履歴機能
+- [x] 出欠確認シートに「会員変更履歴」シート作成
+- [x] logMemberChange_() ヘルパー関数実装
+- [x] updateMember(), addMember(), retireMember() に履歴記録を組み込み
+- [ ] 動作確認（上記バグ解決後）
+
 ### 式次第機能
 - [ ] PDF生成（レイアウト調整）
 
@@ -145,6 +157,11 @@ https://docs.google.com/forms/d/e/1FAIpQLScbjVLeSyfusz_b9ANvDL-5win-w8_G0TGxQ7TO
   - 編集モーダルの入会日が空白で表示される問題を修正
   - formatDate_()の出力形式をYYYY/MM/DD→YYYY-MM-DDに変更
   - HTML input[type="date"]はハイフン区切りを要求するため
+- [x] **会員変更履歴シート作成**
+  - 出欠確認シートに「会員変更履歴」シートを追加
+  - 列構成: 変更日時/操作種別/会員ID/会員名/変更項目/変更前/変更後
+  - logMemberChange_() 関数で自動記録
+  - 編集/新規追加/退会の3種類の操作を記録
 - [x] **会員名簿編集機能（Phase 1）**
   - GAS API: getMembersForEdit(), updateMember(), addMember(), retireMember(), verifyMemberEditPassword()
   - ダッシュボード「会員管理」タブ追加
