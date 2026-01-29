@@ -9,25 +9,25 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 <body>
-    <!-- ヘッダー（同チーム・営業相性ボタン削除） -->
+    <!-- ヘッダー -->
 <div class="header">
     <div class="header-left">
         <button class="btn btn-load" id="load-btn">
-            📊 スプレッドシート読込
+            データ読込
         </button>
         <button class="btn btn-archive" id="load-archive-btn" style="display: none;">
-            📂 続きから読み込む
+            続きから読み込む
         </button>
-        <button class="btn btn-secondary" id="reset-btn">
-            🔄 リセット
+        <button class="btn btn-secondary" id="reset-btn" style="display: none;">
+            リセット
         </button>
     </div>
     <div class="header-right">
-    <button class="btn btn-primary" id="sync-btn" style="display: none;">
-        📤 座席反映
-    </button>
-        <button class="btn btn-print" id="print-preview-btn">
-            🖨️ 印刷プレビュー
+        <button class="btn btn-primary" id="sync-btn" style="display: none;">
+            座席反映
+        </button>
+        <button class="btn btn-print" id="print-preview-btn" style="display: none;">
+            印刷プレビュー
         </button>
     </div>
 </div>

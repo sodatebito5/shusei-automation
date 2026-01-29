@@ -624,7 +624,7 @@ document.getElementById('sync-btn').addEventListener('click', async () => {
     alert('通信エラー: ' + err.message);
   } finally {
     button.disabled = false;
-    button.textContent = '📤 座席反映';
+    button.textContent = '座席反映';
   }
 });
 
@@ -794,6 +794,8 @@ async function loadFromSheet() {
 
     // 「続きから読み込む」ボタンを表示
     document.getElementById('load-archive-btn').style.display = 'inline-block';
+    // リセットボタンを表示
+    document.getElementById('reset-btn').style.display = 'inline-block';
   } catch (err) {
     console.error(err);
     statusEl.textContent = '読み込みに失敗しました：' + err.message;
@@ -1018,6 +1020,7 @@ function applyArchiveAssignments() {
   document.getElementById('mainContainer').style.display = 'grid';
   document.getElementById('configSection').style.display = 'none';
   document.getElementById('sync-btn').style.display = 'inline-block';
+  document.getElementById('print-preview-btn').style.display = 'inline-block';
   document.getElementById('preview').style.display = 'none';
 
   renderAll();
@@ -1205,13 +1208,14 @@ function generateSeating() {
 
   document.getElementById('configSection').style.display = 'none';
   document.getElementById('mainContainer').style.display = 'grid';
-  
-  // ← ここに追加
-  document.getElementById('sync-btn').style.display = 'block';
+
+  // ボタン表示
+  document.getElementById('sync-btn').style.display = 'inline-block';
+  document.getElementById('print-preview-btn').style.display = 'inline-block';
 
   renderAll();
   initDragDrop();
-  
+
   // 自動配席選択モーダルを表示
   document.getElementById('autoSeatModal').style.display = 'flex';
 }
@@ -1230,9 +1234,10 @@ function resetSeats() {
 
   document.getElementById('configSection').style.display = 'block';
   document.getElementById('mainContainer').style.display = 'none';
-  
-  // ← ここに追加
+
+  // ボタン非表示
   document.getElementById('sync-btn').style.display = 'none';
+  document.getElementById('print-preview-btn').style.display = 'none';
 
   rebuildLayoutCandidates();
   updateConfigSummary();
