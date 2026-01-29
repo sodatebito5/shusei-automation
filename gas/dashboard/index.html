@@ -5,675 +5,2096 @@
   <title>守成クラブ福岡飯塚 ダッシュボード</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
-  <!-- タブ用のシンプルCSS -->
-  <style>
-    .tab-container {
-      display: flex;
-      gap: 8px;
-      border-bottom: 1px solid #e5e7eb;
-      padding: 8px 0;
-      margin-top: 16px;
-      flex-wrap: wrap;
-    }
-
-    .tab-btn {
-      border: none;
-      padding: 6px 12px;
-      border-radius: 999px;
-      background: #e5e7eb;
-      cursor: pointer;
-      font-size: 14px;
-      line-height: 1;
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      transition: background 0.2s ease, transform 0.05s ease;
-    }
-
-    .tab-btn:hover {
-      background: #d1d5db;
-      transform: translateY(-1px);
-    }
-
-    .tab-btn.active {
-      background: #2563eb;
-      color: #fff;
-    }
-
-    .tab-panels {
-      margin-top: 16px;
-    }
-
-    .tab-panel {
-      display: none;
-    }
-
-    .tab-panel.active {
-      display: block;
-    }
-
-    /* ===========================
-       1人1カード用のCSS
-       =========================== */
-
-    .member-card {
-      border-radius: 0.5rem;
-      border: 1px solid #e5e7eb;
-      padding: 6px 10px;
-      background-color: #ffffff;
-      box-sizing: border-box;
-    }
-
-    .member-card__badge {
-      font-size: 10px;
-      padding: 2px 6px;
-      border-radius: 9999px;
-      display: inline-flex;
-      align-items: center;
-      gap: 2px;
-      font-weight: 500;
-      margin-bottom: 2px;
-    }
-
-    .member-card__name {
-      font-size: 0.8rem;
-      font-weight: 600;
-      color: #111827;           /* slate-900 */
-      line-height: 1.2;
-      white-space: normal;
-      overflow: visible;
-      text-overflow: clip;
-    }
-
-    /* ゴールド */
-    .member-card--gold {
-      border-color: #fbbf24;      /* amber-400 */
-      background-color: #fffbeb;  /* amber-50 */
-    }
-    .member-card--gold .member-card__badge {
-      background-color: #fef3c7;  /* amber-100 */
-      color: #92400e;             /* amber-800 */
-    }
-
-    /* 赤 */
-    .member-card--red {
-      border-color: #fca5a5;      /* red-300 */
-      background-color: #fef2f2;  /* red-50 */
-    }
-    .member-card--red .member-card__badge {
-      background-color: #fee2e2;  /* red-100 */
-      color: #b91c1c;             /* red-700 */
-    }
-
-    /* 緑 */
-    .member-card--green {
-      border-color: #6ee7b7;      /* emerald-300 */
-      background-color: #ecfdf5;  /* emerald-50 */
-    }
-    .member-card--green .member-card__badge {
-      background-color: #d1fae5;  /* emerald-100 */
-      color: #065f46;             /* emerald-800 */
-    }
-
-    /* バッジなし（デフォルト） */
-    .member-card--default {
-      border-color: #e5e7eb;
-      background-color: #f9fafb;  /* slate-50 */
-    }
-    .member-card--default .member-card__badge {
-      background-color: #e5e7eb;
-      color: #374151;             /* slate-700 */
-    }
-  </style>
+  <!-- カスタมCSS（style.htmlをインクルード） -->
+  <?!= include('style') ?>
 
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <!-- PDF生成用ライブラリ -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+<!-- jsPDF autoTable プラグイン -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+
+<!-- html2pdf.js（式次第PDF用） -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+<!-- Google Fonts: Noto Sans JP -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;600&display=swap" rel="stylesheet">
+
+<!-- GASから埋め込まれた式次第データ -->
+<script>
+  const EMBEDDED_SHIKIDAI_DATA = <?!= shikidaiData ?>;
+</script>
+
 </head>
 
-<body class="bg-slate-100 text-slate-900">
-  <div class="max-w-6xl mx-auto px-4 py-6 space-y-6">
+<body class="text-slate-900">
+  <div class="max-w-6xl mx-auto px-4 py-6 space-y-5">
     <!-- ヘッダー -->
-    <header class="flex items-center justify-between">
+    <header class="dashboard-header flex items-center justify-between gap-4 rounded-xl">
       <div>
-        <h1 class="text-xl md:text-2xl font-bold">
-          守成クラブ 福岡飯塚 ダッシュボード
+        <h1 class="dashboard-title text-xl md:text-2xl">
+          守成クラブ 福岡飯塚
         </h1>
-        <p class="text-sm text-slate-500 mt-1">
-          現在の例会の出欠状況・売上・ゲスト申請の状況を表示します。
-        </p>
+        <p class="text-xs text-slate-500 mt-0.5">管理ダッシュボード</p>
       </div>
       <div class="text-right">
-        <div class="text-xs text-slate-500">対象例会</div>
-        <div id="eventName" class="text-sm font-semibold">-</div>
+        <div class="text-xs text-slate-400 mb-1">対象例会</div>
+        <div id="eventName" class="event-badge">-</div>
       </div>
     </header>
 
     <!-- タブボタン -->
     <div class="tab-container">
-      <button class="tab-btn active" data-tab="summary-tab">📊 概要</button>
-      <button class="tab-btn" data-tab="attend-tab">✅ 出欠</button>
-      <button class="tab-btn" data-tab="guest-tab">👥 ゲスト</button>
-      <button class="tab-btn" data-tab="sales-tab">💰 売上</button>
-      <button class="tab-btn" data-tab="team-tab">🧩 チーム</button>
-      <button class="tab-btn" data-tab="renew-tab">🔁 更新</button>
+      <button class="tab-btn active" data-tab="summary-tab">概要</button>
+      <button class="tab-btn" data-tab="attend-tab">出欠</button>
+      <button class="tab-btn" data-tab="guest-tab">ゲスト</button>
+      <button class="tab-btn" data-tab="other-venue-tab">他会場</button>
+      <button class="tab-btn" data-tab="sales-tab">売上</button>
+      <button class="tab-btn" data-tab="team-tab">チーム</button>
+      <button class="tab-btn" data-tab="renew-tab">更新</button>
+      <button class="tab-btn tab-btn-right" data-tab="prep-tab">例会事前準備</button>
+      <button class="tab-btn" data-tab="eventday-tab">例会当日</button>
+      <button class="tab-btn" data-tab="history-tab">履歴</button>
     </div>
 
     <!-- タブ中身 -->
     <div class="tab-panels">
       <!-- 📊 概要タブ -->
       <div id="summary-tab" class="tab-panel active">
-        <!-- 今月のハイライト -->
-        <section class="bg-white rounded-xl shadow p-4 border border-slate-200 mb-4">
-          <div class="text-base md:text-lg font-semibold mb-2">
-            今月のハイライト
-          </div>
-          <div class="flex flex-wrap gap-x-6 gap-y-2 text-xs md:text-sm">
-            <div>
-              [ 参加率
-              <span id="highlightAttendRate" class="text-xl md:text-2xl font-extrabold mx-1">-</span>
-              % ]
-            </div>
-            <div>
-              [ ゲスト
-              <span id="highlightGuestCount" class="text-xl md:text-2xl font-extrabold mx-1">-</span>
-              人 ]
-            </div>
-            <div>
-              [ 商談
-              <span id="highlightDealCount" class="text-xl md:text-2xl font-extrabold mx-1">-</span>
-              件 ]
-            </div>
-            <div>
-              [ 売上
-              <span id="highlightSalesTotal" class="text-xl md:text-2xl font-extrabold mx-1">-</span>
-              円 ]
-            </div>
-          </div>
-        </section>
+        <!-- 今月のハイライト（2カラム） -->
+<section class="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
+  <!-- 左カラム：参加関連 -->
+  <div class="space-y-4">
+    <!-- 参加ハイライト -->
+    <div class="highlight-card">
+      <div class="highlight-card-title">
+        参加ハイライト
+      </div>
+      <div class="stat-group mb-3">
+        <div class="stat-item">
+          <span class="stat-label">参加総人数</span>
+          <span id="highlightTotalParticipants" class="stat-value stat-value-lg">-</span>
+          <span class="stat-unit">人</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">ゲスト</span>
+          <span id="highlightGuestCount" class="stat-value">-</span>
+          <span class="stat-unit">人</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">他会場</span>
+          <span id="highlightOtherVenue" class="stat-value">-</span>
+          <span class="stat-unit">人</span>
+        </div>
+      </div>
+      <div class="stat-group">
+        <div class="stat-item">
+          <span class="stat-label">参加率</span>
+          <span id="highlightAttendRate" class="stat-value" style="color: var(--color-primary);">-</span>
+          <span class="stat-unit">%</span>
+        </div>
+      </div>
+    </div>
 
-        <!-- 4つのサマリーカード -->
-        <section class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
-          <div class="bg-white rounded-xl shadow p-4">
-            <div class="text-xs text-slate-500 mb-1">出席</div>
-            <div id="attendCount" class="text-2xl font-extrabold text-green-600">-</div>
-            <div id="memberCount" class="text-xs text-slate-400 mt-1">会員数 -</div>
-          </div>
-          <div class="bg-white rounded-xl shadow p-4">
-            <div class="text-xs text-slate-500 mb-1">欠席</div>
-            <div id="absentCount" class="text-2xl font-extrabold text-red-600">-</div>
-          </div>
-          <div class="bg-white rounded-xl shadow p-4">
-            <div class="text-xs text-slate-500 mb-1">未回答</div>
-            <div id="noAnswerCount" class="text-2xl font-extrabold text-slate-400">-</div>
-          </div>
-          <div class="bg-white rounded-xl shadow p-4">
-            <div class="text-xs text-slate-500 mb-2">会員バッジ</div>
-            <div class="flex flex-col gap-1 text-xs">
-              <div class="flex items-center gap-1">
-                <span>🥇 ゴールド</span>
-                <span id="goldCount" class="font-bold">-</span>
-                <span>人</span>
-              </div>
-              <div class="flex items-center gap-1">
-                <span>🔴 赤バッジ</span>
-                <span id="redCount" class="font-bold">-</span>
-                <span>人</span>
-              </div>
-              <div class="flex items-center gap-1">
-                <span>🟢 緑バッジ</span>
-                <span id="greenCount" class="font-bold">-</span>
-                <span>人</span>
-              </div>
-            </div>
-          </div>
-        </section>
+    <!-- 出席・欠席・未回答 3つ横並び -->
+    <div class="grid grid-cols-3 gap-3">
+      <div class="mini-stat-card">
+        <div class="mini-stat-label">出席</div>
+        <div id="attendCount" class="mini-stat-value text-success">-</div>
+      </div>
+      <div class="mini-stat-card">
+        <div class="mini-stat-label">欠席</div>
+        <div id="absentCount" class="mini-stat-value text-danger">-</div>
+      </div>
+      <div class="mini-stat-card">
+        <div class="mini-stat-label">未回答</div>
+        <div id="noAnswerCount" class="mini-stat-value text-muted">-</div>
+      </div>
+    </div>
 
-        <!-- 2カラム：売上 & ゲスト -->
-        <section class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-          <div class="bg-white rounded-xl shadow p-4">
-            <h2 class="text-sm font-semibold mb-3">会員別 売上ランキング</h2>
-            <div id="salesRankingBody" class="space-y-2">
-              <div class="text-xs text-slate-400">データ取得中...</div>
-            </div>
+    <!-- 会員数・バッジ -->
+    <div class="modern-card" style="padding: 0.875rem 1rem;">
+      <div class="badge-row">
+        <!-- 会員数 -->
+        <div class="badge-item">
+          <span class="text-slate-500 text-sm">稼働会員数</span>
+          <span id="memberCountMain" class="badge-count text-xl">-</span>
+          <span class="text-slate-500 text-sm">人</span>
+          <span id="memberDiff" class="text-xs text-slate-400 ml-1">-</span>
+        </div>
+        <div class="flex items-center gap-3 ml-auto">
+          <!-- ゴールド -->
+          <div class="badge-item">
+            <span class="badge-icon">🥇</span>
+            <span id="goldCount" class="badge-count">-</span>
           </div>
-          <div class="bg-white rounded-xl shadow p-4">
-            <div class="flex items-center justify-between mb-2">
-              <h2 class="text-sm font-semibold">ゲスト申請状況</h2>
-              <div id="guestSummary" class="text-xs text-slate-500">-</div>
-            </div>
-            <table class="w-full text-xs md:text-sm">
-              <thead>
-                <tr class="text-left text-slate-500 border-b">
-                  <th class="py-1 pr-2">ゲスト名</th>
-                  <th class="py-1 pr-2">紹介者</th>
-                  <th class="py-1">承認</th>
-                </tr>
-              </thead>
-              <tbody id="guestListBody">
-                <tr>
-                  <td colspan="3" class="py-2 text-slate-400">データ取得中...</td>
-                </tr>
-              </tbody>
-            </table>
+          <!-- 赤バッジ -->
+          <div class="badge-item">
+            <span class="badge-icon">🔴</span>
+            <span id="redCount" class="badge-count">-</span>
           </div>
-        </section>
+          <!-- 緑バッジ -->
+          <div class="badge-item">
+            <span class="badge-icon">🟢</span>
+            <span id="greenCount" class="badge-count">-</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 右カラム：売上ハイライト -->
+  <div class="space-y-4">
+    <div class="highlight-card">
+      <div class="highlight-card-title">
+        売上ハイライト<span id="salesMonthLabel" class="text-slate-400 text-xs font-normal ml-2"></span>
+      </div>
+      <div class="stat-group mb-3">
+        <div class="stat-item">
+          <span class="stat-label">報告人数</span>
+          <span id="highlightReporterCount" class="stat-value">-</span>
+          <span class="stat-unit">人</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">商談</span>
+          <span id="highlightMeetingsCount" class="stat-value">-</span>
+          <span class="stat-unit">件</span>
+        </div>
+      </div>
+      <div class="stat-group">
+        <div class="stat-item">
+          <span class="stat-label">成約</span>
+          <span id="highlightDealCount" class="stat-value">-</span>
+          <span class="stat-unit">件</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">売上</span>
+          <span id="highlightSalesTotal" class="stat-value" style="color: var(--color-primary-dark);">-</span>
+          <span class="stat-unit">円</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</section>
+
+        <!-- 2カラム：ゲスト & 売上 -->
+<section class="grid grid-cols-1 md:grid-cols-2 gap-5">
+  <!-- 左：ゲスト申請状況 -->
+  <div class="modern-card">
+    <div class="modern-card-header">
+      <h2 class="modern-card-title">
+        <span class="modern-card-title-icon">👥</span>
+        ゲスト申請状況
+      </h2>
+      <div id="guestSummary" class="text-xs text-slate-500 bg-slate-100 px-2 py-1 rounded-full">-</div>
+    </div>
+    <table class="modern-table">
+      <thead>
+        <tr>
+          <th>ゲスト名</th>
+          <th>紹介者</th>
+          <th>承認</th>
+        </tr>
+      </thead>
+      <tbody id="guestListBody">
+        <tr>
+          <td colspan="3" class="py-3 text-slate-400 text-center">データ取得中...</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- 右：売上ランキング -->
+  <div class="modern-card">
+    <div class="modern-card-header">
+      <h2 class="modern-card-title">
+        <span class="modern-card-title-icon">🏆</span>
+        会員別 売上ランキング
+      </h2>
+    </div>
+    <div id="salesRankingBody" class="space-y-1">
+      <div class="text-sm text-slate-400 text-center py-4">データ取得中...</div>
+    </div>
+  </div>
+</section>
       </div>
 
       <!-- 出欠タブ -->
-<div id="attend-tab" class="tab-panel">
-  <section class="bg-white rounded-xl shadow p-4 mt-4">
-    <div class="flex items-center justify-between mb-2">
-      <h2 class="text-sm font-semibold">出欠管理（詳細）</h2>
-      <div class="flex flex-wrap gap-3 text-xs text-slate-500">
-        <span>出席: <span id="attendCountAttend">0 名</span></span>
-        <span>欠席: <span id="attendCountAbsent">0 名</span></span>
-        <span>未回答: <span id="attendCountNoAnswer">0 名</span></span>
+      <div id="attend-tab" class="tab-panel">
+        <section class="modern-card mt-4">
+          <div class="modern-card-header">
+            <h2 class="modern-card-title">
+              <span class="modern-card-title-icon">✓</span>
+              出欠管理
+            </h2>
+            <div class="flex flex-wrap gap-3 text-xs">
+              <span class="bg-emerald-50 text-emerald-700 px-2 py-1 rounded-full">出席: <span id="attendCountAttend" class="font-semibold">0 名</span></span>
+              <span class="bg-red-50 text-red-700 px-2 py-1 rounded-full">欠席: <span id="attendCountAbsent" class="font-semibold">0 名</span></span>
+              <span class="bg-slate-100 text-slate-600 px-2 py-1 rounded-full">未回答: <span id="attendCountNoAnswer" class="font-semibold">0 名</span></span>
+            </div>
+          </div>
+          <p class="text-xs text-slate-500 mb-4">
+            出席・欠席は回答時間の早い順に表示しています。右側にはまだ回答がない会員を表示します。
+          </p>
+
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <!-- 出席 -->
+            <div class="bg-emerald-50/50 border border-emerald-100 rounded-xl p-4">
+              <h3 class="text-sm font-semibold text-emerald-700 mb-3 flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                出席
+              </h3>
+              <div id="attendListAttend" class="grid grid-cols-2 gap-2 text-xs md:text-sm"></div>
+            </div>
+
+            <!-- 欠席 -->
+            <div class="bg-red-50/50 border border-red-100 rounded-xl p-4">
+              <h3 class="text-sm font-semibold text-red-700 mb-3 flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full bg-red-500"></span>
+                欠席
+              </h3>
+              <div id="attendListAbsent" class="grid grid-cols-2 gap-2 text-xs md:text-sm"></div>
+            </div>
+
+            <!-- 未回答 -->
+            <div class="bg-slate-50 border border-slate-200 rounded-xl p-4">
+              <h3 class="text-sm font-semibold text-slate-600 mb-3 flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full bg-slate-400"></span>
+                未回答
+              </h3>
+              <div id="attendListNoAnswer" class="grid grid-cols-2 gap-2 text-xs md:text-sm"></div>
+            </div>
+          </div>
+        </section>
       </div>
+
+      <!-- ゲストタブ -->
+<div id="guest-tab" class="tab-panel">
+  <section class="modern-card mt-4">
+    <div class="modern-card-header">
+      <h2 class="modern-card-title">
+        <span class="modern-card-title-icon">👥</span>
+        ゲスト管理
+      </h2>
     </div>
-    <p class="text-xs text-slate-500 mb-3">
-      出席・欠席は回答時間の早い順に表示しています。右側にはまだ回答がない会員を表示します。
+    <p class="text-xs text-slate-500 mb-4">
+      現在の例会（右上の例会名）に紐づくゲストだけを表示しています。
     </p>
 
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
-      <!-- 出席 -->
-      <div class="bg-slate-50 border border-slate-200 rounded-xl p-3">
-        <h3 class="text-sm font-semibold text-emerald-700 mb-2">✅ 出席</h3>
-        <div id="attendListAttend" class="grid grid-cols-2 gap-2 text-xs md:text-sm"></div>
+    <div class="overflow-x-auto -mx-4 px-4">
+      <table class="modern-table" style="min-width: 900px;">
+        <thead>
+          <tr>
+            <th>氏名</th>
+            <th>フリガナ</th>
+            <th>会社名</th>
+            <th>役職</th>
+            <th>紹介者</th>
+            <th style="min-width: 200px;">営業内容</th>
+          </tr>
+        </thead>
+        <tbody id="guestDetailBody">
+          <tr>
+            <td colspan="6" class="py-3 text-slate-400 text-center">
+              データ取得中...
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+</div>
+
+<!-- 他会場タブ -->
+<div id="other-venue-tab" class="tab-panel">
+  <section class="modern-card mt-4">
+    <div class="modern-card-header">
+      <h2 class="modern-card-title">
+        <span class="modern-card-title-icon">🏢</span>
+        他会場会員
+      </h2>
+    </div>
+    <p class="text-xs text-slate-500 mb-4">
+      現在の例会に参加する他会場会員を表示しています。
+    </p>
+
+    <div class="overflow-x-auto -mx-4 px-4">
+      <table class="modern-table" style="min-width: 900px;">
+        <thead>
+          <tr>
+            <th>氏名</th>
+            <th>フリガナ</th>
+            <th>所属</th>
+            <th>役割</th>
+            <th>会社名</th>
+            <th>役職</th>
+            <th>紹介者</th>
+            <th style="min-width: 200px;">営業内容</th>
+          </tr>
+        </thead>
+        <tbody id="otherVenueDetailBody">
+          <tr>
+            <td colspan="8" class="py-3 text-slate-400 text-center">
+              データ取得中...
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+</div>
+
+
+      <!-- 売上タブ -->
+<div id="sales-tab" class="tab-panel">
+  <section class="modern-card mt-4">
+    <!-- ★個別売上ボタン -->
+    <div class="modern-card-header">
+      <div>
+        <h2 class="modern-card-title">
+          <span class="modern-card-title-icon">💰</span>
+          売上集計
+        </h2>
+        <p class="text-xs text-slate-500 mt-1">
+          月別の売上推移と累計を表示しています。
+        </p>
+      </div>
+      <button id="individualSalesBtn" onclick="openIndividualSalesModal()" class="px-4 py-2 bg-gradient-to-r from-teal-500 to-teal-600 text-white text-sm rounded-lg hover:from-teal-600 hover:to-teal-700 transition shadow-sm">
+        個別売上
+      </button>
+    </div>
+
+    <!-- ★通常の売上サマリービュー -->
+    <div id="salesSummaryView">
+      <!-- ★追加：0件含む報告者一覧 -->
+      <div id="zeroListSection" class="border border-amber-300 bg-amber-50 rounded-xl p-4 mb-4 hidden">
+        <div class="flex items-center gap-2 mb-2">
+          <span class="text-amber-600">⚠️</span>
+          <span class="text-sm font-semibold text-amber-800">要確認：0件を含む報告</span>
+          <span id="zeroListCount" class="text-xs text-amber-600"></span>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-xs md:text-sm border-collapse">
+            <thead>
+              <tr class="bg-amber-100 text-amber-800">
+                <th class="py-1 px-2 text-left border border-amber-200">氏名</th>
+                <th class="py-1 px-2 text-center border border-amber-200">商談件数</th>
+                <th class="py-1 px-2 text-center border border-amber-200">成約件数</th>
+                <th class="py-1 px-2 text-right border border-amber-200">売上金額</th>
+              </tr>
+            </thead>
+            <tbody id="zeroListBody"></tbody>
+          </table>
+        </div>
       </div>
 
-      <!-- 欠席 -->
-      <div class="bg-slate-50 border border-slate-200 rounded-xl p-3">
-        <h3 class="text-sm font-semibold text-red-700 mb-2">❌ 欠席</h3>
-        <div id="attendListAbsent" class="grid grid-cols-2 gap-2 text-xs md:text-sm"></div>
+
+      <!-- 月別推移グラフ -->
+      <div class="border border-slate-200 rounded-xl p-4 mb-4">
+        <div class="text-base md:text-lg font-semibold mb-2">
+          月別推移（7期目）
+        </div>
+        <div style="height: 300px;">
+          <canvas id="monthlyChart"></canvas>
+        </div>
       </div>
 
-      <!-- 未回答 -->
-      <div class="bg-slate-50 border border-slate-200 rounded-xl p-3">
-        <h3 class="text-sm font-semibold text-slate-700 mb-2">🕒 未回答</h3>
-        <div id="attendListNoAnswer" class="grid grid-cols-2 gap-2 text-xs md:text-sm"></div>
+      <!-- 累計表示（オプション） -->
+      <div class="grid grid-cols-2 gap-4">
+        <div class="mini-stat-card" style="padding: 1.25rem;">
+          <div class="mini-stat-label">累計成約件数</div>
+          <div id="totalDealCount" class="stat-value" style="color: var(--color-primary);">-</div>
+        </div>
+        <div class="mini-stat-card" style="padding: 1.25rem;">
+          <div class="mini-stat-label">累計売上金額</div>
+          <div id="totalSalesAmount" class="stat-value whitespace-nowrap" style="font-size: 1.25rem; color: var(--color-primary-dark);">-</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ★個別売上ビュー（パスワード認証後に表示） -->
+    <div id="individualSalesView" class="hidden">
+      <div class="flex justify-between items-center mb-4">
+        <div class="flex items-center gap-3">
+          <select id="salesMonthSelect" onchange="loadIndividualSalesData()" class="px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <option value="">月を選択</option>
+          </select>
+          <span class="text-sm text-slate-500">の売上報告一覧</span>
+        </div>
+        <button onclick="hideIndividualSalesView()" class="px-3 py-2 bg-slate-200 text-slate-700 text-sm rounded-lg hover:bg-slate-300 transition">
+          ← 戻る
+        </button>
+      </div>
+      <div id="individualSalesData">
+        <!-- データがここに描画される -->
+      </div>
+    </div>
+  </section>
+</div>
+
+      <!-- 更新タブ -->
+<div id="renew-tab" class="tab-panel">
+  <section class="modern-card mt-4">
+    <div class="modern-card-header">
+      <h2 class="modern-card-title">
+        <span class="modern-card-title-icon">🔁</span>
+        更新予定
+      </h2>
+    </div>
+    <p class="text-xs text-slate-500 mb-4">
+      翌月・再来月に更新を迎える会員を表示しています。
+    </p>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+      <!-- 来月 -->
+      <div class="bg-amber-50/50 border border-amber-100 rounded-xl p-4">
+        <div class="flex items-center justify-between mb-3">
+          <h3 id="nextMonthLabel" class="text-sm font-semibold text-amber-800 flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-amber-500"></span>
+            来月更新
+          </h3>
+          <span id="nextMonthCount" class="text-xs bg-amber-100 text-amber-700 px-2 py-1 rounded-full font-medium">0 名</span>
+        </div>
+        <div id="nextMonthContainer" class="grid grid-cols-2 lg:grid-cols-3 gap-2"></div>
+      </div>
+      <!-- 再来月 -->
+      <div class="bg-blue-50/50 border border-blue-100 rounded-xl p-4">
+        <div class="flex items-center justify-between mb-3">
+          <h3 id="next2MonthLabel" class="text-sm font-semibold text-blue-800 flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-blue-500"></span>
+            再来月更新
+          </h3>
+          <span id="next2MonthCount" class="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full font-medium">0 名</span>
+        </div>
+        <div id="next2MonthContainer" class="grid grid-cols-2 lg:grid-cols-3 gap-2"></div>
       </div>
     </div>
   </section>
 </div>
 
 
-      <!-- ゲストタブ -->
-      <div id="guest-tab" class="tab-panel">
-        <section class="bg-white rounded-xl shadow p-4 mt-4">
-          <h2 class="text-sm font-semibold mb-2">ゲスト管理（詳細）</h2>
-          <p class="text-xs text-slate-500">
-            ここにゲスト一覧や紹介者別集計などを後で配置します。
-          </p>
-        </section>
-      </div>
-
-      <!-- 売上タブ -->
-      <div id="sales-tab" class="tab-panel">
-        <section class="bg-white rounded-xl shadow p-4 mt-4">
-          <h2 class="text-sm font-semibold mb-2">売上集計（詳細）</h2>
-          <p class="text-xs text-slate-500">
-            ここに売上の詳細表や月次推移などを後で配置します。
-          </p>
-        </section>
-      </div>
-
-      <!-- 🔁 更新タブ -->
-      <div id="renew-tab" class="tab-panel">
-        <section class="bg-white rounded-xl shadow p-4 mt-4">
-          <h2 class="text-sm font-semibold mb-2">更新予定</h2>
-          <p class="text-xs text-slate-500 mb-3">
-            翌月・翌々月に更新を迎える会員を表示しています。
-          </p>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <!-- 来月 -->
-            <div>
-              <div class="flex items-center justify-between mb-2">
-                <h3 id="nextMonthLabel" class="text-sm font-semibold text-slate-800">
-                  来月更新
-                </h3>
-                <span id="nextMonthCount" class="text-xs text-slate-500">0 名</span>
-              </div>
-              <div id="nextMonthContainer" class="grid grid-cols-2 lg:grid-cols-3 gap-2"></div>
-            </div>
-            <!-- 再来月 -->
-            <div>
-              <div class="flex items-center justify-between mb-2">
-                <h3 id="next2MonthLabel" class="text-sm font-semibold text-slate-800">
-                  再来月更新
-                </h3>
-                <span id="next2MonthCount" class="text-xs text-slate-500">0 名</span>
-              </div>
-              <div id="next2MonthContainer" class="grid grid-cols-2 lg:grid-cols-3 gap-2"></div>
-            </div>
-          </div>
-        </section>
-      </div>
-
       <!-- チームタブ -->
       <div id="team-tab" class="tab-panel">
-        <section class="bg-white rounded-xl shadow p-4 mt-4">
-          <h2 class="text-sm font-semibold mb-2">チーム構成</h2>
-          <p class="text-xs text-slate-500 mb-3">
+        <section class="modern-card mt-4">
+          <div class="modern-card-header">
+            <h2 class="modern-card-title">
+              <span class="modern-card-title-icon">🧩</span>
+              チーム構成
+            </h2>
+          </div>
+          <p class="text-xs text-slate-500 mb-4">
             チーム毎にグルーピングしています。どこにも所属してない会員は「未配属」に表示されます。
           </p>
-          <div id="teamContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+          <div id="teamContainer"
+               class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
         </section>
       </div>
+
+      <!-- ★ 例会事前準備タブ -->
+      <div id="prep-tab" class="tab-panel">
+        <section class="modern-card mt-4">
+          <!-- メニュー画面 -->
+
+<div id="prepMenuSection">
+  <div class="modern-card-header">
+    <h2 class="modern-card-title">
+      <span class="modern-card-title-icon">📋</span>
+      例会事前準備
+    </h2>
+  </div>
+  <p class="text-xs text-slate-500 mb-5">
+    印刷用の参加者名簿・受付名簿を表示します。
+  </p>
+
+  <!-- 参加者名簿 -->
+  <div class="mb-5 p-4 bg-slate-50 rounded-xl border border-slate-100">
+    <div class="text-sm text-slate-700 font-semibold mb-3 flex items-center gap-2">
+      <span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
+      参加者名簿
+    </div>
+    <div class="flex flex-wrap gap-2">
+      <button
+        id="btnLocalRoster"
+        data-prep-target="local"
+        class="prep-menu-btn px-4 py-2.5 text-xs md:text-sm rounded-lg border border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-300 transition-all shadow-sm"
+      >
+        福岡飯塚会場
+      </button>
+      <button
+        id="btnOthersRoster"
+        data-prep-target="others"
+        class="prep-menu-btn px-4 py-2.5 text-xs md:text-sm rounded-lg border border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-300 transition-all shadow-sm"
+      >
+        他会場・ゲスト
+      </button>
     </div>
   </div>
 
-  <script>
-    // タブ切り替え
-    function setupTabs() {
-      const tabButtons = document.querySelectorAll('.tab-btn');
-      const tabPanels  = document.querySelectorAll('.tab-panel');
+  <!-- 受付名簿 -->
+  <div class="mb-5 p-4 bg-teal-50/50 rounded-xl border border-teal-100">
+    <div class="text-sm text-teal-800 font-semibold mb-3 flex items-center gap-2">
+      <span class="w-1.5 h-1.5 rounded-full bg-teal-500"></span>
+      受付名簿
+    </div>
+    <div class="flex flex-wrap gap-2">
+      <button
+        id="btnReceptionLocal"
+        class="prep-menu-btn px-4 py-2.5 text-xs md:text-sm rounded-lg border border-teal-200 bg-white hover:bg-teal-50 hover:border-teal-300 transition-all shadow-sm text-teal-700"
+      >
+        福岡飯塚
+      </button>
+      <button
+        id="btnReceptionOthers"
+        class="prep-menu-btn px-4 py-2.5 text-xs md:text-sm rounded-lg border border-teal-200 bg-white hover:bg-teal-50 hover:border-teal-300 transition-all shadow-sm text-teal-700"
+      >
+        他会場・ゲスト
+      </button>
+    </div>
+  </div>
 
-      tabButtons.forEach((btn) => {
-        btn.addEventListener('click', () => {
-          const targetId = btn.dataset.tab;
+  <!-- 式次第 -->
+  <div class="mb-5 p-4 bg-emerald-50/50 rounded-xl border border-emerald-100">
+    <div class="text-sm text-emerald-800 font-semibold mb-3 flex items-center gap-2">
+      <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+      式次第
+    </div>
+    <div class="flex flex-wrap gap-2">
+      <button
+        id="btnShikidaiEdit"
+        class="prep-menu-btn px-4 py-2.5 text-xs md:text-sm rounded-lg border border-emerald-200 bg-white hover:bg-emerald-50 hover:border-emerald-300 transition-all shadow-sm text-emerald-700"
+      >
+        編集
+      </button>
+      <button
+        id="btnShikidaiPreview"
+        class="prep-menu-btn px-4 py-2.5 text-xs md:text-sm rounded-lg border border-emerald-200 bg-white hover:bg-emerald-50 hover:border-emerald-300 transition-all shadow-sm text-emerald-700"
+      >
+        プレビュー
+      </button>
+      <button
+        id="btnUpdateOtherVenue"
+        class="prep-menu-btn px-4 py-2.5 text-xs md:text-sm rounded-lg border border-blue-200 bg-white hover:bg-blue-50 hover:border-blue-300 transition-all shadow-sm text-blue-700"
+      >
+        他会場日程を更新
+      </button>
+      <button
+        id="btnSyncFormToOtherVenue"
+        class="prep-menu-btn px-4 py-2.5 text-xs md:text-sm rounded-lg border border-purple-200 bg-white hover:bg-purple-50 hover:border-purple-300 transition-all shadow-sm text-purple-700"
+      >
+        フォーム回答を同期
+      </button>
+    </div>
+  </div>
 
-          tabButtons.forEach(b => b.classList.remove('active'));
-          btn.classList.add('active');
+  <!-- 自動配席 -->
+  <div class="mb-4 p-4 bg-amber-50/50 rounded-xl border border-amber-100">
+    <div class="text-sm text-amber-800 font-semibold mb-3 flex items-center gap-2">
+      <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+      自動配席
+    </div>
+    <div class="flex flex-wrap gap-2">
+      <a
+        href="https://seat-maker2.pages.dev/"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="prep-menu-btn px-4 py-2.5 text-xs md:text-sm rounded-lg border border-amber-200 bg-white hover:bg-amber-50 hover:border-amber-300 transition-all shadow-sm text-amber-700 inline-flex items-center gap-1.5"
+      >
+        配席アプリを開く
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
+      </a>
+    </div>
+    <p class="text-xs text-slate-400 mt-2">別ウィンドウで配席アプリが開きます</p>
+  </div>
+</div>
+  
 
-          tabPanels.forEach(panel => {
-            if (panel.id === targetId) {
-              panel.classList.add('active');
-            } else {
-              panel.classList.remove('active');
-            }
-          });
-        });
-      });
+          <!-- プレビュー画面 -->
+      <div id="prepPreviewSection" class="hidden mt-2">
+        <div class="flex items-center justify-between mb-3">
+          <div>
+            <h2 id="prepPreviewTitle" class="text-sm font-semibold mb-1"></h2>
+            <p class="text-xs text-slate-500">
+              ブラウザの印刷機能から、そのまま印刷できます。（1ページ30名固定）
+            </p>
+          </div>
+          <div class="flex gap-2">
+            <button
+              id="prepBackButton"
+              type="button"
+              class="text-xs px-3 py-1 rounded-full border border-slate-300 text-slate-600 hover:bg-slate-100"
+            >
+              ← 選択に戻る
+            </button>
+            <button
+              id="prepPrintButton"
+              type="button"
+              class="text-xs px-3 py-1 rounded-full border border-slate-300 text-slate-600 hover:bg-slate-100"
+              >
+              📄 PDF保存
+              </button>
+          </div>
+        </div>
+
+    <div id="prepPreviewContainer"></div>
+      </div>
+
+     <!-- 式次第編集画面 -->
+          <div id="shikidaiEditSection" class="hidden mt-2">
+            <div class="bg-white rounded p-4">
+              <div class="flex items-center justify-between mb-4">
+                <h2 class="text-sm font-semibold">式次第編集</h2>
+                <div class="flex gap-2">
+                  <button
+                    id="shikidaiSaveButton"
+                    type="button"
+                    class="px-4 py-2 bg-blue-500 text-white text-xs rounded hover:bg-blue-600"
+                  >
+                    💾 保存
+                  </button>
+                  <button
+                    id="shikidaiBackFromEdit"
+                    type="button"
+                    class="px-4 py-2 border text-xs rounded hover:bg-slate-100"
+                  >
+                    戻る
+                  </button>
+                </div>
+              </div>
+
+              <!-- 司会進行セクション -->
+              <div class="mb-4">
+                <h3 class="text-xs font-semibold text-slate-700 mb-2">司会進行</h3>
+                <div class="flex gap-4">
+                  <div class="flex-1">
+                    <label class="block text-xs text-slate-500 mb-1">担当者1</label>
+                    <input type="text" id="mcPerson1" class="w-full border rounded px-2 py-1 text-sm" placeholder="例：荒井会員">
+                  </div>
+                  <div class="flex-1">
+                    <label class="block text-xs text-slate-500 mb-1">担当者2</label>
+                    <input type="text" id="mcPerson2" class="w-full border rounded px-2 py-1 text-sm" placeholder="例：牛島会員">
+                  </div>
+                </div>
+              </div>
+
+              <!-- タイムテーブル編集 -->
+              <div class="mb-6">
+                <div class="flex items-center justify-between mb-2">
+                  <h3 class="text-xs font-semibold text-slate-700">タイムテーブル</h3>
+                  <button
+                    id="shikidaiAddRowButton"
+                    type="button"
+                    class="px-2 py-1 text-xs bg-green-500 text-white rounded hover:bg-green-600"
+                  >
+                    ＋ 行追加
+                  </button>
+                </div>
+                <div class="overflow-x-auto">
+                  <table class="w-full text-xs border-collapse">
+                    <thead>
+                      <tr class="bg-slate-100">
+                        <th class="border px-2 py-1 w-16">時間</th>
+                        <th class="border px-2 py-1">項目</th>
+                        <th class="border px-2 py-1 w-24">担当者</th>
+                        <th class="border px-2 py-1 w-28">備考</th>
+                        <th class="border px-2 py-1 w-16">操作</th>
+                      </tr>
+                    </thead>
+                    <tbody id="shikidaiTimeTableBody">
+                      <!-- JSで動的に生成 -->
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <!-- お知らせ編集 -->
+              <div>
+                <h3 class="text-xs font-semibold text-slate-700 mb-2">お知らせ・案内文</h3>
+                <div class="overflow-x-auto">
+                  <table class="w-full text-xs border-collapse">
+                    <thead>
+                      <tr class="bg-slate-100">
+                        <th class="border px-2 py-1 w-28">種別</th>
+                        <th class="border px-2 py-1">内容</th>
+                      </tr>
+                    </thead>
+                    <tbody id="shikidaiNoticesBody">
+                      <!-- JSで動的に生成 -->
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <!-- デバッグ用 -->
+              <details class="mt-4">
+                <summary class="text-xs text-slate-400 cursor-pointer">デバッグ: 生データ</summary>
+                <div id="shikidaiTestResult" class="mt-2 p-2 bg-slate-100 rounded text-xs overflow-auto max-h-40"></div>
+              </details>
+            </div>
+          </div>
+
+          <!-- 式次第プレビュー画面 -->
+          <div id="shikidaiPreviewSection" class="hidden mt-2" style="overflow: visible; height: auto; max-height: none;">
+            <div class="bg-white rounded p-4" style="overflow: visible; height: auto; max-height: none;">
+              <div class="flex items-center justify-between mb-4">
+                <h2 class="text-sm font-semibold">式次第プレビュー</h2>
+                <div class="flex gap-2">
+                  <button
+                    id="shikidaiRefreshButton"
+                    type="button"
+                    class="px-4 py-2 bg-blue-500 text-white text-xs rounded hover:bg-blue-600"
+                  >
+                    🔄 更新
+                  </button>
+                  <button
+                    id="shikidaiPrintButton"
+                    type="button"
+                    class="px-4 py-2 bg-green-500 text-white text-xs rounded hover:bg-green-600"
+                  >
+                    📄 PDF保存
+                  </button>
+                  <button
+                    id="shikidaiPreviewBack"
+                    type="button"
+                    class="px-4 py-2 border text-xs rounded hover:bg-slate-100"
+                  >
+                    戻る
+                  </button>
+                </div>
+              </div>
+              <div id="shikidaiPreviewContent" class="shikidai-wrapper">
+                <!-- A4プレビューがここに描画される -->
+              </div>
+            </div>
+          </div>
+
+
+    </section>
+  </div>
+
+   <!-- ★ 例会当日タブ -->
+  <div id="eventday-tab" class="tab-panel">
+    <!-- メニュー画面 -->
+    <section id="eventdayMenuSection" class="modern-card mt-4">
+      <div class="modern-card-header">
+        <h2 class="modern-card-title">
+          <span class="modern-card-title-icon">📅</span>
+          例会当日メニュー
+        </h2>
+      </div>
+      <p class="text-xs text-slate-500 mb-4">
+        役割分担やチェックイン機能を管理します。
+      </p>
+      <div class="flex flex-wrap gap-2">
+        <button
+          id="btnRoleAssignment"
+          class="prep-menu-btn px-4 py-2.5 text-xs md:text-sm rounded-lg border border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-300 transition-all shadow-sm"
+        >
+          役割分担
+        </button>
+        <button
+          id="btnRoleEdit"
+          class="prep-menu-btn px-4 py-2.5 text-xs md:text-sm rounded-lg border border-emerald-200 bg-white hover:bg-emerald-50 hover:border-emerald-300 transition-all shadow-sm text-emerald-700"
+        >
+          役割分担編集
+        </button>
+        <button
+          id="btnCheckin"
+          class="prep-menu-btn px-4 py-2.5 text-xs md:text-sm rounded-lg border border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-300 transition-all shadow-sm text-slate-400"
+        >
+          チェックイン（準備中）
+        </button>
+      </div>
+    </section>
+    
+    <!-- 役割分担プレビュー画面 -->
+<section id="rolePreviewSection" class="hidden bg-white rounded-xl shadow p-3 md:p-4 mt-4">
+  <div class="flex items-center justify-between mb-4">
+    <h2 id="rolePreviewTitle" class="text-sm md:text-base font-bold text-slate-800"></h2>
+    <button
+      id="roleBackButton"
+      type="button"
+      class="text-xs px-3 py-1.5 rounded-full border border-slate-300 text-slate-600 hover:bg-slate-100 active:bg-slate-200"
+    >
+      ← 戻る
+    </button>
+  </div>
+
+  <!-- スマホ: 縦並び / PC: 横並び -->
+  <div class="flex flex-col md:flex-row gap-4">
+
+    <!-- テーブルマスター表 -->
+    <div class="md:w-1/3">
+      <h3 class="text-sm font-bold text-slate-700 mb-2 flex items-center gap-1">
+        <span class="text-base">🪑</span> テーブルマスター
+      </h3>
+      <div class="bg-slate-50 rounded-lg p-2">
+        <table class="w-full text-sm border-collapse">
+          <thead>
+            <tr>
+              <th class="bg-slate-200 text-slate-700 py-2 px-3 text-center font-bold rounded-tl-lg w-16">席</th>
+              <th class="bg-slate-200 text-slate-700 py-2 px-3 text-left font-bold rounded-tr-lg">担当</th>
+            </tr>
+          </thead>
+          <tbody id="tableMasterBody">
+            <!-- JSで動的生成 -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- 役割分担表示 -->
+    <div class="md:flex-1">
+      <h3 class="text-sm font-bold text-slate-700 mb-2 flex items-center gap-1">
+        <span class="text-base">👔</span> 役割分担
+      </h3>
+      <div id="roleDisplayTable" class="bg-slate-50 rounded-lg p-2">
+        <!-- JSで動的生成 -->
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- 役割分担編集画面 -->
+<section id="roleEditSection" class="hidden bg-white rounded-xl shadow p-3 md:p-4 mt-4">
+  <div class="flex items-center justify-between mb-4">
+    <h2 class="text-sm md:text-base font-bold text-slate-800">✏️ 役割分担編集</h2>
+    <button
+      id="roleEditBackButton"
+      type="button"
+      class="text-xs px-3 py-1.5 rounded-full border border-slate-300 text-slate-600 hover:bg-slate-100 active:bg-slate-200"
+    >
+      ← 戻る
+    </button>
+  </div>
+
+  <!-- 役割編集カード -->
+  <div id="roleEditCards" class="space-y-2">
+    <!-- JSで動的生成 -->
+  </div>
+
+  <!-- 保存ボタン（固定表示） -->
+  <div class="sticky bottom-0 bg-white pt-3 pb-1 mt-4 border-t border-slate-200">
+    <div class="flex items-center gap-3">
+      <button onclick="saveRoleAssignments()" class="flex-1 md:flex-none px-6 py-3 bg-green-600 text-white text-base font-bold rounded-xl hover:bg-green-700 active:bg-green-800 transition-colors shadow-lg">
+        💾 保存する
+      </button>
+      <span id="roleSaveMessage" class="text-sm hidden"></span>
+    </div>
+  </div>
+</section>
+  </div>
+
+  <!-- ★ 履歴タブ -->
+  <div id="history-tab" class="tab-panel">
+    <section class="modern-card mt-4">
+      <div class="modern-card-header">
+        <h2 class="modern-card-title">
+          <span class="modern-card-title-icon">📋</span>
+          例会参加履歴
+        </h2>
+        <!-- 例会選択 -->
+        <div class="flex items-center gap-2">
+          <label class="text-xs text-slate-500">対象例会:</label>
+          <select id="historyEventSelect" onchange="loadParticipantHistory()" class="px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white shadow-sm">
+            <option value="">読み込み中...</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- サマリー -->
+      <div id="historySummary" class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+        <div class="mini-stat-card">
+          <div class="mini-stat-label">参加者数</div>
+          <div id="historyTotal" class="mini-stat-value" style="color: var(--color-text-primary);">-</div>
+        </div>
+        <div class="mini-stat-card" style="background: #eff6ff;">
+          <div class="mini-stat-label">会員</div>
+          <div id="historyMembers" class="mini-stat-value" style="color: #2563eb;">-</div>
+        </div>
+        <div class="mini-stat-card" style="background: #ecfdf5;">
+          <div class="mini-stat-label">ゲスト</div>
+          <div id="historyGuests" class="mini-stat-value" style="color: #059669;">-</div>
+        </div>
+        <div class="mini-stat-card" style="background: #fff7ed;">
+          <div class="mini-stat-label">他会場</div>
+          <div id="historyOthers" class="mini-stat-value" style="color: #ea580c;">-</div>
+        </div>
+      </div>
+
+      <!-- フィルタボタン -->
+      <div class="flex flex-wrap gap-2 mb-4">
+        <button onclick="filterHistory('all')" class="history-filter-btn active px-3 py-1.5 text-xs rounded-lg border border-teal-200 bg-teal-50 text-teal-700 font-medium transition-all" data-filter="all">全員</button>
+        <button onclick="filterHistory('会員')" class="history-filter-btn px-3 py-1.5 text-xs rounded-lg border border-slate-200 hover:bg-slate-50 font-medium transition-all" data-filter="会員">会員</button>
+        <button onclick="filterHistory('ゲスト')" class="history-filter-btn px-3 py-1.5 text-xs rounded-lg border border-slate-200 hover:bg-slate-50 font-medium transition-all" data-filter="ゲスト">ゲスト</button>
+        <button onclick="filterHistory('他会場')" class="history-filter-btn px-3 py-1.5 text-xs rounded-lg border border-slate-200 hover:bg-slate-50 font-medium transition-all" data-filter="他会場">他会場</button>
+      </div>
+
+      <!-- 参加者一覧テーブル -->
+      <div class="overflow-x-auto">
+        <table class="modern-table">
+          <thead>
+            <tr>
+              <th class="text-center w-10">#</th>
+              <th>氏名</th>
+              <th class="text-center w-16">区分</th>
+              <th>所属</th>
+              <th class="text-center w-16">テーブル</th>
+            </tr>
+          </thead>
+          <tbody id="historyTableBody">
+            <tr><td colspan="5" class="py-8 text-center text-slate-400">例会を選択してください</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  </div>
+
+    <script>
+console.log('=== SCRIPT START ===');
+let dashboardData = null;
+
+// PDF保存（GAS経由：スプレッドシート→PDF→ダウンロード）
+function exportRosterPdfFromGAS() {
+  const btn = document.getElementById('prepPrintButton');
+  const originalText = btn ? btn.textContent : '';
+
+  if (btn) {
+    btn.textContent = '生成中...';
+    btn.disabled = true;
+  }
+
+  google.script.run
+    .withSuccessHandler(function(result) {
+      if (btn) {
+        btn.textContent = originalText;
+        btn.disabled = false;
+      }
+
+      if (result.success) {
+        // Base64からBlobを作成してダウンロード
+        const byteCharacters = atob(result.pdfBase64);
+        const byteNumbers = new Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) {
+          byteNumbers[i] = byteCharacters.charCodeAt(i);
+        }
+        const byteArray = new Uint8Array(byteNumbers);
+        const blob = new Blob([byteArray], { type: 'application/pdf' });
+
+        // ダウンロードリンク作成
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = result.fileName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        console.log('[PDF] ダウンロード完了:', result.fileName);
+      } else {
+        alert('PDF生成に失敗しました: ' + (result.error || '不明なエラー'));
+      }
+    })
+    .withFailureHandler(function(error) {
+      if (btn) {
+        btn.textContent = originalText;
+        btn.disabled = false;
+      }
+      alert('PDF生成に失敗しました: ' + error.message);
+      console.error('[PDF] Error:', error);
+    })
+    .exportRosterPdf();
+}
+
+// PDF生成（名簿 - html2canvas + jsPDF直接制御・A4横固定版）※旧方式・予備
+async function generatePDF() {
+  const area = document.getElementById('prepPreviewContainer');
+
+  if (!area) {
+    alert('名簿が表示されていません');
+    return;
+  }
+
+  const btn = document.getElementById('prepPrintButton');
+  const originalText = btn ? btn.textContent : '';
+  if (btn) {
+    btn.textContent = '生成中...';
+    btn.disabled = true;
+  }
+
+  // A4横固定サイズ（px @ 96dpi）
+  const A4_WIDTH = 1123;
+  const A4_HEIGHT = 794;
+
+  try {
+    const pages = area.querySelectorAll('.print-page');
+    if (!pages.length) {
+      alert('表示するページがありません');
+      return;
     }
 
-    document.addEventListener('DOMContentLoaded', () => {
-      setupTabs();
-      google.script.run
-        .withSuccessHandler(renderDashboard)
-        .getDashboardData();
+    // 1. フォント読み込み待機 + 50ms追加待機
+    if (document.fonts && document.fonts.ready) {
+      await document.fonts.ready;
+      console.log('[PDF] フォント読み込み完了');
+    }
+    await new Promise(r => setTimeout(r, 50));
+
+    // 2. jsPDFをpx単位で初期化（A4横）
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({
+      orientation: 'landscape',
+      unit: 'px',
+      format: [A4_WIDTH, A4_HEIGHT],
+      hotfixes: ['px_scaling']
     });
 
-    // バッジ別クラス
-    function getBadgeStyle(badge) {
-      switch (badge) {
-        case 'ゴ':
-          return {
-            cardClass: 'member-card member-card--gold'
-          };
-        case '正':
-          return {
-            cardClass: 'member-card member-card--red'
-          };
-        case '準':
-          return {
-            cardClass: 'member-card member-card--green'
-          };
-        default:
-          return {
-            cardClass: 'member-card member-card--default'
-          };
+    for (let i = 0; i < pages.length; i++) {
+      // 3. クローン作成・ID削除
+      const clone = pages[i].cloneNode(true);
+      clone.querySelectorAll('[id]').forEach(el => el.removeAttribute('id'));
+
+      // 4. PDF専用クラスを付与
+      clone.classList.add('pdf-export');
+
+      // 5. インラインの背景色をクリア（PDF用CSSで上書き）
+      clone.querySelectorAll('[style]').forEach(el => {
+        if (el.style.backgroundColor) el.style.backgroundColor = 'transparent';
+        if (el.style.background) el.style.background = 'transparent';
+      });
+
+      clone.style.cssText = `
+        position: absolute;
+        top: -9999px;
+        left: -9999px;
+        width: ${A4_WIDTH}px;
+        height: ${A4_HEIGHT}px;
+        max-width: ${A4_WIDTH}px;
+        max-height: ${A4_HEIGHT}px;
+        overflow: hidden;
+        padding: 20px 30px;
+        box-sizing: border-box;
+        background: #ffffff;
+        transform: none;
+        font-family: "Noto Sans JP", "Hiragino Kaku Gothic ProN", "Meiryo", sans-serif;
+      `;
+      document.body.appendChild(clone);
+
+      // 6. リフロー待ち
+      await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+
+      // 7. デバッグログ
+      console.log(`[PDF] ページ${i + 1} クローンサイズ:`, clone.scrollWidth, 'x', clone.scrollHeight);
+
+      // 8. html2canvasで固定サイズキャプチャ
+      const canvas = await html2canvas(clone, {
+        useCORS: true,
+        allowTaint: false,
+        backgroundColor: '#ffffff',
+        width: A4_WIDTH,
+        height: A4_HEIGHT,
+        windowWidth: A4_WIDTH,
+        windowHeight: A4_HEIGHT,
+        scrollX: 0,
+        scrollY: 0,
+        scale: 1.5,
+        logging: false
+      });
+
+      // クローン削除
+      document.body.removeChild(clone);
+
+      console.log(`[PDF] ページ${i + 1} Canvas:`, canvas.width, 'x', canvas.height);
+
+      // 9. PDFに追加
+      if (i > 0) {
+        pdf.addPage([A4_WIDTH, A4_HEIGHT], 'landscape');
       }
+      const imgData = canvas.toDataURL('image/jpeg', 0.95);
+      pdf.addImage(imgData, 'JPEG', 0, 0, A4_WIDTH, A4_HEIGHT);
     }
 
-    // ダッシュボード描画
-    function renderDashboard(data) {
-      if (!data) return;
+    // 10. ページ数確認・保存
+    console.log('[PDF] 総ページ数:', pdf.getNumberOfPages());
 
-      // 対象例会
-      document.getElementById('eventName').textContent =
-        data.eventName || '-';
+    // ファイル名生成（例: 2026_01_福岡飯塚参加者名簿.pdf）
+    const eventName = dashboardData?.eventName || '';
+    const yearMonthMatch = eventName.match(/(\d{4})年(\d{1,2})月/);
+    let prefix = '';
+    if (yearMonthMatch) {
+      const year = yearMonthMatch[1];
+      const month = yearMonthMatch[2].padStart(2, '0');
+      prefix = `${year}_${month}_`;
+    }
 
-      // 出欠サマリ
-      const att = data.attendance || {};
-      document.getElementById('attendCount').textContent   = att.attend   ?? '-';
-      document.getElementById('absentCount').textContent   = att.absent   ?? '-';
-      document.getElementById('noAnswerCount').textContent = att.noAnswer ?? '-';
-      document.getElementById('memberCount').textContent =
-        att.memberCount ? `会員数 ${att.memberCount} 名` : '会員数 -';
+    // プレビュータイトルから名簿タイプを判定
+    const previewTitle = document.getElementById('prepPreviewTitle');
+    const titleText = previewTitle?.textContent || '';
+    let rosterType = '名簿';
+    if (titleText.includes('福岡飯塚') && titleText.includes('受付')) {
+      rosterType = '福岡飯塚受付名簿';
+    } else if (titleText.includes('他会場') && titleText.includes('受付')) {
+      rosterType = '他会場ゲスト受付名簿';
+    } else if (titleText.includes('福岡飯塚') && titleText.includes('参加者')) {
+      rosterType = '福岡飯塚参加者名簿';
+    } else if (titleText.includes('他会場') || titleText.includes('ゲスト')) {
+      rosterType = '他会場ゲスト参加者名簿';
+    }
 
-      const attendNum = att.attend != null ? Number(att.attend) : 0;
-      const memberNum = att.memberCount != null ? Number(att.memberCount) : 0;
+    const fileName = `${prefix}${rosterType}.pdf`;
+    pdf.save(fileName);
+    console.log('[PDF] 生成完了:', fileName);
 
-      // バッジ集計
-      const badges = data.badges || {};
-      document.getElementById('goldCount').textContent  = badges.gold  ?? '-';
-      document.getElementById('redCount').textContent   = badges.red   ?? '-';
-      document.getElementById('greenCount').textContent = badges.green ?? '-';
+  } catch (e) {
+    console.error('[PDF] 生成エラー:', e);
+    alert('PDF生成に失敗しました: ' + e.message);
+  } finally {
+    if (btn) {
+      btn.textContent = originalText;
+      btn.disabled = false;
+    }
+  }
+}
 
-      // 売上
-      const sales = data.sales || {};
-      const total     = sales.total || 0;
-      const dealCount = sales.dealCount || 0;
+// タブ切り替え
+console.log('=== DEFINING setupTabs ===');
+function setupTabs() {
+  const tabButtons = document.querySelectorAll('.tab-btn[data-tab]');
+  const tabPanels  = document.querySelectorAll('.tab-panel');
 
-      const rankingDiv = document.getElementById('salesRankingBody');
-      rankingDiv.innerHTML = '';
+  tabButtons.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const targetId = btn.dataset.tab;
+      if (!targetId) return;
 
-      if (sales.ranking && sales.ranking.length) {
-        sales.ranking.forEach((item, index) => {
-          const div = document.createElement('div');
-          div.className = 'flex items-center gap-2 text-sm';
-          div.innerHTML = `
-            <span class="font-bold text-slate-600">${index + 1}位</span>
-            <span class="text-slate-800">${item.name}</span>
-          `;
-          rankingDiv.appendChild(div);
-        });
-      } else {
-        rankingDiv.innerHTML =
-          '<div class="text-xs text-slate-400">データなし</div>';
-      }
+      tabButtons.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
 
-      // ゲスト
-      const guests = data.guests || {};
-      const guestSummaryText =
-        `申請 ${guests.total || 0} 名 / 承認 ${guests.approved || 0} / 保留 ${guests.pending || 0}`;
-      document.getElementById('guestSummary').textContent = guestSummaryText;
-
-      const tbodyGuest = document.getElementById('guestListBody');
-      tbodyGuest.innerHTML = '';
-
-      if (guests.list && guests.list.length) {
-        guests.list.forEach(g => {
-          const tr = document.createElement('tr');
-          tr.innerHTML = `
-            <td class="py-1 pr-2">${g.guestName || ''}</td>
-            <td class="py-1 pr-2">${g.introName || ''}</td>
-            <td class="py-1">${g.approved ? '✔︎' : ''}</td>
-          `;
-          tbodyGuest.appendChild(tr);
-        });
-      } else {
-        tbodyGuest.innerHTML =
-          '<tr><td colspan="3" class="py-2 text-slate-400">ゲスト申請なし</td></tr>';
-      }
-
-      const guestTotalNum = guests.total != null ? Number(guests.total) : 0;
-
-      // 今月のハイライト
-      let rateDisplay = '-';
-      if (attendNum > 0 && memberNum > 0) {
-        const rate = Math.round((attendNum / memberNum) * 100);
-        rateDisplay = rate;
-      }
-      document.getElementById('highlightAttendRate').textContent = rateDisplay;
-      document.getElementById('highlightGuestCount').textContent  =
-        guestTotalNum || '-';
-      document.getElementById('highlightDealCount').textContent   =
-        dealCount || '-';
-      document.getElementById('highlightSalesTotal').textContent  =
-        total ? total.toLocaleString() : '-';
-
-      // ===== 出欠詳細（カード表示） =====
-      const attendanceDetail = data.attendanceDetail || {};
-      const attendList   = Array.isArray(attendanceDetail.attendList)   ? attendanceDetail.attendList   : [];
-      const absentList   = Array.isArray(attendanceDetail.absentList)   ? attendanceDetail.absentList   : [];
-      const noAnswerList = Array.isArray(attendanceDetail.noAnswerList) ? attendanceDetail.noAnswerList : [];
-
-      const colAttend   = document.getElementById('attendListAttend');
-      const colAbsent   = document.getElementById('attendListAbsent');
-      const colNoAnswer = document.getElementById('attendListNoAnswer');
-
-      const countAttendEl   = document.getElementById('attendCountAttend');
-      const countAbsentEl   = document.getElementById('attendCountAbsent');
-      const countNoAnswerEl = document.getElementById('attendCountNoAnswer');
-
-      if (countAttendEl)   countAttendEl.textContent   = `${attendList.length} 名`;
-      if (countAbsentEl)   countAbsentEl.textContent   = `${absentList.length} 名`;
-      if (countNoAnswerEl) countNoAnswerEl.textContent = `${noAnswerList.length} 名`;
-
-      if (colAttend && colAbsent && colNoAnswer) {
-        const renderList = (list, container) => {
-          container.innerHTML = '';
-          if (!list.length) {
-            container.innerHTML =
-              '<div class="text-xs text-slate-400">該当者なし</div>';
-            return;
-          }
-
-          list.forEach(item => {
-            const style = getBadgeStyle(item.badge);
-            const div = document.createElement('div');
-            div.className = style.cardClass;
-            div.innerHTML = `
-              <div class="member-card__name">${item.name}</div>
-              ${item.time ? `<div class="text-[10px] text-slate-500 mt-0.5">${item.time}</div>` : ''}
-            `;
-            container.appendChild(div);
-          });
-        };
-
-        // 左：出席
-        renderList(attendList, colAttend);
-
-        // 中：欠席
-        renderList(absentList, colAbsent);
-
-        // 右：未回答（時間表示なし）
-        renderList(noAnswerList, colNoAnswer);
-      }
-
-      // ===== 更新予定（翌月・翌々月） =====
-      const renewals = data.renewals || {};
-      const nextArr  = Array.isArray(renewals.next)  ? renewals.next  : [];
-      const next2Arr = Array.isArray(renewals.next2) ? renewals.next2 : [];
-
-      const nextLabelEl  = document.getElementById('nextMonthLabel');
-      const next2LabelEl = document.getElementById('next2MonthLabel');
-      const nextCountEl  = document.getElementById('nextMonthCount');
-      const next2CountEl = document.getElementById('next2MonthCount');
-      const nextContainer  = document.getElementById('nextMonthContainer');
-      const next2Container = document.getElementById('next2MonthContainer');
-
-      if (nextContainer && next2Container) {
-        nextContainer.innerHTML = '';
-        next2Container.innerHTML = '';
-
-        // 見出しラベル（そのまま使う）
-        if (nextLabelEl) {
-          nextLabelEl.textContent = renewals.nextMonthLabel || '来月更新';
-        }
-        if (next2LabelEl) {
-          next2LabelEl.textContent = renewals.next2MonthLabel || '再来月更新';
-        }
-
-        if (nextCountEl)  nextCountEl.textContent  = `${nextArr.length} 名`;
-        if (next2CountEl) next2CountEl.textContent = `${next2Arr.length} 名`;
-
-        // 来月
-        if (nextArr.length === 0) {
-          nextContainer.innerHTML =
-            '<div class="text-xs text-slate-400">該当者なし</div>';
+      tabPanels.forEach(panel => {
+        if (panel.id === targetId) {
+          panel.classList.add('active');
         } else {
-          let hasZeroNext = false;
-
-          nextArr.forEach(m => {
-            const style = getBadgeStyle(m.badge);
-            const div = document.createElement('div');
-            div.className = style.cardClass;
-
-            const displayName = (m.hasZeroReferral ? '⚠️' : '') + m.name;
-            if (m.hasZeroReferral) hasZeroNext = true;
-
-            div.innerHTML = `
-              <div class="member-card__name">${displayName}</div>
-            `;
-            nextContainer.appendChild(div);
-          });
-
-          // 紹介在籍人数 0 の人がいる場合、注意書きを一番下に表示
-          if (hasZeroNext) {
-            const warn = document.createElement('div');
-            warn.className = 'col-span-full text-[11px] text-red-600 mt-1';
-            warn.textContent = '⚠️紹介在籍人数が0人です。';
-            nextContainer.appendChild(warn);
-          }
+          panel.classList.remove('active');
         }
+      });
 
-        // 再来月
-        if (next2Arr.length === 0) {
-          next2Container.innerHTML =
-            '<div class="text-xs text-slate-400">該当者なし</div>';
-        } else {
-          let hasZeroNext2 = false;
+      // ★売上タブに切り替えた時にグラフを描画
+      if (targetId === 'sales-tab' && dashboardData && dashboardData.monthlySummary) {
+        setTimeout(() => {
+          renderMonthlyChart(dashboardData.monthlySummary);
+        }, 50);
+      }
 
-          next2Arr.forEach(m => {
-            const style = getBadgeStyle(m.badge);
-            const div = document.createElement('div');
-            div.className = style.cardClass;
+      // ★履歴タブに切り替えた時に初期化
+      if (targetId === 'history-tab') {
+        setTimeout(() => {
+          initHistoryTab();
+        }, 50);
+      }
 
-            const displayName = (m.hasZeroReferral ? '⚠️' : '') + m.name;
-            if (m.hasZeroReferral) hasZeroNext2 = true;
+    });
+  });
+}
 
-            div.innerHTML = `
-              <div class="member-card__name">${displayName}</div>
-            `;
-            next2Container.appendChild(div);
-          });
+// HTMLエスケープ（営業内容などに使う）
+function escapeHtml(str) {
+  if (str == null) return '';
+  return String(str).replace(/[&<>"']/g, (s) => {
+    switch (s) {
+      case '&': return '&amp;';
+      case '<': return '&lt;';
+      case '>': return '&gt;';
+      case '"': return '&quot;';
+      case '\'': return '&#39;';
+      default: return s;
+    }
+  });
+}
 
-          if (hasZeroNext2) {
-            const warn = document.createElement('div');
-            warn.className = 'col-span-full text-[11px] text-red-600 mt-1';
-            warn.textContent = '⚠️紹介在籍人数が0人です。';
-            next2Container.appendChild(warn);
-          }
+// バッジ別カードスタイル（通常のカード表示用）
+function getBadgeStyle(badge) {
+  switch (badge) {
+    case 'ゴ':
+      return { cardClass: 'member-card member-card--gold' };
+    case '正':
+      return { cardClass: 'member-card member-card--red' };
+    case '準':
+      return { cardClass: 'member-card member-card--green' };
+    default:
+      return { cardClass: 'member-card member-card--default' };
+  }
+}
+
+// eventName（例: 2025年12月例会）から「第◯◯回」を計算
+// ルール: 2025年11月例会 = 第91回 を起点に、月ごと+1
+function calcMeetingNoFromEventName(eventName) {
+  const m = String(eventName || '').match(/(\d{4})年(\d{1,2})月/);
+  if (!m) return null;
+
+  const year  = Number(m[1]);
+  const month = Number(m[2]);
+
+  const baseYear  = 2025;
+  const baseMonth = 11;
+  const baseNo    = 91;
+
+  const diffMonths = (year - baseYear) * 12 + (month - baseMonth);
+  return baseNo + diffMonths;
+}
+
+// 例会事前準備：プレビュー描画
+function showPrepPreview(kind) {
+  if (!dashboardData) return;
+
+  const prep = dashboardData.prep || {};
+  
+  const previewTitle = document.getElementById('prepPreviewTitle');
+  const container    = document.getElementById('prepPreviewContainer');
+
+  if (!previewTitle || !container) return;
+
+  const eventName = dashboardData.eventName || '';
+
+  // meetingCount（GAS計算値）を優先、なければmeetingNo（手動設定）
+  const round = dashboardData.meetingCount || dashboardData.meetingNo || calcMeetingNoFromEventName(eventName);
+  const roundText = round ? `第${round}回 ` : '';
+
+  const att = dashboardData.attendance || {};
+  const activeMembers = att.memberCount != null ? att.memberCount : '-';
+  const participants  = att.attend      != null ? att.attend      : '-';
+
+  const eventDate = dashboardData.eventDate || '';
+  let eventDateStr = '';
+  if (eventDate) {
+    const d = new Date(eventDate);
+    if (!isNaN(d)) {
+      eventDateStr = `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日`;
+    }
+  }
+
+  container.innerHTML = '';
+
+  // フォントサイズ調整関数
+  function getFontSize(text, type) {
+    const len = (text || '').length;
+    if (type === 'business') {
+      if (len > 50) return '7px';
+      if (len > 30) return '8px';
+      return '9px';
+    }
+    return '9px';
+  }
+
+  // 共通スタイル
+  const cellStyle = 'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:9px;vertical-align:middle;height:20px;line-height:20px;';
+  const centerCell = 'text-align:center;padding:2px;white-space:nowrap;font-size:9px;vertical-align:middle;height:20px;line-height:20px;';
+
+  // バッジクラス取得関数（背景色付きバッジ列用）
+  function getBadgeClass(badge) {
+    switch (badge) {
+      case 'ゴ': return 'badge-gold';
+      case '正': return 'badge-red';
+      case '準': return 'badge-green';
+      default: return '';
+    }
+  }
+
+  // バッジセルのベーススタイル
+  const badgeCellStyle = 'text-align:center;font-weight:600;padding:2px;white-space:nowrap;font-size:9px;vertical-align:middle;height:20px;line-height:20px;';
+
+  // ========================================
+  // local（福岡飯塚会場）の場合
+  // ========================================
+  if (kind === 'local') {
+    const list = prep.local || [];
+    
+    previewTitle.textContent = '福岡飯塚会場_参加者名簿';
+
+    if (!list.length) {
+      container.innerHTML = '<div class="text-xs text-slate-400">表示できるデータがありません。</div>';
+      return;
+    }
+
+    const perPage   = 25;
+    const totalPage = Math.ceil(list.length / perPage);
+
+    const colgroupHtml = `
+  <col style="width:22px">
+  <col style="width:22px">
+  <col style="width:22px">
+  <col style="width:22px">
+  <col style="width:25px">
+  <col style="width:70px">
+  <col style="width:100px">
+  <col style="width:56px">
+  <col style="width:180px">
+  <col style="width:155px">
+  <col style="width:70px">
+  <col style="width:auto">
+`;
+
+    for (let p = 0; p < totalPage; p++) {
+      const start = p * perPage;
+      const end   = start + perPage;
+      const rows  = list.slice(start, end);
+
+      const pageDiv = document.createElement('div');
+      pageDiv.className = 'print-page' + (p < totalPage - 1 ? ' print-page-break' : '');
+
+      const titleHtml = `
+        <div class="print-header" style="font-size:22px;font-weight:bold;margin-bottom:6px;">
+          守成クラブ福岡飯塚　${roundText}仕事バンバンプラザ 例会　参加者名簿（${p + 1}）
+        </div>
+        <div class="print-subheader">
+          <span>稼働会員数：${activeMembers}　会員参加者：${participants}</span>
+          <span>開催日：${eventDateStr}</span>
+        </div>
+      `;
+
+      const table = document.createElement('table');
+    table.className = 'print-table';
+    table.style.tableLayout = 'fixed';
+    table.style.width = '100%';
+    table.style.maxWidth = '1063px';  // A4横 - padding
+
+      table.innerHTML = `
+  <colgroup>${colgroupHtml}</colgroup>
+  <thead>
+    <tr>
+      <th style="padding:8px 2px;font-size:8px;line-height:1.1;">受<br>賞</th>
+<th style="padding:8px 2px;font-size:8px;line-height:1.1;">紹<br>介<br>数</th>
+<th style="padding:8px 2px;font-size:8px;line-height:1.1;">バ<br>ッ<br>ジ</th>
+<th style="padding:8px 2px;font-size:8px;line-height:1.1;">出<br>欠</th>
+<th style="padding:8px 2px;font-size:8px;line-height:1.1;">ブ<br>|<br>ス</th>
+      <th style="font-size:9px;">氏名</th>
+            <th style="font-size:8px;">フリガナ</th>
+            <th style="font-size:9px;">役割</th>
+            <th style="font-size:9px;">会社名</th>
+            <th style="font-size:8px;">役職</th>
+            <th style="font-size:9px;">紹介者</th>
+            <th style="font-size:9px;">営業内容</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      `;
+
+      const tbody = table.querySelector('tbody');
+
+      rows.forEach((row) => {
+        const badge = row.badge || '';
+        const badgeClass = getBadgeClass(badge);
+
+        let boothDisplay = row.booth || '';
+        if (boothDisplay === '×' || boothDisplay === 'x') boothDisplay = '';
+
+        const businessFs = getFontSize(row.business, 'business');
+        const businessStyle = `white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:${businessFs};vertical-align:middle;height:20px;line-height:20px;`;
+
+        const tr = document.createElement('tr');
+        tr.style.height = '20px';
+        tr.innerHTML = `
+          <td style="${centerCell}">${row.award || ''}</td>
+          <td style="${centerCell}">${row.referralCnt != null ? row.referralCnt : ''}</td>
+          <td class="${badgeClass}" style="${badgeCellStyle}">${badge}</td>
+          <td style="${centerCell}">${row.attendStatus || ''}</td>
+          <td style="${centerCell}">${boothDisplay}</td>
+          <td style="${cellStyle}">${row.name || ''}</td>
+          <td style="${cellStyle}">${row.furigana || ''}</td>
+          <td style="${cellStyle}">${row.role || ''}</td>
+          <td style="${cellStyle}">${row.company || ''}</td>
+          <td style="${cellStyle}">${row.position || ''}</td>
+          <td style="${cellStyle}">${row.introducer || ''}</td>
+          <td style="${businessStyle}">${row.business || ''}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      // 中間ページのみ空行で埋める
+      if (p < totalPage - 1) {
+        for (let i = rows.length; i < perPage; i++) {
+          const blankTr = document.createElement('tr');
+          blankTr.style.height = '20px';
+          blankTr.innerHTML = '<td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td>';
+          tbody.appendChild(blankTr);
         }
       }
 
-      // ===== チーム表示（1人1カード） =====
-      const teamData = data.teams || { teams: [], unassigned: [] };
-      const teamContainer = document.getElementById('teamContainer');
-      if (!teamContainer) return;
+      pageDiv.innerHTML = titleHtml;
+    
+    // 横スクロール用ラッパー
+    const scrollWrapper = document.createElement('div');
+    scrollWrapper.style.overflowX = 'auto';
+    scrollWrapper.style.webkitOverflowScrolling = 'touch';
+    scrollWrapper.appendChild(table);
+    
+    pageDiv.appendChild(scrollWrapper);
+    container.appendChild(pageDiv);
+    }
 
-      teamContainer.innerHTML = '';
+    return;
+  }
 
-      const hasTeams      = Array.isArray(teamData.teams) && teamData.teams.length > 0;
-      const hasUnassigned = Array.isArray(teamData.unassigned) && teamData.unassigned.length > 0;
+  // ========================================
+  // others（他会場・ゲスト）の場合
+  // ========================================
+  if (kind === 'others') {
+    const othersData = prep.others || {};
+    const otherVenueList = othersData.otherVenue || [];
+    const guestList = othersData.guest || [];
 
-      if (!hasTeams && !hasUnassigned) {
-        teamContainer.innerHTML =
-          '<div class="text-xs text-slate-400">チーム情報が登録されていません。</div>';
-        return;
-      }
+    previewTitle.textContent = '他会場・ゲスト_参加者名簿';
 
-      // チームごと
+    if (!otherVenueList.length && !guestList.length) {
+      container.innerHTML = '<div class="text-xs text-slate-400">表示できるデータがありません。</div>';
+      return;
+    }
+
+    const pageDiv = document.createElement('div');
+    pageDiv.className = 'print-page';
+
+    // ページタイトル
+    let contentHtml = `
+      <div class="print-header" style="font-size:20px;font-weight:bold;margin-bottom:6px;">
+        守成クラブ福岡飯塚　${roundText}仕事バンバンプラザ例会　他会場・ゲスト参加者名簿
+      </div>
+    `;
+
+    // ========== 他会場参加者セクション ==========
+    contentHtml += `
+  <div class="print-subheader" style="margin-top:8px;">
+    <span>（他会場参加者）　　他会場参加者数　${otherVenueList.length}　名</span>
+    <span style="float:right;">開催日：${eventDateStr}</span>
+  </div>
+`;
+
+    const otherColgroup = `
+      <col style="width:22px">
+      <col style="width:70px">
+      <col style="width:90px">
+      <col style="width:70px">
+      <col style="width:50px">
+      <col style="width:180px">
+      <col style="width:100px">
+      <col style="width:70px">
+      <col style="width:auto">
+    `;
+
+    contentHtml += `
+      <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
+      <table class="print-table" style="table-layout:fixed;width:100%;min-width:700px;margin-bottom:16px;">
+    <colgroup>${otherColgroup}</colgroup>
+    <thead>
+      <tr>
+        <th style="padding:6px 2px;font-size:8px;line-height:1.1;">バ<br>ッ<br>ジ</th>
+        <th style="font-size:9px;">氏名</th>
+        <th style="font-size:8px;">フリガナ</th>
+        <th style="font-size:9px;">所属</th>
+        <th style="font-size:9px;">役割</th>
+        <th style="font-size:9px;">会社名</th>
+        <th style="font-size:8px;">役職</th>
+        <th style="font-size:9px;">紹介者</th>
+        <th style="font-size:9px;">営業内容</th>
+      </tr>
+    </thead>
+    <tbody>
+`;
+
+    otherVenueList.forEach(row => {
+      const badge = row.badge || '';
+      const badgeClass = getBadgeClass(badge);
+      const businessFs = getFontSize(row.business, 'business');
+      const businessStyle = `white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:${businessFs};vertical-align:middle;height:20px;line-height:20px;`;
+
+      contentHtml += `
+        <tr style="height:20px;">
+          <td class="${badgeClass}" style="${badgeCellStyle}">${badge}</td>
+          <td style="${cellStyle}">${row.name || ''}</td>
+          <td style="${cellStyle}">${row.furigana || ''}</td>
+          <td style="${cellStyle}">${row.venue || ''}</td>
+          <td style="${cellStyle}">${row.role || ''}</td>
+          <td style="${cellStyle}">${row.company || ''}</td>
+          <td style="${cellStyle}">${row.position || ''}</td>
+          <td style="${cellStyle}">${row.introducer || ''}</td>
+          <td style="${businessStyle}">${row.business || ''}</td>
+        </tr>
+      `;
+    });
+
+    contentHtml += `</tbody></table></div>`;
+
+    // ========== ゲスト参加者セクション ==========
+    const yearMatch = eventName.match(/(\d{4})年/);
+    const yearLabel = yearMatch ? yearMatch[1] : '';
+
+    contentHtml += `
+  <div class="print-subheader" style="margin-top:16px;margin-bottom:4px;">
+    <span>（ゲスト参加者）　　ゲスト参加者数　${guestList.length}　名</span>
+  </div>
+`;
+
+    const guestColgroup = `
+      <col style="width:70px">
+      <col style="width:70px">
+      <col style="width:90px">
+      <col style="width:250px">
+      <col style="width:80px">
+      <col style="width:auto">
+    `;
+
+    // 会社名用スタイル（折り返し許可、フォントサイズ動的調整）
+    const getCompanyStyle = (company) => {
+      const len = (company || '').length;
+      let fs = '9px';
+      if (len > 20) fs = '7px';
+      else if (len > 15) fs = '8px';
+      return `white-space:normal;word-break:break-all;overflow:hidden;font-size:${fs};vertical-align:middle;height:20px;line-height:10px;padding:1px 2px;`;
+    };
+
+    contentHtml += `
+      <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
+      <table class="print-table" style="table-layout:fixed;width:100%;min-width:600px;">
+        <colgroup>${guestColgroup}</colgroup>
+        <thead>
+          <tr>
+            <th style="font-size:9px;">紹介者</th>
+            <th style="font-size:9px;">氏名</th>
+            <th style="font-size:8px;">フリガナ</th>
+            <th style="font-size:9px;">会社名</th>
+            <th style="font-size:8px;">役職</th>
+            <th style="font-size:9px;">営業内容</th>
+          </tr>
+        </thead>
+        <tbody>
+    `;
+
+    guestList.forEach(row => {
+      const businessFs = getFontSize(row.business, 'business');
+      const businessStyle = `white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:${businessFs};vertical-align:middle;height:20px;line-height:20px;`;
+      const companyStyle = getCompanyStyle(row.company);
+
+      contentHtml += `
+        <tr style="height:20px;">
+          <td style="${cellStyle}">${row.introducer || ''}</td>
+          <td style="${cellStyle}">${row.name || ''}</td>
+          <td style="${cellStyle}">${row.furigana || ''}</td>
+          <td style="${companyStyle}">${row.company || ''}</td>
+          <td style="${cellStyle}">${row.position || ''}</td>
+          <td style="${businessStyle}">${row.business || ''}</td>
+        </tr>
+      `;
+    });
+
+    contentHtml += `</tbody></table></div>`;
+
+    pageDiv.innerHTML = contentHtml;
+    container.appendChild(pageDiv);
+
+    return;
+  }
+}
+
+// DOM読み込み時
+console.log('=== ADDING DOMContentLoaded LISTENER ===');
+document.addEventListener('DOMContentLoaded', () => {
+  console.log('=== DOMContentLoaded FIRED ===');
+  console.log('typeof setupTabs:', typeof setupTabs);
+  setupTabs();
+
+  const prepMenuSection    = document.getElementById('prepMenuSection');
+  const prepPreviewSection = document.getElementById('prepPreviewSection');
+  const prepBackButton     = document.getElementById('prepBackButton');
+  const prepPrintButton    = document.getElementById('prepPrintButton');
+  const btnLocalRoster     = document.getElementById('btnLocalRoster');
+  const btnOthersRoster    = document.getElementById('btnOthersRoster');
+
+  function openPreview(kind) {
+    if (!dashboardData) return;
+    if (prepMenuSection)    prepMenuSection.classList.add('hidden');
+    if (prepPreviewSection) prepPreviewSection.classList.remove('hidden');
+    showPrepPreview(kind);
+  }
+
+  if (btnLocalRoster) {
+    btnLocalRoster.addEventListener('click', () => openPreview('local'));
+  }
+  if (btnOthersRoster) {
+    btnOthersRoster.addEventListener('click', () => openPreview('others'));
+  }
+
+  if (prepBackButton && prepMenuSection && prepPreviewSection) {
+    prepBackButton.addEventListener('click', () => {
+      prepPreviewSection.classList.add('hidden');
+      prepMenuSection.classList.remove('hidden');
+    });
+  }
+
+  if (prepPrintButton) {
+    prepPrintButton.addEventListener('click', () => {
+      generatePDF();
+    });
+  }
+
+  // ========================================
+  // 受付名簿ボタンのイベントリスナー
+  // ========================================
+  const btnReceptionLocal = document.getElementById('btnReceptionLocal');
+  const btnReceptionOthers = document.getElementById('btnReceptionOthers');
+
+  if (btnReceptionLocal) {
+    btnReceptionLocal.addEventListener('click', () => {
+      loadReceptionRoster('local');
+    });
+  }
+
+  if (btnReceptionOthers) {
+    btnReceptionOthers.addEventListener('click', () => {
+      loadReceptionRoster('others');
+    });
+  }
+
+  // 例会当日：役割分担表示ボタン
+  const btnRoleAssignment = document.getElementById('btnRoleAssignment');
+  const eventdayMenuSection = document.getElementById('eventdayMenuSection');
+  const rolePreviewSection = document.getElementById('rolePreviewSection');
+  const roleEditSection = document.getElementById('roleEditSection');
+  const roleBackButton = document.getElementById('roleBackButton');
+  const roleEditBackButton = document.getElementById('roleEditBackButton');
+
+  if (btnRoleAssignment) {
+    btnRoleAssignment.addEventListener('click', () => {
+      if (eventdayMenuSection) eventdayMenuSection.classList.add('hidden');
+      if (roleEditSection) roleEditSection.classList.add('hidden');
+      if (rolePreviewSection) rolePreviewSection.classList.remove('hidden');
+      loadRoleAssignment();
+    });
+  }
+
+  if (roleBackButton) {
+    roleBackButton.addEventListener('click', () => {
+      if (rolePreviewSection) rolePreviewSection.classList.add('hidden');
+      if (roleEditSection) roleEditSection.classList.add('hidden');
+      if (eventdayMenuSection) eventdayMenuSection.classList.remove('hidden');
+    });
+  }
+
+  // 例会当日：役割分担編集ボタン
+  const btnRoleEdit = document.getElementById('btnRoleEdit');
+  if (btnRoleEdit) {
+    btnRoleEdit.addEventListener('click', () => {
+      if (eventdayMenuSection) eventdayMenuSection.classList.add('hidden');
+      if (rolePreviewSection) rolePreviewSection.classList.add('hidden');
+      if (roleEditSection) roleEditSection.classList.remove('hidden');
+      loadRoleEditForm();
+    });
+  }
+
+  if (roleEditBackButton) {
+    roleEditBackButton.addEventListener('click', () => {
+      if (roleEditSection) roleEditSection.classList.add('hidden');
+      if (rolePreviewSection) rolePreviewSection.classList.add('hidden');
+      if (eventdayMenuSection) eventdayMenuSection.classList.remove('hidden');
+    });
+  }
+
+  // チェックインボタン（仮）
+  const btnCheckin = document.getElementById('btnCheckin');
+  if (btnCheckin) {
+    btnCheckin.addEventListener('click', () => {
+      alert('チェックイン機能は準備中です');
+    });
+  }
+
+  // 式次第イベント設定
+  setupShikidaiEvents();
+
+  google.script.run
+    .withSuccessHandler(renderDashboard)
+    .getDashboardDataFast();
+});
+
+// ダッシュボード描画
+function renderDashboard(data) {
+  if (!data) return;
+
+  console.log('monthlySummary:', data.monthlySummary);
+
+  // 他タブからも使う共通データ
+  dashboardData = data;
+  dashboardData.meetingNo = calcMeetingNoFromEventName(data.eventName || '');
+
+  // ------------------------------
+  // 1. 対象例会
+  // ------------------------------
+  const eventNameEl = document.getElementById('eventName');
+  if (eventNameEl) {
+    eventNameEl.textContent = data.eventName || '-';
+  }
+
+  // ------------------------------
+  // 2. 出欠サマリ
+  // ------------------------------
+  const att       = data.attendance || {};
+  const attendNum = att.attend      != null ? Number(att.attend)      : 0;
+  const memberNum = att.memberCount != null ? Number(att.memberCount) : 0;
+
+  const attendCountEl   = document.getElementById('attendCount');
+  const absentCountEl   = document.getElementById('absentCount');
+  const noAnswerCountEl = document.getElementById('noAnswerCount');
+  const memberCountEl   = document.getElementById('memberCount');
+
+  if (attendCountEl)   attendCountEl.textContent   = att.attend   ?? '-';
+  if (absentCountEl)   absentCountEl.textContent   = att.absent   ?? '-';
+  if (noAnswerCountEl) noAnswerCountEl.textContent = att.noAnswer ?? '-';
+  
+  // ------------------------------
+  // 3. バッジ集計 + 会員数 + 前月比
+  // ------------------------------
+  const badges  = data.badges || {};
+  const goldEl  = document.getElementById('goldCount');
+  const redEl   = document.getElementById('redCount');
+  const greenEl = document.getElementById('greenCount');
+
+  if (goldEl)  goldEl.textContent  = badges.gold  ?? '-';
+  if (redEl)   redEl.textContent   = badges.red   ?? '-';
+  if (greenEl) greenEl.textContent = badges.green ?? '-';
+
+  // 会員数と前月比
+  const memberCountMainEl = document.getElementById('memberCountMain');
+  const memberDiffEl      = document.getElementById('memberDiff');
+
+  const currentMemberCount = memberNum || 0;
+  const lastMonthCount = 125;
+
+  if (memberCountMainEl) {
+    memberCountMainEl.textContent = currentMemberCount || '-';
+  }
+
+  if (memberDiffEl && currentMemberCount > 0) {
+    const diff = currentMemberCount - lastMonthCount;
+    const sign = diff > 0 ? '+' : '';
+    const color = diff > 0 ? 'text-green-600' : (diff < 0 ? 'text-red-600' : 'text-slate-500');
+    memberDiffEl.textContent = `前月比 ${sign}${diff}人`;
+    memberDiffEl.className = `text-xs ml-1 ${color}`;
+  }
+
+  // ------------------------------
+  // 売上ハイライト
+  // ------------------------------
+  const sales        = data.sales || {};
+  const total        = sales.total        || 0;
+  const dealCount    = sales.dealCount    || 0;
+  const meetingsCount = sales.meetingsCount || 0;
+  const reporterCount = sales.reporterCount || 0;
+  const salesMonth    = sales.salesMonth;
+
+  const hlReporter = document.getElementById('highlightReporterCount');
+  const hlMeetings = document.getElementById('highlightMeetingsCount');
+  const hlDeal     = document.getElementById('highlightDealCount');
+  const hlSales    = document.getElementById('highlightSalesTotal');
+  const salesMonthLabel = document.getElementById('salesMonthLabel');
+
+  if (hlReporter) hlReporter.textContent = reporterCount || '-';
+  if (hlMeetings) hlMeetings.textContent = meetingsCount || '-';
+  if (hlDeal)     hlDeal.textContent     = dealCount     || '-';
+  if (hlSales)    hlSales.textContent    = total ? total.toLocaleString() : '-';
+
+  if (salesMonthLabel && salesMonth) {
+    salesMonthLabel.textContent = `【${salesMonth}月分】`;
+  }
+
+  // ------------------------------
+  // 売上：0件含む報告者一覧
+  // ------------------------------
+  const zeroList = sales.zeroList || [];
+  const zeroListSection = document.getElementById('zeroListSection');
+  const zeroListBody = document.getElementById('zeroListBody');
+  const zeroListCount = document.getElementById('zeroListCount');
+
+  if (zeroListSection && zeroListBody) {
+    if (zeroList.length > 0) {
+      zeroListSection.classList.remove('hidden');
+      if (zeroListCount) zeroListCount.textContent = `${zeroList.length}名`;
+      
+      zeroListBody.innerHTML = '';
+      zeroList.forEach(item => {
+        const tr = document.createElement('tr');
+        tr.className = 'border-b border-amber-200 last:border-b-0';
+        
+        const meetingsCls = item.meetings === 0 ? 'text-red-600 font-bold' : '';
+        const dealsCls    = item.deals === 0    ? 'text-red-600 font-bold' : '';
+        const amountCls   = item.amount === 0   ? 'text-red-600 font-bold' : '';
+        
+        tr.innerHTML = `
+          <td class="py-1 px-2 border border-amber-200">${escapeHtml(item.name)}</td>
+          <td class="py-1 px-2 text-center border border-amber-200 ${meetingsCls}">${item.meetings}</td>
+          <td class="py-1 px-2 text-center border border-amber-200 ${dealsCls}">${item.deals}</td>
+          <td class="py-1 px-2 text-right border border-amber-200 ${amountCls}">${item.amount.toLocaleString()}円</td>
+        `;
+        zeroListBody.appendChild(tr);
+      });
+    } else {
+      zeroListSection.classList.add('hidden');
+    }
+  }
+
+  // ------------------------------
+  // 5. ゲストサマリ（概要タブ上部の小さい表）
+  // ------------------------------
+  const guests = data.guests || {};
+  const guestSummaryText =
+    `申請 ${guests.total || 0} 名 / 承認 ${guests.approved || 0} / 保留 ${guests.pending || 0}`;
+
+  const guestSummaryEl = document.getElementById('guestSummary');
+  if (guestSummaryEl) guestSummaryEl.textContent = guestSummaryText;
+
+  const tbodyGuest = document.getElementById('guestListBody');
+  if (tbodyGuest) {
+    tbodyGuest.innerHTML = '';
+    if (guests.list && guests.list.length) {
+      guests.list.forEach(g => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td class="py-1 pr-2">${escapeHtml(g.guestName || '')}</td>
+          <td class="py-1 pr-2">${escapeHtml(g.introName || '')}</td>
+          <td class="py-1">${g.approved ? '✔︎' : ''}</td>
+        `;
+        tbodyGuest.appendChild(tr);
+      });
+    } else {
+      tbodyGuest.innerHTML =
+        '<tr><td colspan="3" class="py-2 text-slate-400">ゲスト申請なし</td></tr>';
+    }
+  }
+
+  // ------------------------------
+// 6. ゲスト詳細タブ（氏名〜営業内容 6項目）
+// ------------------------------
+const guestDetailBody = document.getElementById('guestDetailBody');
+if (guestDetailBody) {
+  const detail = (data.guests && data.guests.detail) || [];
+  guestDetailBody.innerHTML = '';
+
+  if (!detail.length) {
+    guestDetailBody.innerHTML =
+      '<tr><td colspan="6" class="py-2 px-3 text-slate-400">該当するゲストがいません。</td></tr>';
+  } else {
+    detail.forEach(g => {
+      const tr = document.createElement('tr');
+      tr.className = 'border-b last:border-b-0 hover:bg-slate-50';
+      tr.innerHTML = `
+        <td class="py-2 px-3 whitespace-nowrap font-medium">${escapeHtml(g.name || '')}</td>
+        <td class="py-2 px-3 whitespace-nowrap">${escapeHtml(g.furigana || '')}</td>
+        <td class="py-2 px-3 whitespace-nowrap">${escapeHtml(g.company || '')}</td>
+        <td class="py-2 px-3 whitespace-nowrap">${escapeHtml(g.position || '')}</td>
+        <td class="py-2 px-3 whitespace-nowrap">${escapeHtml(g.introName || '')}</td>
+        <td class="py-2 px-3" style="min-width: 200px;">${escapeHtml(g.business || '')}</td>
+      `;
+      guestDetailBody.appendChild(tr);
+    });
+  }
+}
+
+  const guestTotalNum = guests.total != null ? Number(guests.total) : 0;
+
+  // ------------------------------
+  // 他会場詳細タブ
+  // ------------------------------
+  const otherVenueDetailBody = document.getElementById('otherVenueDetailBody');
+  if (otherVenueDetailBody) {
+    const otherDetail = (data.otherVenues && data.otherVenues.detail) || [];
+    otherVenueDetailBody.innerHTML = '';
+
+    if (!otherDetail.length) {
+      otherVenueDetailBody.innerHTML =
+        '<tr><td colspan="8" class="py-2 px-3 text-slate-400">該当する他会場会員がいません。</td></tr>';
+    } else {
+      otherDetail.forEach(v => {
+        const tr = document.createElement('tr');
+        tr.className = 'border-b last:border-b-0 hover:bg-slate-50';
+        tr.innerHTML = `
+          <td class="py-2 px-3 whitespace-nowrap font-medium">${escapeHtml(v.name || '')}</td>
+          <td class="py-2 px-3 whitespace-nowrap">${escapeHtml(v.furigana || '')}</td>
+          <td class="py-2 px-3 whitespace-nowrap">${escapeHtml(v.venue || '')}</td>
+          <td class="py-2 px-3 whitespace-nowrap">${escapeHtml(v.role || '')}</td>
+          <td class="py-2 px-3 whitespace-nowrap">${escapeHtml(v.company || '')}</td>
+          <td class="py-2 px-3 whitespace-nowrap">${escapeHtml(v.position || '')}</td>
+          <td class="py-2 px-3 whitespace-nowrap">${escapeHtml(v.introName || '')}</td>
+          <td class="py-2 px-3" style="min-width: 200px;">${escapeHtml(v.business || '')}</td>
+        `;
+        otherVenueDetailBody.appendChild(tr);
+      });
+    }
+  }
+
+  // ------------------------------
+  // 7. 今月のハイライト
+  // ------------------------------
+  let rateDisplay = '-';
+  if (attendNum > 0 && memberNum > 0) {
+    const rate = Math.round((attendNum / memberNum) * 100);
+    rateDisplay = rate;
+  }
+
+  const otherVenueCount = (data.otherVenues && data.otherVenues.detail) 
+    ? data.otherVenues.detail.length 
+    : 0;
+
+  const totalParticipants = attendNum + guestTotalNum + otherVenueCount;
+
+  const hlTotalParticipants = document.getElementById('highlightTotalParticipants');
+  const hlAttend            = document.getElementById('highlightAttendRate');
+  const hlGuest             = document.getElementById('highlightGuestCount');
+  const hlOtherVenue        = document.getElementById('highlightOtherVenue');
+
+  if (hlTotalParticipants) hlTotalParticipants.textContent = totalParticipants || '-';
+  if (hlAttend)            hlAttend.textContent            = rateDisplay;
+  if (hlGuest)             hlGuest.textContent             = guestTotalNum    || '-';
+  if (hlOtherVenue)        hlOtherVenue.textContent        = otherVenueCount  || '-';
+  if (hlDeal)              hlDeal.textContent              = dealCount        || '-';
+  if (hlSales)             hlSales.textContent             = total ? total.toLocaleString() : '-';
+
+  // ------------------------------
+  // 8. 出欠詳細（カード）
+  // ------------------------------
+  const attendanceDetail = data.attendanceDetail || {};
+  const attendList   = Array.isArray(attendanceDetail.attendList)   ? attendanceDetail.attendList   : [];
+  const absentList   = Array.isArray(attendanceDetail.absentList)   ? attendanceDetail.absentList   : [];
+  const noAnswerList = Array.isArray(attendanceDetail.noAnswerList) ? attendanceDetail.noAnswerList : [];
+
+  const colAttend   = document.getElementById('attendListAttend');
+  const colAbsent   = document.getElementById('attendListAbsent');
+  const colNoAnswer = document.getElementById('attendListNoAnswer');
+
+  const countAttendEl   = document.getElementById('attendCountAttend');
+  const countAbsentEl   = document.getElementById('attendCountAbsent');
+  const countNoAnswerEl = document.getElementById('attendCountNoAnswer');
+
+  if (countAttendEl)   countAttendEl.textContent   = `${attendList.length} 名`;
+  if (countAbsentEl)   countAbsentEl.textContent   = `${absentList.length} 名`;
+  if (countNoAnswerEl) countNoAnswerEl.textContent = `${noAnswerList.length} 名`;
+
+  const renderAttendList = (list, container, showTime) => {
+    if (!container) return;
+    container.innerHTML = '';
+    if (!list.length) {
+      container.innerHTML =
+        '<div class="text-xs text-slate-400">該当者なし</div>';
+      return;
+    }
+    list.forEach(item => {
+      const style = getBadgeStyle(item.badge);
+      const div = document.createElement('div');
+      div.className = style.cardClass;
+      div.innerHTML = `
+        <div class="member-card__name">${escapeHtml(item.name || '')}</div>
+        ${showTime && item.time
+          ? `<div class="text-[10px] text-slate-500 mt-0.5">${escapeHtml(item.time)}</div>`
+          : '' }
+      `;
+      container.appendChild(div);
+    });
+  };
+
+  renderAttendList(attendList,   colAttend,   true);
+  renderAttendList(absentList,   colAbsent,   true);
+  renderAttendList(noAnswerList, colNoAnswer, false);
+
+  // ------------------------------
+  // 9. 更新予定（更新タブ）
+  // ------------------------------
+  const renewals = data.renewals || {};
+  const nextArr  = Array.isArray(renewals.next)  ? renewals.next  : [];
+  const next2Arr = Array.isArray(renewals.next2) ? renewals.next2 : [];
+
+  const nextLabelEl   = document.getElementById('nextMonthLabel');
+  const next2LabelEl  = document.getElementById('next2MonthLabel');
+  const nextCountEl   = document.getElementById('nextMonthCount');
+  const next2CountEl  = document.getElementById('next2MonthCount');
+  const nextContainer = document.getElementById('nextMonthContainer');
+  const next2Container= document.getElementById('next2MonthContainer');
+
+  if (nextLabelEl)  nextLabelEl.textContent  = renewals.nextMonthLabel  || '来月更新';
+  if (next2LabelEl) next2LabelEl.textContent = renewals.next2MonthLabel || '再来月更新';
+  if (nextCountEl)  nextCountEl.textContent  = `${nextArr.length} 名`;
+  if (next2CountEl) next2CountEl.textContent = `${next2Arr.length} 名`;
+
+  const renderRenew = (arr, container) => {
+    if (!container) return;
+    container.innerHTML = '';
+
+    if (!arr.length) {
+      container.innerHTML =
+        '<div class="text-xs text-slate-400">該当者なし</div>';
+      return;
+    }
+
+    let hasZero = false;
+
+    arr.forEach(m => {
+      const style = getBadgeStyle(m.badge);
+      const div = document.createElement('div');
+      div.className = style.cardClass;
+      const displayName = (m.hasZeroReferral ? '⚠️' : '') + m.name;
+      if (m.hasZeroReferral) hasZero = true;
+      div.innerHTML = `<div class="member-card__name">${escapeHtml(displayName)}</div>`;
+      container.appendChild(div);
+    });
+
+    if (hasZero) {
+      const warn = document.createElement('div');
+      warn.className = 'col-span-full text-[11px] text-red-600 mt-1';
+      warn.textContent = '⚠️紹介在籍人数が0人です。';
+      container.appendChild(warn);
+    }
+  };
+
+  renderRenew(nextArr,  nextContainer);
+  renderRenew(next2Arr, next2Container);
+
+  // ------------------------------
+  // 10. チーム構成（チームタブ）
+  // ------------------------------
+  const teamData      = data.teams || { teams: [], unassigned: [] };
+  const teamContainer = document.getElementById('teamContainer');
+
+  if (teamContainer) {
+    teamContainer.innerHTML = '';
+
+    const hasTeams      = Array.isArray(teamData.teams) && teamData.teams.length > 0;
+    const hasUnassigned = Array.isArray(teamData.unassigned) && teamData.unassigned.length > 0;
+
+    if (!hasTeams && !hasUnassigned) {
+      teamContainer.innerHTML =
+        '<div class="text-xs text-slate-400">チーム情報が登録されていません。</div>';
+    } else {
       if (hasTeams) {
         teamData.teams.forEach(team => {
           const card = document.createElement('div');
           card.className = 'bg-white rounded-xl shadow p-4 border border-slate-200';
 
-          const members = Array.isArray(team.members) ? team.members : [];
+          const members      = Array.isArray(team.members) ? team.members : [];
           const totalMembers = members.length;
 
           let membersHtml = '';
-
-          if (totalMembers === 0) {
+          if (!totalMembers) {
             membersHtml = '<div class="text-xs text-slate-400">メンバー未登録</div>';
           } else {
             membersHtml = members.map(m => {
               const style = getBadgeStyle(m.badge);
               return `
                 <div class="${style.cardClass}">
-                  <div class="member-card__name">${m.name}</div>
+                  <div class="member-card__name">${escapeHtml(m.name)}</div>
                 </div>
               `;
             }).join('');
@@ -681,7 +2102,7 @@
 
           card.innerHTML = `
             <div class="flex items-center justify-between mb-3">
-              <h3 class="text-sm font-semibold text-slate-800">${team.teamName || 'チーム名未設定'}</h3>
+              <h3 class="text-sm font-semibold text-slate-800">${escapeHtml(team.teamName || 'チーム名未設定')}</h3>
               <span class="text-xs text-slate-500">${totalMembers} 名</span>
             </div>
             <div class="grid grid-cols-2 md:grid-cols-3 gap-2">
@@ -692,25 +2113,23 @@
         });
       }
 
-      // 未配属
       if (hasUnassigned) {
         const card = document.createElement('div');
         card.className =
           'bg-white rounded-xl shadow p-4 border border-dashed border-amber-300';
 
-        const members = teamData.unassigned;
+        const members      = teamData.unassigned;
         const totalMembers = members.length;
 
         let membersHtml = '';
-
-        if (totalMembers === 0) {
+        if (!totalMembers) {
           membersHtml = '<div class="text-xs text-amber-400">未配属メンバーなし</div>';
         } else {
           membersHtml = members.map(m => {
             const style = getBadgeStyle(m.badge);
             return `
               <div class="${style.cardClass}">
-                <div class="member-card__name">${m.name}</div>
+                <div class="member-card__name">${escapeHtml(m.name)}</div>
               </div>
             `;
           }).join('');
@@ -728,6 +2147,2039 @@
         teamContainer.appendChild(card);
       }
     }
-  </script>
+  }
+
+  // ------------------------------
+  // 11. 累計表示（売上タブ）
+  // ------------------------------
+  if (data.monthlySummary) {
+    const totals = data.monthlySummary.totals;
+    if (totals) {
+      const totalDealEl = document.getElementById('totalDealCount');
+      const totalSalesEl = document.getElementById('totalSalesAmount');
+      if (totalDealEl) totalDealEl.textContent = totals.dealCount || '-';
+      if (totalSalesEl) totalSalesEl.textContent = totals.salesAmount ? totals.salesAmount.toLocaleString() + '円' : '-';
+    }
+  }
+}
+
+// ★ 月別推移グラフ描画（renderDashboard の外に出す）
+function renderMonthlyChart(monthlySummary) {
+  const canvas = document.getElementById('monthlyChart');
+  if (!canvas || !monthlySummary) return;
+
+  if (window.monthlyChartInstance) {
+    window.monthlyChartInstance.destroy();
+  }
+
+  const monthly = monthlySummary.monthly || [];
+  if (!monthly.length) return;
+
+  const labels = monthly.map(m => m.label);
+  const attendRates = monthly.map(m => Math.round(m.attendRate * 100));
+  const salesAmounts = monthly.map(m => Math.round(m.salesAmount / 10000));
+
+  window.monthlyChartInstance = new Chart(canvas, {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [
+        {
+          type: 'line',
+          label: '出席率 (%)',
+          data: attendRates,
+          borderColor: '#10b981',
+          backgroundColor: '#10b981',
+          yAxisID: 'y1',
+          tension: 0.3,
+          pointRadius: 4,
+          pointBackgroundColor: '#10b981',
+          order: 1,
+        },
+        {
+          type: 'bar',
+          label: '売上 (万円)',
+          data: salesAmounts,
+          backgroundColor: 'rgba(59, 130, 246, 0.6)',
+          borderColor: '#3b82f6',
+          borderWidth: 1,
+          yAxisID: 'y',
+          order: 2,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: {
+        mode: 'index',
+        intersect: false,
+      },
+      plugins: {
+        legend: {
+          position: 'top',
+          labels: {
+            font: { size: 11 },
+            boxWidth: 12,
+          },
+        },
+      },
+      scales: {
+        y: {
+          type: 'linear',
+          position: 'left',
+          title: {
+            display: true,
+            text: '売上 (万円)',
+            font: { size: 10 },
+          },
+          ticks: {
+            font: { size: 10 },
+            callback: (v) => v.toLocaleString(),
+          },
+        },
+        y1: {
+          type: 'linear',
+          position: 'right',
+          min: 0,
+          max: 100,
+          title: {
+            display: true,
+            text: '出席率 (%)',
+            font: { size: 10 },
+          },
+          ticks: {
+            font: { size: 10 },
+          },
+          grid: {
+            drawOnChartArea: false,
+          },
+        },
+        x: {
+          ticks: {
+            font: { size: 10 },
+          },
+        },
+      },
+    },
+  });
+}
+
+// 役割分担の読み込み＆描画（表示専用）
+function loadRoleAssignment() {
+  // 1. イベント当日データを読み込み（テーブルマスター用）
+  google.script.run
+    .withSuccessHandler(renderEventDayInfo)
+    .getEventDayData();
+
+  // 2. 役割分担データを読み込み（表示用）
+  google.script.run
+    .withSuccessHandler(result => {
+      if (result.success) {
+        renderRoleDisplayTable(result.assignments);
+      } else {
+        const container = document.getElementById('roleDisplayTable');
+        if (container) {
+          container.innerHTML = `<div class="text-center text-red-500 py-2">${result.message || 'エラー'}</div>`;
+        }
+      }
+    })
+    .getRoleAssignments('');
+}
+
+// 役割分担を表形式で表示（表示専用・スマホ対応）
+function renderRoleDisplayTable(assignments) {
+  const container = document.getElementById('roleDisplayTable');
+  if (!container) return;
+
+  if (!assignments || assignments.length === 0) {
+    container.innerHTML = '<div class="text-center text-slate-400 py-4">役割分担が未設定です</div>';
+    return;
+  }
+
+  // 同じ役割名をグループ化して表示
+  const roleGroups = {};
+  assignments.forEach(a => {
+    if (!roleGroups[a.roleName]) {
+      roleGroups[a.roleName] = [];
+    }
+    if (a.assignee) {
+      roleGroups[a.roleName].push(a.assignee);
+    }
+  });
+
+  // 役割順序（司会削除済み）
+  const roleOrder = ['統括', 'PA', 'MC', 'バッジ授与', '受付', 'ゲスト誘導', '会員サポート', '名刺回収', '撮影'];
+
+  let html = '<div class="space-y-1">';
+  roleOrder.forEach((roleName, idx) => {
+    const members = roleGroups[roleName] || [];
+    const hasMembers = members.length > 0;
+    const memberText = hasMembers ? members.join('、') : '-';
+    const bgClass = idx % 2 === 0 ? 'bg-white' : 'bg-slate-100';
+    const textClass = hasMembers ? 'text-slate-800 font-medium' : 'text-slate-400';
+
+    html += `
+      <div class="${bgClass} rounded-lg py-2.5 px-3 flex items-center">
+        <span class="text-sm font-bold text-slate-600 w-28 shrink-0">${roleName}</span>
+        <span class="text-sm ${textClass} flex-1">${memberText}</span>
+      </div>
+    `;
+  });
+  html += '</div>';
+
+  container.innerHTML = html;
+}
+
+// イベント当日情報を描画（タイトル・テーブルマスター）
+function renderEventDayInfo(data) {
+  if (!data) return;
+
+  const rolePreviewTitle = document.getElementById('rolePreviewTitle');
+  const tableMasterBody = document.getElementById('tableMasterBody');
+
+  if (rolePreviewTitle) {
+    const meetingNo = calcMeetingNoFromEventName(data.eventName || '');
+    const title = meetingNo
+      ? `第${meetingNo}回 役割分担表`
+      : '役割分担表';
+    rolePreviewTitle.textContent = title;
+  }
+
+  if (tableMasterBody) {
+    tableMasterBody.innerHTML = '';
+    const tableMasters = data.tableMasters || [];
+    tableMasters.forEach((tm, idx) => {
+      const tr = document.createElement('tr');
+      const bgClass = idx % 2 === 0 ? 'bg-white' : 'bg-slate-50';
+      const hasTm = tm.tm && tm.tm.trim() !== '' && tm.tm !== '-';
+      const tmClass = hasTm ? 'text-slate-800 font-medium' : 'text-slate-400';
+      tr.className = bgClass;
+      tr.innerHTML = `
+        <td class="py-2.5 px-3 text-center font-bold text-slate-600 border-b border-slate-200">${tm.table}</td>
+        <td class="py-2.5 px-3 text-left ${tmClass} border-b border-slate-200">${tm.tm || '-'}</td>
+      `;
+      tableMasterBody.appendChild(tr);
+    });
+  }
+}
+
+// ========================================
+// 受付名簿：データ取得＆プレビュー表示
+// ========================================
+let receptionData = null;
+
+function loadReceptionRoster(kind) {
+  const prepMenuSection = document.getElementById('prepMenuSection');
+  const prepPreviewSection = document.getElementById('prepPreviewSection');
+  const container = document.getElementById('prepPreviewContainer');
+  
+  if (container) {
+    container.innerHTML = '<div class="text-sm text-slate-500 py-4">データ取得中...</div>';
+  }
+  
+  if (prepMenuSection) prepMenuSection.classList.add('hidden');
+  if (prepPreviewSection) prepPreviewSection.classList.remove('hidden');
+  
+  google.script.run
+    .withSuccessHandler((data) => {
+      receptionData = data;
+      showReceptionPreview(kind);
+    })
+    .withFailureHandler((err) => {
+      console.error('受付名簿取得エラー:', err);
+      if (container) {
+        container.innerHTML = '<div class="text-sm text-red-500 py-4">データ取得に失敗しました。</div>';
+      }
+    })
+    .getReceptionRosterData();
+}
+
+function showReceptionPreview(kind) {
+  if (!receptionData) return;
+  
+  const previewTitle = document.getElementById('prepPreviewTitle');
+  const container = document.getElementById('prepPreviewContainer');
+  
+  if (!previewTitle || !container) return;
+  
+  const eventName = receptionData.eventName || '';
+  const reception = receptionData.reception || {};
+  
+  const round = calcMeetingNoFromEventName(eventName);
+  const roundText = round ? `第${round}回 ` : '';
+  
+  // 開催日
+  let eventDateStr = '';
+  if (dashboardData && dashboardData.eventDate) {
+    const d = new Date(dashboardData.eventDate);
+    if (!isNaN(d)) {
+      eventDateStr = `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日`;
+    }
+  }
+  
+  container.innerHTML = '';
+  
+  // 共通スタイル
+  const cellStyle = 'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:10px;vertical-align:middle;height:22px;line-height:22px;padding:2px 4px;';
+  const centerCell = 'text-align:center;padding:2px 4px;white-space:nowrap;font-size:10px;vertical-align:middle;height:22px;line-height:22px;';
+  const inputCell = 'text-align:center;padding:2px 4px;white-space:nowrap;font-size:10px;vertical-align:middle;height:22px;line-height:22px;min-width:60px;';
+  
+  // ========================================
+  // 福岡飯塚_受付名簿（ページ分割対応）
+  // ========================================
+  if (kind === 'local') {
+    const list = reception.local || [];
+
+    previewTitle.textContent = '福岡飯塚_受付名簿';
+
+    if (!list.length) {
+      container.innerHTML = '<div class="text-xs text-slate-400">表示できるデータがありません。</div>';
+      return;
+    }
+
+    const colgroupHtml = `
+      <col style="width:30px">
+      <col style="width:40px">
+      <col style="width:60px">
+      <col style="width:90px">
+      <col style="width:130px">
+      <col style="width:auto">
+      <col style="width:50px">
+      <col style="width:50px">
+      <col style="width:70px">
+    `;
+
+    const theadHtml = `
+      <thead>
+        <tr>
+          <th style="font-size:9px;">No</th>
+          <th style="font-size:9px;">座席</th>
+          <th style="font-size:8px;">領収書<br>番号</th>
+          <th style="font-size:9px;">氏名</th>
+          <th style="font-size:9px;">フリガナ</th>
+          <th style="font-size:9px;">営業内容</th>
+          <th style="font-size:8px;">バッジ<br>貸出</th>
+          <th style="font-size:8px;">バッジ<br>返却</th>
+          <th style="font-size:8px;">キャンセル料</th>
+        </tr>
+      </thead>
+    `;
+
+    // ページ分割の設定
+    const ROWS_PER_FIRST_PAGE = 24;  // 1ページ目（ヘッダー大きい）
+    const ROWS_PER_PAGE = 26;         // 2ページ目以降
+
+    const totalPages = Math.ceil((list.length - ROWS_PER_FIRST_PAGE) / ROWS_PER_PAGE) + 1;
+    const actualTotalPages = list.length <= ROWS_PER_FIRST_PAGE ? 1 : totalPages;
+
+    let currentIndex = 0;
+    let pageNum = 1;
+
+    while (currentIndex < list.length) {
+      const isFirstPage = pageNum === 1;
+      const rowsThisPage = isFirstPage ? ROWS_PER_FIRST_PAGE : ROWS_PER_PAGE;
+      const pageData = list.slice(currentIndex, currentIndex + rowsThisPage);
+
+      const pageDiv = document.createElement('div');
+      pageDiv.className = 'print-page';
+
+      // ヘッダー（ページ番号付き）
+      const pageIndicator = actualTotalPages > 1 ? `（${pageNum}/${actualTotalPages}）` : '';
+      const titleHtml = `
+        <div class="print-header" style="font-size:20px;font-weight:bold;margin-bottom:6px;">
+          守成クラブ福岡飯塚　${roundText}仕事バンバンプラザ 例会　受付名簿${pageIndicator}
+        </div>
+        <div class="print-subheader">
+          <span>福岡飯塚会員　${list.length}名</span>
+          <span>開催日：${eventDateStr}</span>
+        </div>
+      `;
+
+      const table = document.createElement('table');
+      table.className = 'print-table';
+      table.style.tableLayout = 'fixed';
+      table.style.width = '100%';
+
+      table.innerHTML = `
+        <colgroup>${colgroupHtml}</colgroup>
+        ${theadHtml}
+        <tbody></tbody>
+      `;
+
+      const tbody = table.querySelector('tbody');
+
+      pageData.forEach((row, idx) => {
+        const tr = document.createElement('tr');
+        tr.style.height = '22px';
+        const globalNo = currentIndex + idx + 1;
+        tr.innerHTML = `
+          <td style="${centerCell}">${globalNo}</td>
+          <td style="${centerCell}">${row.seat || ''}</td>
+          <td style="${inputCell}"></td>
+          <td style="${cellStyle}">${row.name || ''}</td>
+          <td style="${cellStyle}">${row.furigana || ''}</td>
+          <td style="${cellStyle}">${row.business || ''}</td>
+          <td style="${inputCell}"></td>
+          <td style="${inputCell}"></td>
+          <td style="${inputCell}"></td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      pageDiv.innerHTML = titleHtml;
+
+      // 横スクロール用ラッパー
+      const scrollWrapper = document.createElement('div');
+      scrollWrapper.style.overflowX = 'auto';
+      scrollWrapper.style.webkitOverflowScrolling = 'touch';
+      scrollWrapper.appendChild(table);
+
+      pageDiv.appendChild(scrollWrapper);
+      container.appendChild(pageDiv);
+
+      currentIndex += rowsThisPage;
+      pageNum++;
+    }
+
+    return;
+  }
+  
+ 
+  // ========================================
+  // 他会場・ゲスト_受付名簿（ページ分割対応）
+  // ========================================
+  if (kind === 'others') {
+    const othersData = reception.others || {};
+    const otherVenueList = othersData.otherVenue || [];
+    const guestList = othersData.guest || [];
+
+    previewTitle.textContent = '他会場・ゲスト_受付名簿';
+
+    if (!otherVenueList.length && !guestList.length) {
+      container.innerHTML = '<div class="text-xs text-slate-400">表示できるデータがありません。</div>';
+      return;
+    }
+
+    const otherColgroup = `
+      <col style="width:30px">
+      <col style="width:40px">
+      <col style="width:60px">
+      <col style="width:90px">
+      <col style="width:130px">
+      <col style="width:auto">
+      <col style="width:50px">
+      <col style="width:50px">
+      <col style="width:80px">
+    `;
+
+    const guestColgroup = `
+      <col style="width:30px">
+      <col style="width:40px">
+      <col style="width:60px">
+      <col style="width:90px">
+      <col style="width:130px">
+      <col style="width:auto">
+      <col style="width:100px">
+    `;
+
+    const otherTheadHtml = `
+      <thead>
+        <tr>
+          <th style="font-size:9px;">No.</th>
+          <th style="font-size:9px;">座席</th>
+          <th style="font-size:8px;">領収書<br>No.</th>
+          <th style="font-size:9px;">氏名</th>
+          <th style="font-size:9px;">フリガナ</th>
+          <th style="font-size:9px;">所属</th>
+          <th style="font-size:8px;">バッジ<br>貸出</th>
+          <th style="font-size:8px;">バッジ<br>返却</th>
+          <th style="font-size:9px;">備考</th>
+        </tr>
+      </thead>
+    `;
+
+    const guestTheadHtml = `
+      <thead>
+        <tr>
+          <th style="font-size:9px;">No.</th>
+          <th style="font-size:9px;">座席</th>
+          <th style="font-size:8px;">領収書<br>No.</th>
+          <th style="font-size:9px;">氏名</th>
+          <th style="font-size:9px;">フリガナ</th>
+          <th style="font-size:9px;">会社名</th>
+          <th style="font-size:9px;">備考</th>
+        </tr>
+      </thead>
+    `;
+
+    // ページ分割の設定（行数）
+    const ROWS_PER_FIRST_PAGE = 20;  // 1ページ目（両セクションのヘッダーあり）
+    const ROWS_PER_PAGE = 24;         // 2ページ目以降
+
+    // 全データを結合して行単位で管理
+    const allRows = [];
+
+    // 他会場参加者の行を追加
+    otherVenueList.forEach((row, idx) => {
+      allRows.push({
+        type: 'other',
+        no: idx + 1,
+        seat: row.seat || '',
+        name: row.name || '',
+        furigana: row.furigana || '',
+        col5: row.venue || '',
+        isFirst: idx === 0
+      });
+    });
+
+    // ゲスト参加者の行を追加
+    guestList.forEach((row, idx) => {
+      allRows.push({
+        type: 'guest',
+        no: idx + 1,
+        seat: row.seat || '',
+        name: row.name || '',
+        furigana: row.furigana || '',
+        col5: row.company || '',
+        isFirst: idx === 0
+      });
+    });
+
+    // ページ数計算
+    const totalRows = allRows.length;
+    let estimatedPages = 1;
+    if (totalRows > ROWS_PER_FIRST_PAGE) {
+      estimatedPages = 1 + Math.ceil((totalRows - ROWS_PER_FIRST_PAGE) / ROWS_PER_PAGE);
+    }
+
+    let currentIndex = 0;
+    let pageNum = 1;
+    let currentType = null;
+
+    while (currentIndex < allRows.length) {
+      const isFirstPage = pageNum === 1;
+      const rowsThisPage = isFirstPage ? ROWS_PER_FIRST_PAGE : ROWS_PER_PAGE;
+
+      const pageDiv = document.createElement('div');
+      pageDiv.className = 'print-page';
+
+      // ページ番号
+      const pageIndicator = estimatedPages > 1 ? `（${pageNum}/${estimatedPages}）` : '';
+
+      let contentHtml = `
+        <div class="print-header" style="font-size:20px;font-weight:bold;margin-bottom:6px;">
+          守成クラブ福岡飯塚　${roundText}仕事バンバンプラザ例会　他会場・ゲスト受付名簿${pageIndicator}
+        </div>
+      `;
+
+      let rowsRendered = 0;
+      let pageStartIndex = currentIndex;
+
+      while (rowsRendered < rowsThisPage && currentIndex < allRows.length) {
+        const row = allRows[currentIndex];
+
+        // セクション切り替え時にヘッダーを追加
+        if (row.type !== currentType) {
+          // 前のテーブルを閉じる
+          if (currentType !== null) {
+            contentHtml += `</tbody></table></div>`;
+          }
+
+          currentType = row.type;
+
+          if (currentType === 'other') {
+            contentHtml += `
+              <div class="print-subheader" style="margin-top:8px;">
+                <span>（他会場参加者）　${otherVenueList.length}名</span>
+                <span style="float:right;">開催日：${eventDateStr}</span>
+              </div>
+              <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
+              <table class="print-table" style="table-layout:fixed;width:100%;min-width:700px;margin-bottom:16px;">
+                <colgroup>${otherColgroup}</colgroup>
+                ${otherTheadHtml}
+                <tbody>
+            `;
+          } else {
+            contentHtml += `
+              <div class="print-subheader" style="margin-top:16px;margin-bottom:4px;">
+                <span>（ゲスト参加者）　${guestList.length}名</span>
+              </div>
+              <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
+              <table class="print-table" style="table-layout:fixed;width:100%;min-width:600px;">
+                <colgroup>${guestColgroup}</colgroup>
+                ${guestTheadHtml}
+                <tbody>
+            `;
+          }
+          rowsRendered += 2; // セクションヘッダー分
+        }
+
+        // 行を追加
+        if (currentType === 'other') {
+          contentHtml += `
+            <tr style="height:22px;">
+              <td style="${centerCell}">${row.no}</td>
+              <td style="${centerCell}">${row.seat}</td>
+              <td style="${inputCell}"></td>
+              <td style="${cellStyle}">${row.name}</td>
+              <td style="${cellStyle}">${row.furigana}</td>
+              <td style="${cellStyle}">${row.col5}</td>
+              <td style="${inputCell}"></td>
+              <td style="${inputCell}"></td>
+              <td style="${inputCell}"></td>
+            </tr>
+          `;
+        } else {
+          contentHtml += `
+            <tr style="height:22px;">
+              <td style="${centerCell}">${row.no}</td>
+              <td style="${centerCell}">${row.seat}</td>
+              <td style="${inputCell}"></td>
+              <td style="${cellStyle}">${row.name}</td>
+              <td style="${cellStyle}">${row.furigana}</td>
+              <td style="${cellStyle}">${row.col5}</td>
+              <td style="${inputCell}"></td>
+            </tr>
+          `;
+        }
+
+        currentIndex++;
+        rowsRendered++;
+      }
+
+      // テーブルを閉じる
+      if (currentType !== null) {
+        contentHtml += `</tbody></table></div>`;
+      }
+
+      // 該当者なしの場合
+      if (pageNum === 1 && !otherVenueList.length && !guestList.length) {
+        contentHtml = `
+          <div class="print-header" style="font-size:20px;font-weight:bold;margin-bottom:6px;">
+            守成クラブ福岡飯塚　${roundText}仕事バンバンプラザ例会　他会場・ゲスト受付名簿
+          </div>
+          <div style="text-align:center;color:#94a3b8;padding:20px;">該当者なし</div>
+        `;
+      }
+
+      pageDiv.innerHTML = contentHtml;
+      container.appendChild(pageDiv);
+
+      pageNum++;
+    }
+
+    return;
+  }
+}
+
+// ========================================
+// 式次第編集
+// ========================================
+
+// フォームをレンダリング
+function renderShikidaiEditForm(data) {
+  const timeTableBody = document.getElementById('shikidaiTimeTableBody');
+  const noticesBody = document.getElementById('shikidaiNoticesBody');
+  const resultDiv = document.getElementById('shikidaiTestResult');
+
+  // デバッグ用
+  if (resultDiv) {
+    resultDiv.textContent = JSON.stringify(data, null, 2);
+  }
+
+  // 司会進行を描画
+  const mcPerson1 = document.getElementById('mcPerson1');
+  const mcPerson2 = document.getElementById('mcPerson2');
+  if (mcPerson1 && mcPerson2 && data.mcPersons) {
+    mcPerson1.value = data.mcPersons[0] || '';
+    mcPerson2.value = data.mcPersons[1] || '';
+  }
+
+  // タイムテーブル描画
+  if (timeTableBody && data.timeTable) {
+    timeTableBody.innerHTML = '';
+    data.timeTable.forEach((row, idx) => {
+      const tr = document.createElement('tr');
+      const isSubtitle = !row.time;
+      tr.className = isSubtitle ? 'bg-amber-50' : '';
+      tr.innerHTML = `
+        <td class="border px-1 py-1">
+          <input type="text" class="w-full px-1 py-0.5 text-xs border rounded time-input"
+                 data-field="time" data-idx="${idx}" value="${escapeHtml(row.time || '')}"
+                 placeholder="${isSubtitle ? '(サブタイトル)' : ''}">
+        </td>
+        <td class="border px-1 py-1">
+          <input type="text" class="w-full px-1 py-0.5 text-xs border rounded"
+                 data-field="item" data-idx="${idx}" value="${escapeHtml(row.item || '')}">
+        </td>
+        <td class="border px-1 py-1">
+          <input type="text" class="w-full px-1 py-0.5 text-xs border rounded"
+                 data-field="person" data-idx="${idx}" value="${escapeHtml(row.person || '')}">
+        </td>
+        <td class="border px-1 py-1">
+          <input type="text" class="w-full px-1 py-0.5 text-xs border rounded"
+                 data-field="note" data-idx="${idx}" value="${escapeHtml(row.note || '')}">
+        </td>
+        <td class="border px-1 py-1 text-center whitespace-nowrap">
+          <button type="button" class="shikidai-move-up text-gray-400 hover:text-blue-500 px-0.5">↑</button>
+          <button type="button" class="shikidai-move-down text-gray-400 hover:text-blue-500 px-0.5">↓</button>
+          <button type="button" class="shikidai-delete-row text-red-500 hover:text-red-700 px-0.5">🗑</button>
+        </td>
+      `;
+      timeTableBody.appendChild(tr);
+    });
+
+    // 時間入力変更時に背景色を切り替え
+    timeTableBody.querySelectorAll('.time-input').forEach(input => {
+      input.addEventListener('input', (e) => {
+        const tr = e.target.closest('tr');
+        if (e.target.value.trim()) {
+          tr.className = '';
+          e.target.placeholder = '';
+        } else {
+          tr.className = 'bg-amber-50';
+          e.target.placeholder = '(サブタイトル)';
+        }
+      });
+    });
+  }
+
+  // お知らせ描画
+  if (noticesBody && data.notices) {
+    noticesBody.innerHTML = '';
+    Object.entries(data.notices).forEach(([key, value]) => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td class="border px-1 py-1">
+          <input type="text" class="w-full px-1 py-0.5 text-xs border rounded bg-slate-50"
+                 data-notice-key="${escapeHtml(key)}" value="${escapeHtml(key)}" readonly>
+        </td>
+        <td class="border px-1 py-1">
+          <textarea class="w-full px-1 py-0.5 text-xs border rounded resize-y"
+                    data-notice-value="${escapeHtml(key)}" rows="2">${escapeHtml(value || '')}</textarea>
+        </td>
+      `;
+      noticesBody.appendChild(tr);
+    });
+  }
+}
+
+// 新しい行を追加
+function addShikidaiRow() {
+  const timeTableBody = document.getElementById('shikidaiTimeTableBody');
+  if (!timeTableBody) return;
+
+  const idx = timeTableBody.querySelectorAll('tr').length;
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td class="border px-1 py-1">
+      <input type="text" class="w-full px-1 py-0.5 text-xs border rounded time-input"
+             data-field="time" data-idx="${idx}" value="">
+    </td>
+    <td class="border px-1 py-1">
+      <input type="text" class="w-full px-1 py-0.5 text-xs border rounded"
+             data-field="item" data-idx="${idx}" value="">
+    </td>
+    <td class="border px-1 py-1">
+      <input type="text" class="w-full px-1 py-0.5 text-xs border rounded"
+             data-field="person" data-idx="${idx}" value="">
+    </td>
+    <td class="border px-1 py-1">
+      <input type="text" class="w-full px-1 py-0.5 text-xs border rounded"
+             data-field="note" data-idx="${idx}" value="">
+    </td>
+    <td class="border px-1 py-1 text-center whitespace-nowrap">
+      <button type="button" class="shikidai-move-up text-gray-400 hover:text-blue-500 px-0.5">↑</button>
+      <button type="button" class="shikidai-move-down text-gray-400 hover:text-blue-500 px-0.5">↓</button>
+      <button type="button" class="shikidai-delete-row text-red-500 hover:text-red-700 px-0.5">🗑</button>
+    </td>
+  `;
+  timeTableBody.appendChild(tr);
+
+  // 時間入力欄にイベントリスナーを追加
+  const timeInput = tr.querySelector('.time-input');
+  if (timeInput) {
+    timeInput.addEventListener('input', (e) => {
+      if (e.target.value.trim()) {
+        tr.className = '';
+        e.target.placeholder = '';
+      } else {
+        tr.className = 'bg-amber-50';
+        e.target.placeholder = '(サブタイトル)';
+      }
+    });
+  }
+}
+
+// 行を削除
+function deleteShikidaiRow(idx) {
+  const timeTableBody = document.getElementById('shikidaiTimeTableBody');
+  if (!timeTableBody) return;
+  const rows = timeTableBody.querySelectorAll('tr');
+  if (rows[idx]) {
+    rows[idx].remove();
+  }
+}
+
+// 行を上に移動
+function moveShikidaiRowUp(row) {
+  const prevRow = row.previousElementSibling;
+  if (prevRow) {
+    row.parentNode.insertBefore(row, prevRow);
+  }
+}
+
+// 行を下に移動
+function moveShikidaiRowDown(row) {
+  const nextRow = row.nextElementSibling;
+  if (nextRow) {
+    row.parentNode.insertBefore(nextRow, row);
+  }
+}
+
+// 式次第編集画面を開く
+function openShikidaiEdit() {
+  const prepMenuSection = document.getElementById('prepMenuSection');
+  const shikidaiEditSection = document.getElementById('shikidaiEditSection');
+  if (prepMenuSection) prepMenuSection.classList.add('hidden');
+  if (shikidaiEditSection) shikidaiEditSection.classList.remove('hidden');
+
+  // 埋め込みデータでフォームを描画
+  if (typeof EMBEDDED_SHIKIDAI_DATA !== 'undefined') {
+    renderShikidaiEditForm(EMBEDDED_SHIKIDAI_DATA);
+  }
+}
+
+function setupShikidaiEvents() {
+  const prepMenuSection = document.getElementById('prepMenuSection');
+  const shikidaiEditSection = document.getElementById('shikidaiEditSection');
+
+  // 式次第編集ボタン
+  const btnShikidaiEdit = document.getElementById('btnShikidaiEdit');
+  if (btnShikidaiEdit) {
+    btnShikidaiEdit.addEventListener('click', openShikidaiEdit);
+  }
+
+  // 戻るボタン
+  const shikidaiBackFromEdit = document.getElementById('shikidaiBackFromEdit');
+  if (shikidaiBackFromEdit) {
+    shikidaiBackFromEdit.addEventListener('click', () => {
+      if (shikidaiEditSection) shikidaiEditSection.classList.add('hidden');
+      if (prepMenuSection) prepMenuSection.classList.remove('hidden');
+    });
+  }
+
+  // 行追加ボタン
+  const addRowBtn = document.getElementById('shikidaiAddRowButton');
+  if (addRowBtn) {
+    addRowBtn.addEventListener('click', addShikidaiRow);
+  }
+
+  // 削除・移動ボタン（イベント委譲）
+  const timeTableBody = document.getElementById('shikidaiTimeTableBody');
+  if (timeTableBody) {
+    timeTableBody.addEventListener('click', (e) => {
+      const row = e.target.closest('tr');
+      if (!row) return;
+
+      if (e.target.classList.contains('shikidai-delete-row')) {
+        row.remove();
+      } else if (e.target.classList.contains('shikidai-move-up')) {
+        moveShikidaiRowUp(row);
+      } else if (e.target.classList.contains('shikidai-move-down')) {
+        moveShikidaiRowDown(row);
+      }
+    });
+  }
+
+  // 保存ボタン
+  const saveBtn = document.getElementById('shikidaiSaveButton');
+  if (saveBtn) {
+    saveBtn.addEventListener('click', saveShikidaiData);
+  }
+
+  // 式次第プレビューボタン
+  const previewBtn = document.getElementById('btnShikidaiPreview');
+  if (previewBtn) {
+    previewBtn.addEventListener('click', openShikidaiPreview);
+  }
+
+  // 他会場日程を更新ボタン
+  const updateVenueBtn = document.getElementById('btnUpdateOtherVenue');
+  if (updateVenueBtn) {
+    updateVenueBtn.addEventListener('click', updateOtherVenueSchedule);
+  }
+
+  // フォーム回答を同期ボタン
+  const syncFormBtn = document.getElementById('btnSyncFormToOtherVenue');
+  if (syncFormBtn) {
+    syncFormBtn.addEventListener('click', syncFormToOtherVenue);
+  }
+
+  // プレビュー画面の戻るボタン
+  const previewBackBtn = document.getElementById('shikidaiPreviewBack');
+  if (previewBackBtn) {
+    previewBackBtn.addEventListener('click', () => {
+      const previewSection = document.getElementById('shikidaiPreviewSection');
+      if (previewSection) previewSection.classList.add('hidden');
+      if (prepMenuSection) prepMenuSection.classList.remove('hidden');
+    });
+  }
+
+  // PDF保存ボタン
+  const printBtn = document.getElementById('shikidaiPrintButton');
+  if (printBtn) {
+    printBtn.addEventListener('click', generateShikidaiPDF);
+  }
+}
+
+// 式次第プレビューを開く
+function openShikidaiPreview() {
+  const prepMenuSection = document.getElementById('prepMenuSection');
+  const previewSection = document.getElementById('shikidaiPreviewSection');
+  const previewBtn = document.getElementById('btnShikidaiPreview');
+
+  // 画面切り替え用の共通処理
+  function showPreview(data) {
+    if (previewBtn) {
+      previewBtn.disabled = false;
+      previewBtn.textContent = '式次第プレビュー';
+    }
+    if (prepMenuSection) prepMenuSection.classList.add('hidden');
+    if (previewSection) previewSection.classList.remove('hidden');
+    renderShikidaiPreview(data);
+    setupRefreshButton();
+  }
+
+  if (previewBtn) {
+    previewBtn.disabled = true;
+    previewBtn.textContent = 'データ取得中...';
+  }
+
+  // GASからデータ取得を試みる
+  google.script.run
+    .withSuccessHandler((data) => {
+      if (data && !data.error) {
+        showPreview(data);
+      } else {
+        // エラーレスポンスの場合は埋め込みデータを使用
+        console.log('GAS returned error, using embedded data:', data?.error);
+        if (typeof EMBEDDED_SHIKIDAI_DATA !== 'undefined') {
+          showPreview(EMBEDDED_SHIKIDAI_DATA);
+        }
+      }
+    })
+    .withFailureHandler((error) => {
+      // GAS呼び出し失敗時は埋め込みデータをフォールバック
+      console.log('GAS call failed, using embedded data:', error);
+      if (typeof EMBEDDED_SHIKIDAI_DATA !== 'undefined') {
+        showPreview(EMBEDDED_SHIKIDAI_DATA);
+      } else {
+        if (previewBtn) {
+          previewBtn.disabled = false;
+          previewBtn.textContent = '式次第プレビュー';
+        }
+        alert('データ取得に失敗しました');
+      }
+    })
+    .getShikidaiData();
+}
+
+// 更新ボタンのイベント設定
+function setupRefreshButton() {
+  const refreshBtn = document.getElementById('shikidaiRefreshButton');
+  if (refreshBtn) {
+    // 既存のリスナーを削除して再設定（重複防止）
+    refreshBtn.replaceWith(refreshBtn.cloneNode(true));
+    const newRefreshBtn = document.getElementById('shikidaiRefreshButton');
+
+    newRefreshBtn.addEventListener('click', () => {
+      newRefreshBtn.disabled = true;
+      newRefreshBtn.textContent = '更新中...';
+
+      google.script.run
+        .withSuccessHandler((data) => {
+          newRefreshBtn.disabled = false;
+          newRefreshBtn.textContent = '🔄 更新';
+          if (data && !data.error) {
+            renderShikidaiPreview(data);
+          } else {
+            console.log('GAS returned error on refresh:', data?.error);
+            alert('更新に失敗しました');
+          }
+        })
+        .withFailureHandler((error) => {
+          newRefreshBtn.disabled = false;
+          newRefreshBtn.textContent = '🔄 更新';
+          console.log('Refresh failed:', error);
+          alert('更新に失敗しました');
+        })
+        .getShikidaiData();
+    });
+  }
+}
+
+// 式次第PDF生成（html2canvas + jsPDF直接制御・1ページ強制版）
+async function generateShikidaiPDF() {
+  const content = document.getElementById('shikidaiA4Content');
+
+  if (!content) {
+    alert('式次第が表示されていません。プレビューを開いてください。');
+    return;
+  }
+
+  const btn = document.getElementById('shikidaiPrintButton');
+  const originalText = btn ? btn.textContent : '';
+  if (btn) {
+    btn.textContent = '生成中...';
+    btn.disabled = true;
+  }
+
+  // A4固定サイズ（px @ 96dpi）
+  const A4_WIDTH = 794;
+  const A4_HEIGHT = 1123;
+
+  let clone = null;
+
+  try {
+    const eventName = dashboardData?.eventName || '例会';
+    const fileName = `${eventName}_式次第.pdf`;
+
+    // 1. フォント読み込み待機 + 50ms追加待機
+    if (document.fonts && document.fonts.ready) {
+      await document.fonts.ready;
+      console.log('[PDF] フォント読み込み完了');
+    }
+    await new Promise(r => setTimeout(r, 50));
+
+    // 2. クローン作成
+    clone = content.cloneNode(true);
+
+    // 3. ID衝突対策：clone配下の全IDを削除
+    clone.querySelectorAll('[id]').forEach(el => el.removeAttribute('id'));
+
+    // 4. クローンのスタイル設定（画面外配置）
+    clone.style.cssText = `
+      position: absolute;
+      top: -9999px;
+      left: -9999px;
+      width: ${A4_WIDTH}px;
+      height: ${A4_HEIGHT}px;
+      max-height: ${A4_HEIGHT}px;
+      overflow: hidden;
+      margin: 0;
+      padding: 30px 90px;
+      box-sizing: border-box;
+      background: #ffffff;
+      transform: none;
+      font-family: "Noto Sans JP", "Hiragino Kaku Gothic ProN", "Meiryo", sans-serif;
+      font-size: 12px;
+      line-height: 1.3;
+    `;
+    document.body.appendChild(clone);
+
+    // 5. リフロー待ち（2フレーム）
+    await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+
+    // 6. デバッグログ（サイズ確認）
+    const rect = clone.getBoundingClientRect();
+    const scrollH = clone.scrollHeight;
+    console.log('[PDF] クローンサイズ:', {
+      rectWidth: rect.width,
+      rectHeight: rect.height,
+      scrollHeight: scrollH,
+      status: scrollH > A4_HEIGHT ? '⚠️ 高さ超過!' : '✓ OK'
+    });
+
+    // 7. html2canvasで固定サイズキャプチャ
+    const canvas = await html2canvas(clone, {
+      useCORS: true,
+      allowTaint: false,
+      backgroundColor: '#ffffff',
+      width: A4_WIDTH,
+      height: A4_HEIGHT,
+      windowWidth: A4_WIDTH,
+      windowHeight: A4_HEIGHT,
+      scrollX: 0,
+      scrollY: 0,
+      scale: 2,
+      logging: false
+    });
+
+    console.log('[PDF] Canvas生成:', canvas.width, 'x', canvas.height);
+
+    // 8. jsPDFで1ページに強制配置
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({
+      orientation: 'portrait',
+      unit: 'px',
+      format: [A4_WIDTH, A4_HEIGHT],
+      hotfixes: ['px_scaling']
+    });
+
+    const imgData = canvas.toDataURL('image/jpeg', 0.95);
+    pdf.addImage(imgData, 'JPEG', 0, 0, A4_WIDTH, A4_HEIGHT);
+
+    // 9. ページ数チェック
+    const pageCount = pdf.getNumberOfPages();
+    console.log('[PDF] ページ数:', pageCount, pageCount === 1 ? '✓' : '⚠️');
+
+    pdf.save(fileName);
+
+    // クローン削除
+    document.body.removeChild(clone);
+    clone = null;
+
+    console.log('[PDF] 生成完了:', fileName);
+
+  } catch (e) {
+    console.error('[PDF] 生成エラー:', e);
+    alert('PDF生成に失敗しました: ' + e.message);
+  } finally {
+    // エラー時もクローン削除
+    if (clone && clone.parentNode) {
+      document.body.removeChild(clone);
+    }
+    if (btn) {
+      btn.textContent = originalText;
+      btn.disabled = false;
+    }
+  }
+}
+
+// 他会場日程を更新
+function updateOtherVenueSchedule() {
+  const btn = document.getElementById('btnUpdateOtherVenue');
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = '更新中...';
+  }
+
+  google.script.run
+    .withSuccessHandler((result) => {
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = '他会場日程を更新';
+      }
+      if (result && result.success) {
+        alert(`他会場日程を更新しました (${result.count}件)\n\nプレビューに反映するには、ページをリロードしてください。`);
+        // 自動リロードは行わない（エラー回避）
+      } else {
+        alert('更新に失敗しました: ' + (result?.error || '不明なエラー'));
+      }
+    })
+    .withFailureHandler((err) => {
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = '他会場日程を更新';
+      }
+      alert('エラーが発生しました: ' + err.message);
+    })
+    .updateOtherVenueSchedule();
+}
+
+// フォーム回答を他会場名簿マスターに同期
+function syncFormToOtherVenue() {
+  const btn = document.getElementById('btnSyncFormToOtherVenue');
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = '同期中...';
+  }
+
+  google.script.run
+    .withSuccessHandler((result) => {
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = 'フォーム回答を同期';
+      }
+      if (result && result.success) {
+        let message = `同期完了\n\n追加: ${result.added}件\nスキップ（重複）: ${result.skipped}件`;
+        if (result.errors && result.errors.length > 0) {
+          message += `\n\nエラー:\n${result.errors.join('\n')}`;
+        }
+        alert(message);
+        // 他会場タブのデータを更新するためリロード
+        if (result.added > 0) {
+          location.reload();
+        }
+      } else {
+        alert('同期に失敗しました: ' + (result?.message || '不明なエラー'));
+      }
+    })
+    .withFailureHandler((err) => {
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = 'フォーム回答を同期';
+      }
+      alert('エラーが発生しました: ' + err.message);
+    })
+    .syncFormResponsesToOtherVenueMaster();
+}
+
+// 式次第プレビュー描画（px単位・html2canvas対応版）
+function renderShikidaiPreview(data) {
+  const container = document.getElementById('shikidaiPreviewContent');
+  if (!container) return;
+
+  // meetingCount（計算値）を優先、なければmeetingNo（手動設定）を使用
+  const meetingNo = data.meetingCount || data.meetingNo || '';
+  const meetingTitle = `守成クラブ福岡飯塚　第${meetingNo}回 仕事バンバンプラザ 例会　式次第`;
+  const timeTable = data.timeTable || [];
+  const notices = data.notices || {};
+  const otherVenueSchedule = data.otherVenueSchedule || [];
+
+  // 来月の例会日
+  let nextEventDateStr = data.nextEventDateStr || '';
+  if (!nextEventDateStr && data.nextEventDate) {
+    const d = new Date(data.nextEventDate);
+    const weekdays = ['日', '月', '火', '水', '木', '金', '土'];
+    nextEventDateStr = `${d.getMonth() + 1}/${d.getDate()}（${weekdays[d.getDay()]}）`;
+  }
+  const nextMeetingText = nextEventDateStr
+    ? `◎ 来月の例会は${nextEventDateStr}　　原則　第二水曜日開催です！！`
+    : (notices['来月案内'] || '');
+
+  // 司会担当者
+  let mcPersonText = '';
+  if (data.mcPersons && (data.mcPersons[0] || data.mcPersons[1])) {
+    mcPersonText = data.mcPersons.filter(p => p).join('・');
+  } else {
+    mcPersonText = timeTable.find(r => r.item && r.item.includes('開会宣言'))?.person || '';
+  }
+
+  // 会場名を4件ごとに改行する関数
+  function formatVenuesWithBreak(venuesStr) {
+    if (!venuesStr) return '';
+    const parts = venuesStr.split(/\s*[\/／]\s*/);
+    const chunks = [];
+    for (let i = 0; i < parts.length; i += 4) {
+      chunks.push(parts.slice(i, i + 4).map(v => escapeHtml(v)).join(' / '));
+    }
+    return chunks.join('<br>');
+  }
+
+  // 他会場スケジュールHTML（2列テーブル）
+  let venuesHtml = '';
+  const totalVenues = otherVenueSchedule.length;
+  const halfCount = Math.ceil(totalVenues / 2);
+
+  for (let i = 0; i < halfCount; i++) {
+    const left = otherVenueSchedule[i];
+    const right = otherVenueSchedule[i + halfCount];
+    venuesHtml += '<tr>';
+    if (left) {
+      venuesHtml += `<td class="venue-date">${escapeHtml(left.date || '')}</td>`;
+      venuesHtml += `<td class="venue-name">${formatVenuesWithBreak(left.venues)}</td>`;
+    } else {
+      venuesHtml += '<td></td><td></td>';
+    }
+    if (right) {
+      venuesHtml += `<td class="venue-date">${escapeHtml(right.date || '')}</td>`;
+      venuesHtml += `<td class="venue-name">${formatVenuesWithBreak(right.venues)}</td>`;
+    } else {
+      venuesHtml += '<td></td><td></td>';
+    }
+    venuesHtml += '</tr>';
+  }
+
+  // タイムテーブルHTML（3列テーブル）
+  let timetableHtml = '';
+  timeTable.forEach(row => {
+    const time = row.time || '';
+    const item = row.item || '';
+    const person = row.person || '';
+    const note = row.note || '';
+
+    if (time) {
+      // メイン行（時間あり）
+      let personNote = person;
+      if (note) personNote += `（${note}）`;
+      timetableHtml += `<tr>
+        <td class="tt-time">${escapeHtml(time)}</td>
+        <td class="tt-item">★${escapeHtml(item)}</td>
+        <td class="tt-person">${escapeHtml(personNote)}</td>
+      </tr>`;
+    } else if (item) {
+      // サブ行（時間なし、補足説明）
+      timetableHtml += `<tr>
+        <td></td>
+        <td colspan="2" class="tt-sub">（${escapeHtml(item)}）</td>
+      </tr>`;
+    }
+  });
+
+  // A4固定レイアウト（794px x 1123px）- 上下2ブロック構造
+  const html = `
+    <div id="shikidaiA4Content" class="shikidai-page">
+      <!-- 上部ブロック -->
+      <div class="shikidai-top">
+        <!-- 1. タイトル -->
+        <div class="shikidai-title">${escapeHtml(meetingTitle)}</div>
+
+        <!-- 2. サブタイトル（来月例会案内） -->
+        <div class="shikidai-subtitle">${escapeHtml(nextMeetingText)}</div>
+
+        <!-- 3. 他会場日程（2列テーブル） -->
+        <table class="shikidai-venues">
+          <tbody>${venuesHtml}</tbody>
+        </table>
+
+        <!-- 4. 注意事項（中央揃え） -->
+        <div class="shikidai-notices">
+          <p class="notice-red">${escapeHtml(notices['キャンセル'] || '')}</p>
+          <p class="notice-blue">${escapeHtml(notices['設営案内'] || '').replace(/中心で(おこなって|行って)(います|ます)。/g, '中心で行ってます。<br>')}</p>
+          <p>${escapeHtml(notices['ゲスト連絡先'] || '').replace(/フォームよりお願いします。/g, 'フォームよりお願いします。<br>')}</p>
+          <p>${escapeHtml(notices['他会場連絡先'] || '')}</p>
+        </div>
+      </div>
+
+      <!-- 下部ブロック -->
+      <div class="shikidai-bottom">
+        <!-- 5. 司会進行ヘッダー -->
+        <div class="shikidai-mc">＜ 司会進行 ＞　${escapeHtml(mcPersonText)}</div>
+
+        <!-- 6. タイムテーブル（3列テーブル） -->
+        <table class="shikidai-timetable">
+          <tbody>${timetableHtml}</tbody>
+        </table>
+      </div>
+    </div>
+  `;
+
+  container.innerHTML = html;
+}
+
+// フォームからデータを収集
+function collectShikidaiFormData() {
+  const timeTableBody = document.getElementById('shikidaiTimeTableBody');
+  const noticesBody = document.getElementById('shikidaiNoticesBody');
+
+  const timeTable = [];
+  const notices = {};
+
+  // タイムテーブル収集
+  if (timeTableBody) {
+    const rows = timeTableBody.querySelectorAll('tr');
+    rows.forEach(row => {
+      const inputs = row.querySelectorAll('input');
+      if (inputs.length >= 4) {
+        timeTable.push({
+          time: inputs[0].value.trim(),
+          item: inputs[1].value.trim(),
+          person: inputs[2].value.trim(),
+          note: inputs[3].value.trim()
+        });
+      }
+    });
+  }
+
+  // お知らせ収集
+  if (noticesBody) {
+    const rows = noticesBody.querySelectorAll('tr');
+    rows.forEach(row => {
+      const keyInput = row.querySelector('input[data-notice-key]');
+      const valueTextarea = row.querySelector('textarea[data-notice-value]');
+      if (keyInput && valueTextarea) {
+        const key = keyInput.dataset.noticeKey;
+        notices[key] = valueTextarea.value.trim();
+      }
+    });
+  }
+
+  // 司会進行収集
+  const mcPerson1 = document.getElementById('mcPerson1');
+  const mcPerson2 = document.getElementById('mcPerson2');
+  const mcPersons = [
+    mcPerson1 ? mcPerson1.value.trim() : '',
+    mcPerson2 ? mcPerson2.value.trim() : ''
+  ];
+
+  return { timeTable, notices, mcPersons };
+}
+
+// 保存処理
+function saveShikidaiData() {
+  const saveBtn = document.getElementById('shikidaiSaveButton');
+  const originalText = saveBtn ? saveBtn.textContent : '';
+
+  // ボタンを無効化してローディング表示
+  if (saveBtn) {
+    saveBtn.disabled = true;
+    saveBtn.textContent = '保存中...';
+  }
+
+  const data = collectShikidaiFormData();
+  console.log('Saving shikidai data:', data);
+
+  google.script.run
+    .withSuccessHandler((result) => {
+      if (saveBtn) {
+        saveBtn.disabled = false;
+        saveBtn.textContent = originalText;
+      }
+
+      if (result && result.success) {
+        alert('保存しました');
+      } else {
+        alert('保存に失敗しました: ' + (result?.error || '不明なエラー'));
+      }
+    })
+    .withFailureHandler((err) => {
+      if (saveBtn) {
+        saveBtn.disabled = false;
+        saveBtn.textContent = originalText;
+      }
+      console.error('Save failed:', err);
+      alert('保存に失敗しました: ' + err);
+    })
+    .saveTimeTableData(data);
+}
+
+console.log('=== SCRIPT END ===');
+
+// =========================================================
+// 個別売上機能（パスワード保護）
+// =========================================================
+let individualSalesPassword = '';
+
+function openIndividualSalesModal() {
+  document.getElementById('salesPasswordModal').classList.remove('hidden');
+  document.getElementById('salesPasswordInput').value = '';
+  document.getElementById('salesPasswordError').textContent = '';
+  document.getElementById('salesPasswordInput').focus();
+}
+
+function closeSalesPasswordModal() {
+  document.getElementById('salesPasswordModal').classList.add('hidden');
+}
+
+function verifySalesPassword() {
+  const password = document.getElementById('salesPasswordInput').value;
+  const errorEl = document.getElementById('salesPasswordError');
+  const btn = document.getElementById('verifySalesPasswordBtn');
+
+  if (!password) {
+    errorEl.textContent = 'パスワードを入力してください';
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = '確認中...';
+
+  google.script.run
+    .withSuccessHandler(result => {
+      btn.disabled = false;
+      btn.textContent = '確認';
+
+      if (result.success) {
+        individualSalesPassword = password;
+        closeSalesPasswordModal();
+        showIndividualSalesView();
+      } else {
+        errorEl.textContent = result.message || 'パスワードが違います';
+      }
+    })
+    .withFailureHandler(err => {
+      btn.disabled = false;
+      btn.textContent = '確認';
+      errorEl.textContent = 'エラー: ' + err;
+    })
+    .verifySalesPassword(password);
+}
+
+function showIndividualSalesView() {
+  // 売上タブの内容を個別売上ビューに切り替え
+  document.getElementById('salesSummaryView').classList.add('hidden');
+  document.getElementById('individualSalesView').classList.remove('hidden');
+
+  // 月一覧を取得
+  loadSalesMonthList();
+}
+
+function hideIndividualSalesView() {
+  document.getElementById('individualSalesView').classList.add('hidden');
+  document.getElementById('salesSummaryView').classList.remove('hidden');
+  individualSalesPassword = '';
+}
+
+function loadSalesMonthList() {
+  const select = document.getElementById('salesMonthSelect');
+  select.innerHTML = '<option value="">読み込み中...</option>';
+
+  google.script.run
+    .withSuccessHandler(result => {
+      if (result.success && result.months.length > 0) {
+        // months: [{year, month, label, key}, ...]
+        select.innerHTML = result.months.map(m =>
+          `<option value="${m.key}">${m.label}</option>`
+        ).join('');
+        // 最新月を自動選択
+        select.value = result.months[result.months.length - 1].key;
+        loadIndividualSalesData();
+      } else {
+        select.innerHTML = '<option value="">データなし</option>';
+      }
+    })
+    .withFailureHandler(err => {
+      select.innerHTML = '<option value="">エラー</option>';
+      console.error(err);
+    })
+    .getSalesMonthList();
+}
+
+function loadIndividualSalesData() {
+  const month = document.getElementById('salesMonthSelect').value;
+  if (!month) return;
+
+  const container = document.getElementById('individualSalesData');
+  container.innerHTML = '<div class="text-center py-8 text-slate-500">読み込み中...</div>';
+
+  google.script.run
+    .withSuccessHandler(result => {
+      if (result.success) {
+        renderIndividualSalesData(result);
+      } else {
+        container.innerHTML = `<div class="text-center py-8 text-red-500">${result.message || 'エラー'}</div>`;
+      }
+    })
+    .withFailureHandler(err => {
+      container.innerHTML = `<div class="text-center py-8 text-red-500">エラー: ${err}</div>`;
+    })
+    .getIndividualSales(month, individualSalesPassword);
+}
+
+function renderIndividualSalesData(result) {
+  const container = document.getElementById('individualSalesData');
+  const { data, summary, month } = result;
+
+  if (!data || data.length === 0) {
+    container.innerHTML = `<div class="text-center py-8 text-slate-500">${month}月のデータがありません</div>`;
+    return;
+  }
+
+  // サマリー
+  let html = `
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+      <div class="bg-blue-50 rounded-lg p-3 text-center">
+        <div class="text-xs text-slate-500">報告者数</div>
+        <div class="text-xl font-bold text-blue-600">${summary.reporterCount}人</div>
+      </div>
+      <div class="bg-blue-50 rounded-lg p-3 text-center">
+        <div class="text-xs text-slate-500">商談件数</div>
+        <div class="text-xl font-bold text-blue-600">${summary.meetingsCount}件</div>
+      </div>
+      <div class="bg-blue-50 rounded-lg p-3 text-center">
+        <div class="text-xs text-slate-500">成約件数</div>
+        <div class="text-xl font-bold text-blue-600">${summary.dealCount}件</div>
+      </div>
+      <div class="bg-green-50 rounded-lg p-3 text-center">
+        <div class="text-xs text-slate-500">売上合計</div>
+        <div class="text-xl font-bold text-green-600">${summary.total.toLocaleString()}円</div>
+      </div>
+    </div>
+  `;
+
+  // テーブル
+  html += `
+    <div class="overflow-x-auto">
+      <table class="w-full text-xs md:text-sm border-collapse">
+        <thead>
+          <tr class="bg-slate-100">
+            <th class="py-2 px-2 text-left border border-slate-200">#</th>
+            <th class="py-2 px-2 text-left border border-slate-200">氏名</th>
+            <th class="py-2 px-2 text-center border border-slate-200">商談</th>
+            <th class="py-2 px-2 text-center border border-slate-200">成約</th>
+            <th class="py-2 px-2 text-right border border-slate-200">売上金額</th>
+          </tr>
+        </thead>
+        <tbody>
+  `;
+
+  data.forEach((row, idx) => {
+    const bgClass = idx % 2 === 0 ? 'bg-white' : 'bg-slate-50';
+    const amountClass = row.amount > 0 ? 'text-green-600 font-semibold' : 'text-slate-400';
+    html += `
+      <tr class="${bgClass}">
+        <td class="py-2 px-2 border border-slate-200 text-slate-400">${idx + 1}</td>
+        <td class="py-2 px-2 border border-slate-200">${row.name}</td>
+        <td class="py-2 px-2 border border-slate-200 text-center">${row.meetings}</td>
+        <td class="py-2 px-2 border border-slate-200 text-center">${row.deals}</td>
+        <td class="py-2 px-2 border border-slate-200 text-right ${amountClass}">${row.amount.toLocaleString()}円</td>
+      </tr>
+    `;
+  });
+
+  html += '</tbody></table></div>';
+
+  container.innerHTML = html;
+}
+
+/** =========================================================
+ *  履歴タブ
+ * ======================================================= */
+let historyData = null;  // 参加者データを保持
+let historyFilter = 'all';  // 現在のフィルタ
+
+// 例会キー一覧を読み込み
+function loadEventKeyList() {
+  const select = document.getElementById('historyEventSelect');
+  if (!select) return;
+
+  select.innerHTML = '<option value="">読み込み中...</option>';
+
+  google.script.run
+    .withSuccessHandler(result => {
+      if (result.success && result.eventKeys && result.eventKeys.length > 0) {
+        // eventKeyを日本語ラベルに変換して表示
+        select.innerHTML = result.eventKeys.map(key => {
+          const label = formatEventKeyLabel(key);
+          return `<option value="${key}">${label}</option>`;
+        }).join('');
+        // 最新を自動選択してデータ読み込み
+        select.value = result.eventKeys[0];
+        loadParticipantHistory();
+      } else {
+        select.innerHTML = '<option value="">データなし</option>';
+      }
+    })
+    .withFailureHandler(err => {
+      select.innerHTML = '<option value="">エラー</option>';
+      console.error('getEventKeyList error:', err);
+    })
+    .getEventKeyList();
+}
+
+// eventKey "202601_01" → "2026年1月例会" に変換
+function formatEventKeyLabel(eventKey) {
+  const match = eventKey.match(/^(\d{4})(\d{2})_(\d{2})$/);
+  if (match) {
+    const year = parseInt(match[1], 10);
+    const month = parseInt(match[2], 10);
+    return `${year}年${month}月例会`;
+  }
+  return eventKey;
+}
+
+// 参加者履歴を読み込み
+function loadParticipantHistory() {
+  const eventKey = document.getElementById('historyEventSelect')?.value;
+  if (!eventKey) return;
+
+  const tbody = document.getElementById('historyTableBody');
+  tbody.innerHTML = '<tr><td colspan="5" class="py-8 text-center text-slate-400">読み込み中...</td></tr>';
+
+  // サマリーをリセット
+  document.getElementById('historyTotal').textContent = '-';
+  document.getElementById('historyMembers').textContent = '-';
+  document.getElementById('historyGuests').textContent = '-';
+  document.getElementById('historyOthers').textContent = '-';
+
+  google.script.run
+    .withSuccessHandler(result => {
+      if (result.success) {
+        historyData = result;
+        historyFilter = 'all';  // フィルタをリセット
+        updateHistoryFilterButtons();
+        renderHistorySummary(result);
+        renderHistoryTable(result.participants);
+      } else {
+        tbody.innerHTML = `<tr><td colspan="5" class="py-8 text-center text-red-500">${result.message || 'エラー'}</td></tr>`;
+      }
+    })
+    .withFailureHandler(err => {
+      tbody.innerHTML = `<tr><td colspan="5" class="py-8 text-center text-red-500">エラー: ${err}</td></tr>`;
+      console.error('getParticipantHistory error:', err);
+    })
+    .getParticipantHistory(eventKey);
+}
+
+// サマリー表示
+function renderHistorySummary(data) {
+  document.getElementById('historyTotal').textContent = data.total + '名';
+  document.getElementById('historyMembers').textContent = data.members + '名';
+  document.getElementById('historyGuests').textContent = data.guests + '名';
+  document.getElementById('historyOthers').textContent = data.others + '名';
+}
+
+// テーブル表示
+function renderHistoryTable(participants) {
+  const tbody = document.getElementById('historyTableBody');
+
+  // フィルタ適用
+  let filtered = participants;
+  if (historyFilter !== 'all') {
+    filtered = participants.filter(p => p.category === historyFilter);
+  }
+
+  if (filtered.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="5" class="py-8 text-center text-slate-400">該当なし</td></tr>';
+    return;
+  }
+
+  let html = '';
+  filtered.forEach((p, idx) => {
+    const bgClass = idx % 2 === 0 ? 'bg-white' : 'bg-slate-50';
+    const categoryClass = p.category === '会員' ? 'text-blue-600' :
+                          p.category === 'ゲスト' ? 'text-green-600' : 'text-orange-600';
+    html += `
+      <tr class="${bgClass}">
+        <td class="py-2 px-2 border border-slate-200 text-center text-slate-400">${idx + 1}</td>
+        <td class="py-2 px-2 border border-slate-200">${p.name}</td>
+        <td class="py-2 px-2 border border-slate-200 text-center ${categoryClass}">${p.category}</td>
+        <td class="py-2 px-2 border border-slate-200">${p.affiliation || '-'}</td>
+        <td class="py-2 px-2 border border-slate-200 text-center">${p.table || '-'}</td>
+      </tr>
+    `;
+  });
+
+  tbody.innerHTML = html;
+}
+
+// フィルタ切り替え
+function filterHistory(filter) {
+  historyFilter = filter;
+  updateHistoryFilterButtons();
+  if (historyData && historyData.participants) {
+    renderHistoryTable(historyData.participants);
+  }
+}
+
+// フィルタボタンのアクティブ状態を更新
+function updateHistoryFilterButtons() {
+  const buttons = document.querySelectorAll('.history-filter-btn');
+  buttons.forEach(btn => {
+    const btnFilter = btn.getAttribute('data-filter');
+    if (btnFilter === historyFilter) {
+      btn.classList.add('active', 'bg-slate-100');
+    } else {
+      btn.classList.remove('active', 'bg-slate-100');
+    }
+  });
+}
+
+// 履歴タブ初期化（タブ切り替え時に呼ばれる）
+function initHistoryTab() {
+  const select = document.getElementById('historyEventSelect');
+  if (select && select.options.length <= 1) {
+    loadEventKeyList();
+  }
+}
+
+/** =========================================================
+ *  役割分担編集（例会当日ページ内）
+ * ======================================================= */
+let roleAssignmentsData = [];  // 役割分担データを保持
+let roleEventKey = '';  // 現在選択中の例会キー
+let roleCandidates = [];  // 候補者リスト
+
+// 役割編集フォームを読み込み
+function loadRoleEditForm() {
+  const container = document.getElementById('roleEditCards');
+  if (container) {
+    container.innerHTML = '<div class="col-span-full text-center text-slate-400 py-4">読み込み中...</div>';
+  }
+
+  console.log('[役割編集] データ読み込み開始...');
+
+  // 1. 候補者リストを取得
+  google.script.run
+    .withSuccessHandler(candidatesResult => {
+      console.log('[役割編集] 候補者:', candidatesResult);
+      if (candidatesResult.success) {
+        roleCandidates = candidatesResult.candidates;
+        console.log('[役割編集] 候補者数:', roleCandidates.length);
+      } else {
+        roleCandidates = [];
+      }
+
+      // 2. 役割分担データを取得
+      google.script.run
+        .withSuccessHandler(result => {
+          console.log('[役割編集] 役割分担データ:', result);
+          if (result.success) {
+            roleAssignmentsData = result.assignments;
+            roleEventKey = result.eventKey;
+            console.log('[役割編集] eventKey:', roleEventKey);
+            console.log('[役割編集] roleAssignmentsData設定完了:', roleAssignmentsData.length, '件');
+            console.log('[役割編集] roleAssignmentsDataのroleId一覧:', roleAssignmentsData.map(a => a.roleId));
+            console.log('[役割編集] 担当設定済:', result.assignments.filter(a => a.assignee).map(a => `${a.roleId}=${a.assignee}`));
+            renderRoleEditCards(result.assignments);
+          } else {
+            if (container) {
+              container.innerHTML = `<div class="col-span-full text-center text-red-500 py-4">${result.message || 'エラー'}</div>`;
+            }
+          }
+        })
+        .withFailureHandler(err => {
+          console.error('[役割編集] getRoleAssignments エラー:', err);
+          if (container) {
+            container.innerHTML = `<div class="col-span-full text-center text-red-500 py-4">エラー: ${err.message || err}</div>`;
+          }
+        })
+        .getRoleAssignments('');
+    })
+    .withFailureHandler(err => {
+      console.error('[役割編集] getRoleCandidates エラー:', err);
+    })
+    .getRoleCandidates();
+}
+
+// 役割編集カードを描画（プルダウン式・グループ横並び・モバイル最適化）
+function renderRoleEditCards(assignments) {
+  const container = document.getElementById('roleEditCards');
+  if (!container) return;
+
+  if (!assignments || assignments.length === 0) {
+    container.innerHTML = '<div class="col-span-full text-center text-slate-400 py-6 text-base">役割データがありません</div>';
+    return;
+  }
+
+  // プルダウンのオプションを作成（担当者に応じてselectedを付ける）
+  function buildOptions(currentAssignee) {
+    let html = `<option value=""${!currentAssignee ? ' selected' : ''}>-- 選択 --</option>`;
+
+    // 候補者リストに現在の担当者がいるかチェック
+    const candidateNames = roleCandidates.map(c => c.name);
+    const assigneeInList = currentAssignee && candidateNames.includes(currentAssignee);
+
+    // 候補者リストにない場合は先頭に追加
+    if (currentAssignee && !assigneeInList) {
+      html += `<option value="${escapeHtml(currentAssignee)}" selected>${escapeHtml(currentAssignee)}</option>`;
+    }
+
+    // 候補者リストのオプション
+    roleCandidates.forEach(c => {
+      const isSelected = currentAssignee === c.name;
+      html += `<option value="${escapeHtml(c.name)}"${isSelected ? ' selected' : ''}>${escapeHtml(c.name)}</option>`;
+    });
+
+    return html;
+  }
+
+  // 役割順序・アイコンでグループ化
+  const roleConfig = [
+    { name: '統括', icon: '👑' },
+    { name: 'PA', icon: '🎤' },
+    { name: 'MC', icon: '🎙️' },
+    { name: 'バッジ授与', icon: '🏅' },
+    { name: '受付', icon: '📋' },
+    { name: 'ゲスト誘導', icon: '🚶' },
+    { name: '会員サポート', icon: '🤝' },
+    { name: '名刺回収', icon: '💳' },
+    { name: '撮影', icon: '📷' }
+  ];
+  const groupedRoles = {};
+
+  assignments.forEach(a => {
+    if (!groupedRoles[a.roleName]) {
+      groupedRoles[a.roleName] = [];
+    }
+    groupedRoles[a.roleName].push(a);
+  });
+
+  let html = '';
+  let rowIndex = 0;
+  roleConfig.forEach(({ name: roleName, icon }) => {
+    const roles = groupedRoles[roleName] || [];
+    if (roles.length === 0) return;
+
+    // 交互背景色
+    const bgClass = rowIndex % 2 === 0 ? 'bg-slate-50' : 'bg-white';
+    rowIndex++;
+
+    // スマホ: 縦並び / PC: 横並び
+    html += `<div class="rounded-xl border border-slate-200 ${bgClass} p-4 md:p-3">`;
+    html += `<div class="flex flex-col md:flex-row md:items-center gap-3 md:gap-4">`;
+
+    // 役割名ラベル（アイコン付き）
+    html += `<div class="flex items-center gap-2 shrink-0 md:w-36">`;
+    html += `<span class="text-xl md:text-lg">${icon}</span>`;
+    html += `<span class="text-base md:text-sm font-bold text-slate-800">${roleName}</span>`;
+    html += `</div>`;
+
+    // プルダウン群（スマホ: 縦並び / PC: 横並び）
+    html += `<div class="flex flex-col md:flex-row gap-2 md:gap-3 flex-1">`;
+
+    roles.forEach((a, idx) => {
+      console.log('[役割編集] select生成:', a.roleId, a.roleName, a.assignee);
+      const borderColor = a.assignee ? 'border-green-500' : 'border-slate-300';
+      const bgColor = a.assignee ? 'bg-green-50' : 'bg-white';
+      const labelNum = roles.length > 1 ? `${idx + 1}` : '';
+      const safeRoleId = a.roleId || '';
+
+      html += `<div class="flex items-center gap-2 flex-1 min-w-0">`;
+      if (labelNum) {
+        html += `<span class="text-xs text-slate-400 w-4 shrink-0">${labelNum}</span>`;
+      }
+      html += `<select class="role-select w-full ${bgColor} px-3 py-3 md:py-2 border-2 ${borderColor} rounded-lg text-base md:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 appearance-none" data-role-id="${safeRoleId}" data-role-name="${a.roleName}" onchange="updateRoleAssignment(this)">${buildOptions(a.assignee)}</select>`;
+      html += `</div>`;
+    });
+
+    html += `</div>`;  // flex-1
+    html += `</div></div>`;  // card
+  });
+
+  container.innerHTML = html;
+
+  // ログ出力
+  const assignedList = assignments.filter(a => a.assignee).map(a => `${a.roleName}=${a.assignee}`);
+  console.log('[役割編集] 読み込み完了:', assignedList.length, '件', assignedList);
+}
+
+// 役割選択を更新
+function updateRoleAssignment(selectEl) {
+  console.log('[役割編集] selectEl:', selectEl);
+  console.log('[役割編集] selectEl.outerHTML:', selectEl.outerHTML.substring(0, 300));
+  const roleId = selectEl.getAttribute('data-role-id');
+  const assignee = selectEl.value;
+
+  console.log('[役割編集] 選択変更:', roleId, '→', assignee);
+  console.log('[役割編集] 現在のroleAssignmentsData:', roleAssignmentsData.length, '件');
+
+  // データ更新
+  const assignment = roleAssignmentsData.find(a => a.roleId === roleId);
+  if (assignment) {
+    console.log('[役割編集] 更新前:', assignment.roleId, '=', assignment.assignee);
+    assignment.assignee = assignee;
+    console.log('[役割編集] 更新後:', assignment.roleId, '=', assignment.assignee);
+  } else {
+    console.log('[役割編集] 警告: roleId=' + roleId + ' がroleAssignmentsDataに見つかりません');
+  }
+
+  // プルダウンの見た目を更新
+  if (assignee) {
+    selectEl.classList.remove('bg-white', 'border-slate-300');
+    selectEl.classList.add('bg-green-50', 'border-green-500');
+  } else {
+    selectEl.classList.remove('bg-green-50', 'border-green-500');
+    selectEl.classList.add('bg-white', 'border-slate-300');
+  }
+}
+
+// 役割分担を保存
+function saveRoleAssignments() {
+  if (!roleEventKey) {
+    showRoleSaveMessage('例会が選択されていません', 'error');
+    return;
+  }
+
+  const saveBtn = document.querySelector('button[onclick="saveRoleAssignments()"]');
+  if (saveBtn) {
+    saveBtn.disabled = true;
+    saveBtn.textContent = '保存中...';
+  }
+
+  // 保存するデータをログ出力
+  console.log('[役割保存] eventKey:', roleEventKey);
+  console.log('[役割保存] roleAssignmentsData:', roleAssignmentsData);
+  const assignedOnly = roleAssignmentsData.filter(a => a.assignee);
+  console.log('[役割保存] 担当設定数:', assignedOnly.length, assignedOnly.map(a => `${a.roleId}=${a.assignee}`));
+
+  const payload = {
+    eventKey: roleEventKey,
+    assignments: roleAssignmentsData.map(a => ({
+      roleId: a.roleId,
+      roleName: a.roleName,
+      assignee: a.assignee || ''
+    }))
+  };
+
+  console.log('[役割保存] payload:', payload);
+  console.log('[役割保存] GAS呼び出し開始...');
+
+  // eventKeyとassignmentsを別々に渡す
+  google.script.run
+    .withSuccessHandler(function(result) {
+      console.log('[役割保存] GAS成功:', result);
+      if (saveBtn) {
+        saveBtn.disabled = false;
+        saveBtn.textContent = '💾 保存';
+      }
+
+      if (result.success) {
+        showRoleSaveMessage(result.message, 'success');
+      } else {
+        showRoleSaveMessage(result.error || 'エラーが発生しました', 'error');
+      }
+    })
+    .withFailureHandler(function(err) {
+      console.error('[役割保存] GAS失敗:', err);
+      if (saveBtn) {
+        saveBtn.disabled = false;
+        saveBtn.textContent = '💾 保存';
+      }
+      showRoleSaveMessage('エラー: ' + err, 'error');
+    })
+    .saveRoleAssignments(payload.eventKey, payload.assignments);
+}
+
+// 保存結果メッセージ表示
+function showRoleSaveMessage(message, type) {
+  const msgEl = document.getElementById('roleSaveMessage');
+  if (!msgEl) return;
+
+  msgEl.classList.remove('hidden', 'text-green-600', 'text-red-500');
+
+  if (type === 'success') {
+    msgEl.classList.add('text-green-600');
+    msgEl.textContent = '✅ ' + message;
+  } else {
+    msgEl.classList.add('text-red-500');
+    msgEl.textContent = '❌ ' + message;
+  }
+
+  // 3秒後に非表示
+  setTimeout(() => {
+    msgEl.classList.add('hidden');
+  }, 3000);
+}
+
+// Enterキーでパスワード確認
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') {
+    const modal = document.getElementById('salesPasswordModal');
+    if (modal && !modal.classList.contains('hidden')) {
+      verifySalesPassword();
+    }
+  }
+});
+    </script>
+
+<!-- ★パスワード入力モーダル -->
+<div id="salesPasswordModal" class="hidden fixed inset-0 z-50 flex items-center justify-center">
+  <!-- オーバーレイ -->
+  <div class="absolute inset-0 bg-black bg-opacity-50" onclick="closeSalesPasswordModal()"></div>
+  <!-- モーダル本体 -->
+  <div class="relative bg-white rounded-xl shadow-xl p-6 w-80 max-w-[90vw]">
+    <h3 class="text-lg font-semibold mb-4 text-center">🔐 パスワード入力</h3>
+    <p class="text-sm text-slate-500 mb-4 text-center">
+      個別売上を閲覧するにはパスワードが必要です
+    </p>
+    <input
+      type="password"
+      id="salesPasswordInput"
+      placeholder="パスワード"
+      class="w-full px-4 py-2 border border-slate-300 rounded-lg mb-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+    >
+    <div id="salesPasswordError" class="text-red-500 text-sm mb-3 text-center"></div>
+    <div class="flex gap-2">
+      <button
+        onclick="closeSalesPasswordModal()"
+        class="flex-1 px-4 py-2 bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300 transition"
+      >
+        キャンセル
+      </button>
+      <button
+        id="verifySalesPasswordBtn"
+        onclick="verifySalesPassword()"
+        class="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+      >
+        確認
+      </button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>

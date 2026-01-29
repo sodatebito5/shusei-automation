@@ -1,0 +1,12 @@
+{
+  "name": "shusei-dashboard-v3",
+  "version": "1.0.0",
+  "description": "守成クラブ福岡飯塚の例会運営を支援する管理ダッシュボード",
+  "scripts": {
+    "push": "clasp push",
+    "open": "clasp open",
+    "test-url": "echo テストURL: https://script.google.com/macros/s/AKfycbz5j-qZV2RW5nU2PoYEQYUQKooGSWtboHMPOgjSIQI/dev",
+    "deploy": "clasp deploy -i AKfycbzgVIzNjfW_UHihZS5bwrWM7xix0U4dnodZSlq7nPC8eGXGu_Fj6haCzivxiARVDPGL"
+  },
+  "private": true
+}

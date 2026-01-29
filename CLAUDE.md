@@ -31,10 +31,12 @@
 ### 必読ドキュメント（コード書く前に確認）
 
 ```
-docs/requirements.md  # 要件定義
-docs/tasks.md         # タスク管理（何をやるか）
-docs/errors.md        # 過去のエラーと解決策
-PROGRESS.md           # 全体進捗
+docs/requirements.md    # 要件定義
+docs/tasks.md           # タスク管理（何をやるか）
+docs/errors.md          # 過去のエラーと解決策
+docs/dashboard-spec.md  # ダッシュボード詳細仕様
+docs/SYSTEM_CONFIG.md   # システム全体構成
+PROGRESS.md             # 全体進捗
 ```
 
 ### 作業ルール
@@ -99,8 +101,31 @@ SHUSEI-AUTOMATION/
 | バックエンド | Google Apps Script |
 | データ | Google Sheets |
 | デプロイ（GAS） | clasp |
-| デプロイ（Web） | GitHub Pages / Vercel 等 |
+| デプロイ（Web） | Cloudflare Pages |
 | 出力 | PDF生成（式次第など） |
+
+---
+
+## 🚀 デプロイコマンド
+
+### ダッシュボード（GAS）
+
+```bash
+cd gas/dashboard
+npm run push      # テスト環境に反映
+npm run deploy    # 本番デプロイ
+```
+
+テストURL: https://script.google.com/macros/s/AKfycbz5j-qZV2RW5nU2PoYEQYUQKooGSWtboHMPOgjSIQI/dev
+
+### 自動配席アプリ（Cloudflare Pages）
+
+```bash
+cd web/seat-maker
+npx wrangler pages deploy . --project-name=seat-maker2
+```
+
+本番URL: https://seat-maker2.pages.dev/
 
 ---
 
@@ -195,6 +220,10 @@ web/[機能名]/*     # フロントエンド（API呼び出し側）
 ### Google Sheets
 - シート名変更は影響範囲大 → 必ず全コード検索
 - 列追加・削除時は定数ファイルも更新
+- **シート削除時は必ず sheetId を事前確認**
+  - `deleteSheet` には正確な sheetId が必要
+  - sheetId: 0 を推測で使わない（別シートを削除する事故が発生）
+  - スプレッドシートのメタデータを取得して sheetId を確認してから実行
 
 ### LIFF
 - `liff.getProfile()` は init 完了後に呼ぶ
