@@ -754,6 +754,36 @@ function doGet(e) {
     }
   }
 
+  // ★会員編集機能: パスワード検証
+  if (action === 'verifyMemberEditPassword') {
+    const password = e.parameter.password || '';
+    const result = verifyMemberEditPassword(password);
+    return ContentService
+      .createTextOutput(JSON.stringify(result))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+
+  // ★会員編集機能: 会員一覧取得
+  if (action === 'getMembersForEdit') {
+    try {
+      const filter = {
+        team: e.parameter.team || '',
+        badge: e.parameter.badge || '',
+        renewalMonth: e.parameter.renewalMonth || '',
+        includeRetired: e.parameter.includeRetired === 'true',
+        searchText: e.parameter.searchText || ''
+      };
+      const result = getMembersForEdit(filter);
+      return ContentService
+        .createTextOutput(JSON.stringify(result))
+        .setMimeType(ContentService.MimeType.JSON);
+    } catch (err) {
+      return ContentService
+        .createTextOutput(JSON.stringify({ success: false, error: err.message }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+
   const userId = e.parameter.userId;
   
   if (!userId) {
@@ -3912,6 +3942,63 @@ function doPost(e) {
     }
   }
 
+  // ★会員編集機能: 会員情報更新
+  if (action === 'updateMember') {
+    try {
+      const jsonText = (e.postData && e.postData.contents) || '{}';
+      const payload = JSON.parse(jsonText);
+      const result = updateMember(payload.rowIndex, payload.data, payload.password);
+      return ContentService
+        .createTextOutput(JSON.stringify(result))
+        .setMimeType(ContentService.MimeType.JSON);
+    } catch (err) {
+      return ContentService
+        .createTextOutput(JSON.stringify({
+          success: false,
+          error: 'invalid JSON: ' + err.message
+        }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+
+  // ★会員編集機能: 新規会員追加
+  if (action === 'addMember') {
+    try {
+      const jsonText = (e.postData && e.postData.contents) || '{}';
+      const payload = JSON.parse(jsonText);
+      const result = addMember(payload.data, payload.password);
+      return ContentService
+        .createTextOutput(JSON.stringify(result))
+        .setMimeType(ContentService.MimeType.JSON);
+    } catch (err) {
+      return ContentService
+        .createTextOutput(JSON.stringify({
+          success: false,
+          error: 'invalid JSON: ' + err.message
+        }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+
+  // ★会員編集機能: 退会処理
+  if (action === 'retireMember') {
+    try {
+      const jsonText = (e.postData && e.postData.contents) || '{}';
+      const payload = JSON.parse(jsonText);
+      const result = retireMember(payload.rowIndex, payload.password);
+      return ContentService
+        .createTextOutput(JSON.stringify(result))
+        .setMimeType(ContentService.MimeType.JSON);
+    } catch (err) {
+      return ContentService
+        .createTextOutput(JSON.stringify({
+          success: false,
+          error: 'invalid JSON: ' + err.message
+        }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+
   // 未対応のaction
   return ContentService
     .createTextOutput(JSON.stringify({
@@ -5092,13 +5179,14 @@ const CHECKIN_COL = {
   CHECKIN_TIME: 6,   // G列: チェックイン時刻
   BADGE_LENT: 7,     // H列: バッジ貸出
   BADGE_RETURNED: 8, // I列: バッジ返却
-  RECEIPT_NO: 9      // J列: 領収書番号
+  RECEIPT_NO: 9,     // J列: 領収書番号
+  CANCELLED: 10      // K列: キャンセル（欠席）
 };
 
 /**
- * 受付名簿から参加者データをチェックインシートに初期化
+ * 配席アーカイブから参加者データをチェックインシートに初期化
  * ★例会当日の朝にダッシュボードから実行
- * ※出欠状況が「出席」の人のみをコピー
+ * ※配席アーカイブの該当eventKeyのデータをコピー
  */
 function initCheckinData() {
   const lock = LockService.getScriptLock();
@@ -5113,154 +5201,78 @@ function initCheckinData() {
       return { success: false, message: 'チェックインシートが見つかりません' };
     }
 
-    const eventInfo = getCurrentEventInfo_();
-    const eventKey = eventInfo.key;
-    const eventName = eventInfo.name;
+    // 例会当日イベントキーを取得
+    const eventDayKey = getEventDayEventKey();
+    if (!eventDayKey) {
+      return { success: false, message: '例会当日イベントキーが設定されていません（設定シートI2）' };
+    }
 
     // 既存データをクリア（ヘッダー行は残す）
     const lastRow = checkinSheet.getLastRow();
     if (lastRow > 1) {
-      checkinSheet.getRange(2, 1, lastRow - 1, 10).clearContent();
+      checkinSheet.getRange(2, 1, lastRow - 1, 11).clearContent();
     }
 
     // ========================================
-    // 0. 出欠状況から出席者を取得
+    // 配席アーカイブから該当eventKeyのデータを取得
     // ========================================
-    const attendeeByUserId = {};
-    const attendeeByName = {};
-
-    const shAttend = ss.getSheetByName(ATTEND_SHEET_NAME);
-    if (shAttend) {
-      const valuesA = shAttend.getDataRange().getValues();
-      if (valuesA.length >= 4) {
-        const HEADER_ROW_INDEX = 2;
-        const headerA = valuesA[HEADER_ROW_INDEX];
-        const rowsA = valuesA.slice(HEADER_ROW_INDEX + 1);
-
-        const idxEventKey = findColumnIndex_(headerA, ['eventKey', 'イベントキー']);
-        const idxUserId = findColumnIndex_(headerA, ['userId', 'LINE_userId', 'ユーザーID']);
-        const idxDisplayName = findColumnIndex_(headerA, ['displayName', '氏名', '名前']);
-        const idxStatus = findColumnIndex_(headerA, ['status', '出欠', '出欠状況', 'ステータス']);
-
-        rowsA.forEach(row => {
-          if (idxEventKey === -1 || idxStatus === -1) return;
-
-          const key = String(row[idxEventKey] || '').trim();
-          if (key !== eventName) return;
-
-          const st = String(row[idxStatus] || '').trim();
-          if (st !== '○' && st !== '出席') return;
-
-          const userId = idxUserId !== -1 ? String(row[idxUserId] || '').trim() : '';
-          const displayName = idxDisplayName !== -1 ? String(row[idxDisplayName] || '').trim() : '';
-
-          if (userId) attendeeByUserId[userId] = true;
-          if (displayName) attendeeByName[displayName] = true;
-        });
-      }
+    const archiveSheet = ss.getSheetByName(SEATING_ARCHIVE_SHEET_NAME);
+    if (!archiveSheet) {
+      return { success: false, message: '配席アーカイブシートが見つかりません' };
     }
+
+    const archiveValues = archiveSheet.getDataRange().getValues();
+    if (archiveValues.length < 2) {
+      return { success: false, message: '配席アーカイブにデータがありません' };
+    }
+
+    // 配席アーカイブの列インデックス
+    // A:例会キー, B:例会日, C:参加者ID, D:氏名, E:区分, F:所属, G:役割, H:チーム, I:テーブル, J:席番, K:確定日時
+    const ARCHIVE_COL = {
+      EVENT_KEY: 0,
+      NAME: 3,
+      CATEGORY: 4,
+      AFFILIATION: 5,
+      TABLE: 8
+    };
 
     const newRows = [];
 
-    // ========================================
-    // 1. 会員名簿マスターから出席者のみ取得
-    // ========================================
-    const memberSheet = ss.getSheetByName(MEMBER_SHEET_NAME);
-    if (memberSheet) {
-      const memberValues = memberSheet.getDataRange().getValues();
-      const idxName = 2;         // C列: 氏名
-      const idxUserId = 15;      // P列: LINE_userId
-      const idxDisplayName = 14; // O列: displayName
+    for (let r = 1; r < archiveValues.length; r++) {
+      const rowEventKey = String(archiveValues[r][ARCHIVE_COL.EVENT_KEY] || '').trim();
+      if (rowEventKey !== eventDayKey) continue;
 
-      // 受付名簿（自動）から座席情報を取得
-      const seatMap = {};
-      const mainSheet = ss.getSheetByName(RECEPTION_MAIN_SHEET);
-      if (mainSheet) {
-        const mainValues = mainSheet.getDataRange().getValues();
-        const mainHeader = mainValues[1] || [];
-        const idxMainName = mainHeader.indexOf('氏名');
-        const idxMainSeat = mainHeader.indexOf('座席');
+      const name = String(archiveValues[r][ARCHIVE_COL.NAME] || '').trim();
+      if (!name) continue;
 
-        for (let r = 2; r < mainValues.length; r++) {
-          const name = String(mainValues[r][idxMainName] || '').trim();
-          const seat = idxMainSeat >= 0 ? String(mainValues[r][idxMainSeat] || '').trim() : '';
-          if (name) seatMap[name] = seat;
-        }
-      }
+      const category = String(archiveValues[r][ARCHIVE_COL.CATEGORY] || '').trim() || '会員';
+      const affiliation = String(archiveValues[r][ARCHIVE_COL.AFFILIATION] || '').trim();
+      const table = String(archiveValues[r][ARCHIVE_COL.TABLE] || '').trim();
 
-      for (let i = 2; i < memberValues.length; i++) {
-        const name = String(memberValues[i][idxName] || '').trim();
-        if (!name) continue;
-
-        const userId = String(memberValues[i][idxUserId] || '').trim();
-        const displayName = String(memberValues[i][idxDisplayName] || '').trim();
-
-        // 出席者チェック
-        const isAttendee =
-          (userId && attendeeByUserId[userId]) ||
-          (displayName && attendeeByName[displayName]);
-
-        if (!isAttendee) continue;
-
-        const seat = seatMap[name] || '';
-
-        newRows.push([
-          eventKey,
-          name,
-          '会員',
-          '福岡飯塚',
-          seat,
-          '',
-          '',
-          '',
-          '',
-          ''
-        ]);
-      }
+      newRows.push([
+        eventDayKey,    // A: 例会キー
+        name,           // B: 氏名
+        category,       // C: 区分
+        affiliation,    // D: 所属
+        table,          // E: 座席（テーブル）
+        '',             // F: チェックイン
+        '',             // G: チェックイン時刻
+        '',             // H: バッジ貸出
+        '',             // I: バッジ返却
+        '',             // J: 領収書番号
+        ''              // K: キャンセル
+      ]);
     }
 
-    // ========================================
-    // 2. 受付名簿（他会場・ゲスト）からデータ取得
-    // ========================================
-    const otherSheet = ss.getSheetByName(RECEPTION_OTHER_SHEET);
-    if (otherSheet) {
-      const otherValues = otherSheet.getDataRange().getValues();
-      const otherHeader = otherValues[1] || [];
-      const idxName = otherHeader.indexOf('氏名');
-      const idxSeat = otherHeader.indexOf('座席');
-      const idxCategory = otherHeader.indexOf('区分');
-      const idxAffiliation = otherHeader.indexOf('所属');
-
-      for (let r = 2; r < otherValues.length; r++) {
-        const name = String(otherValues[r][idxName] || '').trim();
-        if (!name) continue;
-
-        const seat = idxSeat >= 0 ? String(otherValues[r][idxSeat] || '').trim() : '';
-        const category = idxCategory >= 0 ? String(otherValues[r][idxCategory] || '').trim() : '他会場';
-        const affiliation = idxAffiliation >= 0 ? String(otherValues[r][idxAffiliation] || '').trim() : '';
-
-        newRows.push([
-          eventKey,
-          name,
-          category || '他会場',
-          affiliation,
-          seat,
-          '',
-          '',
-          '',
-          '',
-          ''
-        ]);
-      }
+    if (newRows.length === 0) {
+      return { success: false, message: '配席アーカイブに該当する例会キー(' + eventDayKey + ')のデータがありません' };
     }
 
     // データを書き込み
-    if (newRows.length > 0) {
-      checkinSheet.getRange(2, 1, newRows.length, 10).setValues(newRows);
-    }
+    checkinSheet.getRange(2, 1, newRows.length, 11).setValues(newRows);
 
-    Logger.log('チェックインデータ初期化完了: ' + newRows.length + '件');
-    return { success: true, count: newRows.length, eventKey: eventKey };
+    Logger.log('チェックインデータ初期化完了: ' + newRows.length + '件 (eventKey: ' + eventDayKey + ')');
+    return { success: true, count: newRows.length, eventKey: eventDayKey };
 
   } catch (e) {
     Logger.log('initCheckinData error: ' + e.message);
@@ -5578,6 +5590,7 @@ function getCheckinStatus() {
       const checkedIn = String(values[r][CHECKIN_COL.CHECKIN] || '').trim() === '○';
       const badgeLent = String(values[r][CHECKIN_COL.BADGE_LENT] || '').trim() === '○';
       const badgeReturned = String(values[r][CHECKIN_COL.BADGE_RETURNED] || '').trim() === '○';
+      const cancelled = String(values[r][CHECKIN_COL.CANCELLED] || '').trim() === '○';
 
       const person = {
         rowIndex: r + 1,  // シートの実際の行番号
@@ -5589,7 +5602,8 @@ function getCheckinStatus() {
         checkinTime: values[r][CHECKIN_COL.CHECKIN_TIME] ? formatTime_(values[r][CHECKIN_COL.CHECKIN_TIME]) : '',
         badgeLent: category === 'ゲスト' ? false : badgeLent,
         badgeReturned: category === 'ゲスト' ? false : badgeReturned,
-        receiptNo: String(values[r][CHECKIN_COL.RECEIPT_NO] || '').trim()
+        receiptNo: String(values[r][CHECKIN_COL.RECEIPT_NO] || '').trim(),
+        cancelled: cancelled
       };
 
       // 区分に応じて振り分け
@@ -5697,4 +5711,622 @@ function updateCheckinField(rowIndex, field, value) {
  */
 function manualCheckin(rowIndex) {
   return updateCheckinField(rowIndex, 'checkin', true);
+}
+
+/**
+ * キャンセル（欠席）マーク設定/解除（ダッシュボード用）
+ * @param {number} rowIndex - シートの行番号
+ * @param {boolean} cancelled - キャンセル状態
+ * @returns {Object} 結果
+ */
+function markCheckinCancelled(rowIndex, cancelled) {
+  const lock = LockService.getScriptLock();
+
+  try {
+    lock.waitLock(5000);
+
+    const ss = SpreadsheetApp.openById(ATTEND_GUEST_SHEET_ID);
+    const sheet = ss.getSheetByName(CHECKIN_SHEET_NAME);
+
+    if (!sheet) {
+      return { success: false, message: 'チェックインシートが見つかりません' };
+    }
+
+    // K列（CANCELLED）に値を設定
+    sheet.getRange(rowIndex, CHECKIN_COL.CANCELLED + 1).setValue(cancelled ? '○' : '');
+
+    return { success: true };
+
+  } catch (e) {
+    Logger.log('markCheckinCancelled error: ' + e.message);
+    return { success: false, message: e.message };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/**
+ * チェックイン済みからのキャンセル（ダッシュボード用）
+ * チェックインフラグと時刻をクリア
+ * @param {number} rowIndex - シートの行番号
+ * @returns {Object} 結果
+ */
+function cancelCheckinByRow(rowIndex) {
+  const lock = LockService.getScriptLock();
+
+  try {
+    lock.waitLock(5000);
+
+    const ss = SpreadsheetApp.openById(ATTEND_GUEST_SHEET_ID);
+    const sheet = ss.getSheetByName(CHECKIN_SHEET_NAME);
+
+    if (!sheet) {
+      return { success: false, message: 'チェックインシートが見つかりません' };
+    }
+
+    // チェックインとチェックイン時刻をクリア
+    sheet.getRange(rowIndex, CHECKIN_COL.CHECKIN + 1).clearContent();
+    sheet.getRange(rowIndex, CHECKIN_COL.CHECKIN_TIME + 1).clearContent();
+
+    return { success: true };
+
+  } catch (e) {
+    Logger.log('cancelCheckinByRow error: ' + e.message);
+    return { success: false, message: e.message };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/** =========================================================
+ *  会員名簿編集機能
+ * ======================================================= */
+
+// 会員名簿マスターの列インデックス（0始まり）
+const MEMBER_COL = {
+  MEMBER_ID: 0,      // A: 会員ID
+  BADGE: 1,          // B: バッジ
+  NAME: 2,           // C: 氏名
+  FURIGANA: 3,       // D: フリガナ
+  AFFILIATION: 4,    // E: 所属
+  COMPANY: 5,        // F: 会社名
+  POSITION: 6,       // G: 役職
+  ROLE: 7,           // H: 役割
+  TEAM: 8,           // I: チーム
+  INTRODUCER: 9,     // J: 紹介者
+  BUSINESS: 10,      // K: 営業内容
+  AWARD: 11,         // L: 賞
+  RENEWAL_MONTH_OLD: 12, // M: 更新月（使用しない）
+  REFERRAL_COUNT: 13,    // N: 紹介数
+  DISPLAY_NAME: 14,      // O: displayName
+  LINE_USER_ID: 15,      // P: LINE_userId
+  CATEGORY: 16,          // Q: 区分
+  AFFILIATION_OLD: 17,   // R: 所属（使用しない）
+  REFERRAL_ACTIVE: 18,   // S: 自会場紹介在籍人数
+  PURPLE_BADGE: 19,      // T: 紫バッジ
+  JOIN_DATE: 20,         // U: 入会日
+  RENEWAL_MONTH: 21,     // V: 更新月
+  CONTINUED_MONTHS: 22,  // W: 継続月
+  ROLE_X: 23,            // X: 役割分担
+  ROLE_Y: 24,            // Y: 役割分担
+  ROLE_Z: 25,            // Z: 役割分担
+  RETIRED: 26            // AA: 退会
+};
+
+/**
+ * 会員編集用パスワードを検証
+ * 設定シートのM2セルにパスワードを保存
+ */
+function verifyMemberEditPassword(password) {
+  if (!password) {
+    return { success: false, message: 'パスワードを入力してください' };
+  }
+
+  const ss = SpreadsheetApp.openById(CONFIG_SHEET_ID);
+  const sh = ss.getSheetByName(CONFIG_SHEET_NAME);
+  if (!sh) {
+    return { success: false, message: '設定シートが見つかりません' };
+  }
+
+  // M2セルからパスワードを取得
+  const correctPassword = String(sh.getRange('M2').getValue() || '').trim();
+  if (!correctPassword) {
+    return { success: false, message: '会員編集パスワードが設定されていません（設定シートM2）' };
+  }
+
+  if (password === correctPassword) {
+    return { success: true };
+  } else {
+    return { success: false, message: 'パスワードが違います' };
+  }
+}
+
+/**
+ * 会員一覧を取得（フィルタ対応）
+ * @param {Object} filter - { team, badge, renewalMonth, includeRetired, searchText }
+ * @returns {Object} { success, members: [{rowIndex, memberId, name, ...}] }
+ */
+function getMembersForEdit(filter) {
+  try {
+    const ss = SpreadsheetApp.openById(ATTEND_GUEST_SHEET_ID);
+
+    // フィルタ条件
+    const filterTeam = filter && filter.team ? filter.team : '';
+    const filterBadge = filter && filter.badge ? filter.badge : '';
+    const filterRenewalMonth = filter && filter.renewalMonth ? String(filter.renewalMonth) : '';
+    const showRetiredOnly = filter && filter.showRetiredOnly === true;
+    const searchText = filter && filter.searchText ? filter.searchText.toLowerCase() : '';
+
+    const members = [];
+    const teamSet = new Set();
+    const badgeSet = new Set();
+
+    // 退会者のみ表示モードの場合は退会者シートから取得
+    if (showRetiredOnly) {
+      const retiredSheet = ss.getSheetByName('退会者');
+      if (retiredSheet) {
+        const retiredValues = retiredSheet.getDataRange().getValues();
+        // 退会者シートの列構成（0始まり）
+        const RETIRED_COL = {
+          MEMBER_ID: 0, BADGE: 1, NAME: 2, FURIGANA: 3, AFFILIATION: 4,
+          COMPANY: 5, POSITION: 6, ROLE: 7, TEAM: 8, INTRODUCER: 9,
+          BUSINESS: 10, AWARD: 11, JOIN_MONTH: 12, RETIRED_MONTH: 13,
+          REFERRAL_COUNT: 14, DISPLAY_NAME: 15, LINE_USER_ID: 16
+        };
+
+        // 3行目以降がデータ（1,2行目はヘッダー）
+        for (let i = 2; i < retiredValues.length; i++) {
+          const row = retiredValues[i];
+          const memberId = String(row[RETIRED_COL.MEMBER_ID] || '').trim();
+          const name = String(row[RETIRED_COL.NAME] || '').trim();
+
+          if (!name) continue;
+
+          const badge = String(row[RETIRED_COL.BADGE] || '').trim();
+          const furigana = String(row[RETIRED_COL.FURIGANA] || '').trim();
+          const team = String(row[RETIRED_COL.TEAM] || '').trim();
+          const company = String(row[RETIRED_COL.COMPANY] || '').trim();
+          const affiliation = String(row[RETIRED_COL.AFFILIATION] || '').trim();
+          const retiredMonth = String(row[RETIRED_COL.RETIRED_MONTH] || '').trim();
+
+          if (team) teamSet.add(team);
+          if (badge) badgeSet.add(badge);
+
+          if (filterTeam && team !== filterTeam) continue;
+          if (filterBadge && badge !== filterBadge) continue;
+          if (searchText) {
+            const searchTarget = (name + furigana + company).toLowerCase();
+            if (searchTarget.indexOf(searchText) === -1) continue;
+          }
+
+          members.push({
+            rowIndex: i + 1,
+            memberId: memberId,
+            badge: badge,
+            name: name,
+            furigana: furigana,
+            affiliation: affiliation,
+            company: company,
+            position: String(row[RETIRED_COL.POSITION] || '').trim(),
+            role: String(row[RETIRED_COL.ROLE] || '').trim(),
+            team: team,
+            introducer: String(row[RETIRED_COL.INTRODUCER] || '').trim(),
+            business: String(row[RETIRED_COL.BUSINESS] || '').trim(),
+            award: String(row[RETIRED_COL.AWARD] || '').trim(),
+            referralCount: String(row[RETIRED_COL.REFERRAL_COUNT] || '').trim(),
+            category: '',
+            referralActive: '',
+            purpleBadge: '',
+            joinDate: String(row[RETIRED_COL.JOIN_MONTH] || '').trim(),
+            renewalMonth: '',
+            continuedMonths: '',
+            retired: '退会',
+            retiredMonth: retiredMonth,
+            isFromRetiredSheet: true
+          });
+        }
+      }
+
+      return {
+        success: true,
+        members: members,
+        teams: Array.from(teamSet).sort(),
+        badges: Array.from(badgeSet)
+      };
+    }
+
+    // 通常モード：会員名簿マスターから取得（退会者を除外）
+    const sh = ss.getSheetByName(MEMBER_SHEET_NAME);
+    if (!sh) {
+      return { success: false, message: '会員名簿マスターが見つかりません', members: [] };
+    }
+
+    const values = sh.getDataRange().getValues();
+    if (values.length < 3) {
+      return { success: true, members: [], teams: [], badges: [] };
+    }
+
+    // 3行目以降がデータ（1,2行目はヘッダー）
+    for (let i = 2; i < values.length; i++) {
+      const row = values[i];
+      const memberId = String(row[MEMBER_COL.MEMBER_ID] || '').trim();
+      const name = String(row[MEMBER_COL.NAME] || '').trim();
+
+      if (!name) continue;
+
+      const badge = String(row[MEMBER_COL.BADGE] || '').trim();
+      const furigana = String(row[MEMBER_COL.FURIGANA] || '').trim();
+      const team = String(row[MEMBER_COL.TEAM] || '').trim();
+      const renewalMonth = String(row[MEMBER_COL.RENEWAL_MONTH] || '').trim();
+      const retired = String(row[MEMBER_COL.RETIRED] || '').trim();
+      const company = String(row[MEMBER_COL.COMPANY] || '').trim();
+      const affiliation = String(row[MEMBER_COL.AFFILIATION] || '').trim();
+
+      if (team) teamSet.add(team);
+      if (badge) badgeSet.add(badge);
+
+      // 退会者は除外
+      if (retired) continue;
+
+      if (filterTeam && team !== filterTeam) continue;
+      if (filterBadge && badge !== filterBadge) continue;
+      if (filterRenewalMonth && renewalMonth !== filterRenewalMonth) continue;
+      if (searchText) {
+        const searchTarget = (name + furigana + company).toLowerCase();
+        if (searchTarget.indexOf(searchText) === -1) continue;
+      }
+
+      members.push({
+        rowIndex: i + 1,
+        memberId: memberId,
+        badge: badge,
+        name: name,
+        furigana: furigana,
+        affiliation: affiliation,
+        company: company,
+        position: String(row[MEMBER_COL.POSITION] || '').trim(),
+        role: String(row[MEMBER_COL.ROLE] || '').trim(),
+        team: team,
+        introducer: String(row[MEMBER_COL.INTRODUCER] || '').trim(),
+        business: String(row[MEMBER_COL.BUSINESS] || '').trim(),
+        award: String(row[MEMBER_COL.AWARD] || '').trim(),
+        referralCount: String(row[MEMBER_COL.REFERRAL_COUNT] || '').trim(),
+        category: String(row[MEMBER_COL.CATEGORY] || '').trim(),
+        referralActive: String(row[MEMBER_COL.REFERRAL_ACTIVE] || '').trim(),
+        purpleBadge: String(row[MEMBER_COL.PURPLE_BADGE] || '').trim(),
+        joinDate: formatDate_(row[MEMBER_COL.JOIN_DATE]),
+        renewalMonth: renewalMonth,
+        continuedMonths: String(row[MEMBER_COL.CONTINUED_MONTHS] || '').trim(),
+        retired: retired,
+        isFromRetiredSheet: false
+      });
+    }
+
+    return {
+      success: true,
+      members: members,
+      teams: Array.from(teamSet).sort(),
+      badges: Array.from(badgeSet)
+    };
+
+  } catch (e) {
+    Logger.log('getMembersForEdit error: ' + e.message);
+    return { success: false, message: e.message, members: [] };
+  }
+}
+
+/**
+ * 会員情報を更新
+ * @param {number} rowIndex - シートの行番号（1始まり）
+ * @param {Object} data - 更新データ
+ * @param {string} password - パスワード
+ * @returns {Object} 結果
+ */
+function updateMember(rowIndex, data, password) {
+  // パスワード検証
+  const authResult = verifyMemberEditPassword(password);
+  if (!authResult.success) {
+    return authResult;
+  }
+
+  const lock = LockService.getScriptLock();
+
+  try {
+    lock.waitLock(10000);
+
+    const ss = SpreadsheetApp.openById(ATTEND_GUEST_SHEET_ID);
+    const sh = ss.getSheetByName(MEMBER_SHEET_NAME);
+
+    if (!sh) {
+      return { success: false, message: '会員名簿マスターが見つかりません' };
+    }
+
+    // 行番号の妥当性チェック
+    if (rowIndex < 3) {
+      return { success: false, message: '無効な行番号です' };
+    }
+
+    // 変更前の値を取得
+    const oldRow = sh.getRange(rowIndex, 1, 1, 27).getValues()[0];
+    const memberId = String(oldRow[MEMBER_COL.MEMBER_ID] || '');
+    const memberName = String(oldRow[MEMBER_COL.NAME] || '');
+
+    // 更新対象の列と値のマッピング（フィールド名も追加）
+    const updates = [];
+
+    if (data.badge !== undefined) updates.push({ col: MEMBER_COL.BADGE + 1, val: data.badge, field: 'badge', colIdx: MEMBER_COL.BADGE });
+    if (data.name !== undefined) updates.push({ col: MEMBER_COL.NAME + 1, val: data.name, field: 'name', colIdx: MEMBER_COL.NAME });
+    if (data.furigana !== undefined) updates.push({ col: MEMBER_COL.FURIGANA + 1, val: data.furigana, field: 'furigana', colIdx: MEMBER_COL.FURIGANA });
+    if (data.affiliation !== undefined) updates.push({ col: MEMBER_COL.AFFILIATION + 1, val: data.affiliation, field: 'affiliation', colIdx: MEMBER_COL.AFFILIATION });
+    if (data.company !== undefined) updates.push({ col: MEMBER_COL.COMPANY + 1, val: data.company, field: 'company', colIdx: MEMBER_COL.COMPANY });
+    if (data.position !== undefined) updates.push({ col: MEMBER_COL.POSITION + 1, val: data.position, field: 'position', colIdx: MEMBER_COL.POSITION });
+    if (data.role !== undefined) updates.push({ col: MEMBER_COL.ROLE + 1, val: data.role, field: 'role', colIdx: MEMBER_COL.ROLE });
+    if (data.team !== undefined) updates.push({ col: MEMBER_COL.TEAM + 1, val: data.team, field: 'team', colIdx: MEMBER_COL.TEAM });
+    if (data.introducer !== undefined) updates.push({ col: MEMBER_COL.INTRODUCER + 1, val: data.introducer, field: 'introducer', colIdx: MEMBER_COL.INTRODUCER });
+    if (data.business !== undefined) updates.push({ col: MEMBER_COL.BUSINESS + 1, val: data.business, field: 'business', colIdx: MEMBER_COL.BUSINESS });
+    if (data.award !== undefined) updates.push({ col: MEMBER_COL.AWARD + 1, val: data.award, field: 'award', colIdx: MEMBER_COL.AWARD });
+    if (data.referralCount !== undefined) updates.push({ col: MEMBER_COL.REFERRAL_COUNT + 1, val: data.referralCount, field: 'referralCount', colIdx: MEMBER_COL.REFERRAL_COUNT });
+    if (data.displayName !== undefined) updates.push({ col: MEMBER_COL.DISPLAY_NAME + 1, val: data.displayName, field: 'displayName', colIdx: MEMBER_COL.DISPLAY_NAME });
+    if (data.lineUserId !== undefined) updates.push({ col: MEMBER_COL.LINE_USER_ID + 1, val: data.lineUserId, field: 'lineUserId', colIdx: MEMBER_COL.LINE_USER_ID });
+    if (data.category !== undefined) updates.push({ col: MEMBER_COL.CATEGORY + 1, val: data.category, field: 'category', colIdx: MEMBER_COL.CATEGORY });
+    if (data.referralActive !== undefined) updates.push({ col: MEMBER_COL.REFERRAL_ACTIVE + 1, val: data.referralActive, field: 'referralActive', colIdx: MEMBER_COL.REFERRAL_ACTIVE });
+    if (data.purpleBadge !== undefined) updates.push({ col: MEMBER_COL.PURPLE_BADGE + 1, val: data.purpleBadge, field: 'purpleBadge', colIdx: MEMBER_COL.PURPLE_BADGE });
+    if (data.joinDate !== undefined) updates.push({ col: MEMBER_COL.JOIN_DATE + 1, val: data.joinDate, field: 'joinDate', colIdx: MEMBER_COL.JOIN_DATE });
+    if (data.renewalMonth !== undefined) updates.push({ col: MEMBER_COL.RENEWAL_MONTH + 1, val: data.renewalMonth, field: 'renewalMonth', colIdx: MEMBER_COL.RENEWAL_MONTH });
+    if (data.continuedMonths !== undefined) updates.push({ col: MEMBER_COL.CONTINUED_MONTHS + 1, val: data.continuedMonths, field: 'continuedMonths', colIdx: MEMBER_COL.CONTINUED_MONTHS });
+    if (data.retired !== undefined) updates.push({ col: MEMBER_COL.RETIRED + 1, val: data.retired ? '退会' : '', field: 'retired', colIdx: MEMBER_COL.RETIRED });
+
+    // 変更があった項目を記録
+    const changes = [];
+    updates.forEach(u => {
+      const oldValue = String(oldRow[u.colIdx] || '');
+      const newValue = String(u.val || '');
+      if (oldValue !== newValue) {
+        changes.push({ field: u.field, oldValue: oldValue, newValue: newValue });
+      }
+    });
+
+    // 各列を更新
+    updates.forEach(u => {
+      sh.getRange(rowIndex, u.col).setValue(u.val);
+    });
+
+    // 変更履歴を記録（変更があった場合のみ）
+    // ★デバッグ: 一時的にコメントアウト
+    // if (changes.length > 0) {
+    //   logMemberChange_('編集', memberId, memberName, changes);
+    // }
+
+    return { success: true, message: '会員情報を更新しました' };
+
+  } catch (e) {
+    Logger.log('updateMember error: ' + e.message);
+    return { success: false, message: e.message };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/**
+ * 新規会員を追加
+ * @param {Object} data - 会員データ
+ * @param {string} password - パスワード
+ * @returns {Object} 結果
+ */
+function addMember(data, password) {
+  // パスワード検証
+  const authResult = verifyMemberEditPassword(password);
+  if (!authResult.success) {
+    return authResult;
+  }
+
+  const lock = LockService.getScriptLock();
+
+  try {
+    lock.waitLock(10000);
+
+    const ss = SpreadsheetApp.openById(ATTEND_GUEST_SHEET_ID);
+    const sh = ss.getSheetByName(MEMBER_SHEET_NAME);
+
+    if (!sh) {
+      return { success: false, message: '会員名簿マスターが見つかりません' };
+    }
+
+    // 必須項目チェック
+    if (!data.name || !data.name.trim()) {
+      return { success: false, message: '氏名は必須です' };
+    }
+
+    // 会員IDを自動採番（A列の最大値 + 1）
+    const values = sh.getRange('A:A').getValues();
+    let maxId = 0;
+    for (let i = 2; i < values.length; i++) {
+      const id = parseInt(values[i][0], 10);
+      if (!isNaN(id) && id > maxId) {
+        maxId = id;
+      }
+    }
+    const newMemberId = maxId + 1;
+
+    // 最終行に追加
+    const lastRow = sh.getLastRow();
+    const newRow = lastRow + 1;
+
+    // 新しい行を構築
+    const newRowData = new Array(27).fill('');
+    newRowData[MEMBER_COL.MEMBER_ID] = newMemberId;
+    newRowData[MEMBER_COL.BADGE] = data.badge || '';
+    newRowData[MEMBER_COL.NAME] = data.name || '';
+    newRowData[MEMBER_COL.FURIGANA] = data.furigana || '';
+    newRowData[MEMBER_COL.AFFILIATION] = data.affiliation || '';
+    newRowData[MEMBER_COL.COMPANY] = data.company || '';
+    newRowData[MEMBER_COL.POSITION] = data.position || '';
+    newRowData[MEMBER_COL.ROLE] = data.role || '';
+    newRowData[MEMBER_COL.TEAM] = data.team || '';
+    newRowData[MEMBER_COL.INTRODUCER] = data.introducer || '';
+    newRowData[MEMBER_COL.BUSINESS] = data.business || '';
+    newRowData[MEMBER_COL.AWARD] = data.award || '';
+    newRowData[MEMBER_COL.REFERRAL_COUNT] = data.referralCount || '';
+    newRowData[MEMBER_COL.DISPLAY_NAME] = data.displayName || '';
+    newRowData[MEMBER_COL.LINE_USER_ID] = data.lineUserId || '';
+    newRowData[MEMBER_COL.CATEGORY] = data.category || '';
+    newRowData[MEMBER_COL.REFERRAL_ACTIVE] = data.referralActive || '';
+    newRowData[MEMBER_COL.PURPLE_BADGE] = data.purpleBadge || '';
+    newRowData[MEMBER_COL.JOIN_DATE] = data.joinDate || '';
+    newRowData[MEMBER_COL.RENEWAL_MONTH] = data.renewalMonth || '';
+    newRowData[MEMBER_COL.CONTINUED_MONTHS] = data.continuedMonths || '';
+    newRowData[MEMBER_COL.RETIRED] = '';
+
+    sh.getRange(newRow, 1, 1, newRowData.length).setValues([newRowData]);
+
+    // 変更履歴を記録
+    logMemberChange_('新規追加', String(newMemberId), data.name || '', null);
+
+    return {
+      success: true,
+      message: '会員を追加しました',
+      memberId: newMemberId,
+      rowIndex: newRow
+    };
+
+  } catch (e) {
+    Logger.log('addMember error: ' + e.message);
+    return { success: false, message: e.message };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/**
+ * 会員を退会処理（論理削除）
+ * @param {number} rowIndex - シートの行番号
+ * @param {string} password - パスワード
+ * @returns {Object} 結果
+ */
+function retireMember(rowIndex, password) {
+  // パスワード検証
+  const authResult = verifyMemberEditPassword(password);
+  if (!authResult.success) {
+    return authResult;
+  }
+
+  const lock = LockService.getScriptLock();
+
+  try {
+    lock.waitLock(5000);
+
+    const ss = SpreadsheetApp.openById(ATTEND_GUEST_SHEET_ID);
+    const sh = ss.getSheetByName(MEMBER_SHEET_NAME);
+
+    if (!sh) {
+      return { success: false, message: '会員名簿マスターが見つかりません' };
+    }
+
+    // 会員情報を取得（履歴記録用）
+    const row = sh.getRange(rowIndex, 1, 1, 27).getValues()[0];
+    const memberId = String(row[MEMBER_COL.MEMBER_ID] || '');
+    const memberName = String(row[MEMBER_COL.NAME] || '');
+
+    // AA列に「退会」をセット
+    sh.getRange(rowIndex, MEMBER_COL.RETIRED + 1).setValue('退会');
+
+    // 変更履歴を記録
+    logMemberChange_('退会', memberId, memberName, [{ field: 'retired', oldValue: '', newValue: '退会' }]);
+
+    return { success: true, message: '退会処理が完了しました' };
+
+  } catch (e) {
+    Logger.log('retireMember error: ' + e.message);
+    return { success: false, message: e.message };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/**
+ * 日付をフォーマット（内部ヘルパー）
+ * Date型、YYYYMMDD形式の数値/文字列に対応
+ * HTML input[type="date"]で使用するためYYYY-MM-DD形式（ハイフン区切り）で出力
+ */
+function formatDate_(date) {
+  if (!date) return '';
+  if (date instanceof Date) {
+    return Utilities.formatDate(date, 'Asia/Tokyo', 'yyyy-MM-dd');
+  }
+  // YYYYMMDD形式（数値または文字列）をYYYY-MM-DD形式に変換
+  const str = String(date);
+  if (/^\d{8}$/.test(str)) {
+    return str.slice(0, 4) + '-' + str.slice(4, 6) + '-' + str.slice(6, 8);
+  }
+  return str;
+}
+
+// 会員変更履歴シート名
+const MEMBER_HISTORY_SHEET_NAME = '会員変更履歴';
+
+// フィールド名の日本語マッピング
+const MEMBER_FIELD_LABELS = {
+  badge: 'バッジ',
+  name: '氏名',
+  furigana: 'フリガナ',
+  affiliation: '所属',
+  company: '会社名',
+  position: '役職',
+  role: '役割',
+  team: 'チーム',
+  introducer: '紹介者',
+  business: '営業内容',
+  award: '賞',
+  referralCount: '紹介数',
+  displayName: '表示名',
+  lineUserId: 'LINE ID',
+  category: '区分',
+  referralActive: '自会場紹介在籍人数',
+  purpleBadge: '紫バッジ',
+  joinDate: '入会日',
+  renewalMonth: '更新月',
+  continuedMonths: '継続月',
+  retired: '退会'
+};
+
+/**
+ * 会員変更履歴を記録
+ * @param {string} operationType - 操作種別（編集/新規追加/退会）
+ * @param {string} memberId - 会員ID
+ * @param {string} memberName - 会員名
+ * @param {Array} changes - 変更内容の配列 [{field, oldValue, newValue}, ...]
+ */
+function logMemberChange_(operationType, memberId, memberName, changes) {
+  try {
+    const ss = SpreadsheetApp.openById(ATTEND_GUEST_SHEET_ID);
+    let historySheet = ss.getSheetByName(MEMBER_HISTORY_SHEET_NAME);
+
+    if (!historySheet) {
+      // シートがなければ作成
+      historySheet = ss.insertSheet(MEMBER_HISTORY_SHEET_NAME);
+      historySheet.getRange('A1:G1').setValues([['変更日時', '操作種別', '会員ID', '会員名', '変更項目', '変更前', '変更後']]);
+    }
+
+    const timestamp = Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy-MM-dd HH:mm:ss');
+    const rows = [];
+
+    if (changes && changes.length > 0) {
+      // 各変更項目ごとに1行記録
+      changes.forEach(change => {
+        const fieldLabel = MEMBER_FIELD_LABELS[change.field] || change.field;
+        rows.push([timestamp, operationType, memberId, memberName, fieldLabel, change.oldValue || '', change.newValue || '']);
+      });
+    } else {
+      // 変更項目がない場合（新規追加など）
+      rows.push([timestamp, operationType, memberId, memberName, '', '', '']);
+    }
+
+    // 最終行の次に追加
+    const lastRow = historySheet.getLastRow();
+    historySheet.getRange(lastRow + 1, 1, rows.length, 7).setValues(rows);
+
+  } catch (e) {
+    Logger.log('logMemberChange_ error: ' + e.message);
+    // 履歴記録のエラーは無視（メイン処理を止めない）
+  }
 }
