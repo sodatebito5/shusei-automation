@@ -553,8 +553,15 @@ window.addEventListener('DOMContentLoaded', () => {
   initTables();
 
   document.getElementById('load-btn').addEventListener('click', loadFromSheet);
+  document.getElementById('load-archive-btn').addEventListener('click', loadFromArchive);
   document.getElementById('reset-btn').addEventListener('click', resetSeats);
   document.getElementById('generateBtn').addEventListener('click', generateSeating);
+
+  // 差分モーダルのボタン
+  document.getElementById('diffCancelBtn').addEventListener('click', () => {
+    document.getElementById('diffModal').style.display = 'none';
+  });
+  document.getElementById('diffApplyBtn').addEventListener('click', applyArchiveAssignments);
   
   // 📤 座席反映ボタン
 document.getElementById('sync-btn').addEventListener('click', async () => {
@@ -591,7 +598,8 @@ document.getElementById('sync-btn').addEventListener('click', async () => {
     const payload = {
       eventKey: window.currentEventKey || '',
       userId: userId,
-      assignments: assignments
+      assignments: assignments,
+      layout: currentLayout || []  // テーブル配列パターン
     };
 
     // Note: Content-Typeヘッダーを省略してCORSプリフライトを回避
@@ -783,10 +791,245 @@ async function loadFromSheet() {
     configSection.style.display = 'block';
     rebuildLayoutCandidates();
     updateConfigSummary();
+
+    // 「続きから読み込む」ボタンを表示
+    document.getElementById('load-archive-btn').style.display = 'inline-block';
   } catch (err) {
     console.error(err);
     statusEl.textContent = '読み込みに失敗しました：' + err.message;
   }
+}
+
+// ========== アーカイブ読み込み ==========
+// 差分データを一時保存
+let archiveDiff = null;
+let archiveData = null;
+
+async function loadFromArchive() {
+  const eventKey = window.currentEventKey;
+  if (!eventKey) {
+    alert('先にスプレッドシートからデータを読み込んでください。');
+    return;
+  }
+
+  if (participants.length === 0) {
+    alert('参加者データがありません。先にスプレッドシートから読み込んでください。');
+    return;
+  }
+
+  const statusEl = document.getElementById('status');
+  statusEl.textContent = 'アーカイブを読み込み中...';
+
+  try {
+    const res = await fetch(`${API_URL}?action=getSeatingArchive&eventKey=${encodeURIComponent(eventKey)}`);
+    if (!res.ok) throw new Error('HTTPエラー: ' + res.status);
+
+    const json = await res.json();
+    if (!json.success) throw new Error(json.error || 'アーカイブの取得に失敗しました');
+
+    if (!json.assignments || json.assignments.length === 0) {
+      alert('保存された配席がありません。');
+      statusEl.textContent = '読み込み完了';
+      return;
+    }
+
+    archiveData = json;
+
+    // 差分計算
+    archiveDiff = calculateDiff(participants, json.assignments);
+
+    // 差分モーダル表示
+    showDiffModal(archiveDiff, json);
+    statusEl.textContent = '読み込み完了';
+
+  } catch (err) {
+    console.error(err);
+    alert('アーカイブ読み込みエラー: ' + err.message);
+    statusEl.textContent = 'エラー: ' + err.message;
+  }
+}
+
+function calculateDiff(currentParticipants, archivedAssignments) {
+  const currentIds = new Set(currentParticipants.map(p => p.id));
+  const archivedIds = new Set(archivedAssignments.map(a => a.id));
+
+  // 配席済み（両方に存在）
+  const matched = archivedAssignments.filter(a => currentIds.has(a.id));
+
+  // 新規参加者（現在のみ存在）
+  const newParticipants = currentParticipants.filter(p => !archivedIds.has(p.id));
+
+  // 欠席者（アーカイブのみ存在）
+  const absentees = archivedAssignments.filter(a => !currentIds.has(a.id));
+
+  return { matched, newParticipants, absentees };
+}
+
+function showDiffModal(diff, archiveJson) {
+  const modal = document.getElementById('diffModal');
+  const savedAtEl = document.getElementById('diffSavedAt');
+  const matchedCountEl = document.getElementById('diffMatchedCount');
+  const newCountEl = document.getElementById('diffNewCount');
+  const absentCountEl = document.getElementById('diffAbsentCount');
+  const detailsEl = document.getElementById('diffDetails');
+
+  // 保存日時
+  savedAtEl.textContent = archiveJson.confirmedAt || '-';
+
+  // カウント
+  matchedCountEl.textContent = diff.matched.length;
+  newCountEl.textContent = diff.newParticipants.length;
+  absentCountEl.textContent = diff.absentees.length;
+
+  // 詳細リスト
+  let detailsHtml = '';
+
+  if (diff.newParticipants.length > 0) {
+    detailsHtml += `
+      <div class="diff-section">
+        <div class="diff-section-title new">新規追加（待機ゾーンへ）</div>
+        <ul class="diff-section-list">
+          ${diff.newParticipants.map(p => `<li>${p.name}（${p.category}）</li>`).join('')}
+        </ul>
+      </div>
+    `;
+  }
+
+  if (diff.absentees.length > 0) {
+    detailsHtml += `
+      <div class="diff-section">
+        <div class="diff-section-title absent">欠席（配席から除外）</div>
+        <ul class="diff-section-list">
+          ${diff.absentees.map(a => `<li>${a.name}</li>`).join('')}
+        </ul>
+      </div>
+    `;
+  }
+
+  detailsEl.innerHTML = detailsHtml;
+  modal.style.display = 'flex';
+}
+
+function applyArchiveAssignments() {
+  if (!archiveDiff || !archiveData) {
+    alert('アーカイブデータがありません。');
+    return;
+  }
+
+  const modal = document.getElementById('diffModal');
+  modal.style.display = 'none';
+
+  const assignments = archiveData.assignments;
+  const minCap = parseInt(document.getElementById('minCapacity').value);
+  const maxCap = parseInt(document.getElementById('maxCapacity').value);
+
+  // テーブルIDを抽出してテーブル数を決定
+  const tableIds = [...new Set(
+    assignments
+      .map(a => a.table)
+      .filter(t => t && !['PA', 'MC', 'waiting'].includes(t))
+  )].sort();
+
+  const tableCount = tableIds.length;
+
+  // テーブル数を設定フォームに反映
+  document.getElementById('tableCount').value = tableCount;
+
+  // テーブルを生成
+  generateTables(tableCount, minCap, maxCap);
+
+  // 各参加者をリセット
+  participants.forEach(p => {
+    p.assignedTable = 'waiting';
+  });
+  paMembers = [];
+  mcMembers = [];
+  waitingZone = [];
+
+  // アーカイブの配席を適用
+  assignments.forEach(a => {
+    const person = participants.find(p => p.id === a.id);
+    if (!person) return; // 欠席者はスキップ
+
+    person.assignedTable = a.table;
+
+    if (a.table === 'PA') {
+      paMembers.push(person);
+    } else if (a.table === 'MC') {
+      mcMembers.push(person);
+    } else if (a.table === 'waiting') {
+      // 待機ゾーン
+    } else if (tables[a.table]) {
+      if (a.seat === 0) {
+        tables[a.table].master = person;
+      } else {
+        const emptyIdx = findEmptySeatIndex(a.table);
+        if (emptyIdx !== -1) {
+          tables[a.table].members[emptyIdx] = person;
+        }
+      }
+    }
+  });
+
+  // 新規参加者は待機ゾーンへ
+  archiveDiff.newParticipants.forEach(p => {
+    if (p.role === 'PA') {
+      paMembers.push(p);
+      p.assignedTable = 'PA';
+    } else if (p.role === '事務局長') {
+      mcMembers.push(p);
+      p.assignedTable = 'MC';
+    } else {
+      waitingZone.push(p);
+      p.assignedTable = 'waiting';
+    }
+  });
+
+  // 待機ゾーンに残っている人を追加（配席されなかった人）
+  participants.forEach(p => {
+    if (p.assignedTable === 'waiting' &&
+        !waitingZone.includes(p) &&
+        p.role !== 'PA' &&
+        p.role !== '事務局長') {
+      waitingZone.push(p);
+    }
+  });
+
+  // アーカイブからレイアウトを復元（保存されていれば）
+  document.getElementById('tableCount').value = tableCount;
+
+  if (archiveData.layout && archiveData.layout.length > 0) {
+    // 保存されたレイアウトを使用
+    currentLayout = archiveData.layout;
+    selectedLayout = archiveData.layout;
+  } else {
+    // レイアウトがない場合は候補から選択
+    rebuildLayoutCandidates();
+    if (tableCount >= 6 && layoutCandidates.length > 0) {
+      selectedLayout = layoutCandidates[0];
+      currentLayout = layoutCandidates[0];
+    } else {
+      currentLayout = [tableCount];
+      selectedLayout = currentLayout;
+    }
+  }
+
+  // UIを更新
+  document.getElementById('mainContainer').style.display = 'grid';
+  document.getElementById('configSection').style.display = 'none';
+  document.getElementById('sync-btn').style.display = 'inline-block';
+  document.getElementById('preview').style.display = 'none';
+
+  renderAll();
+  initDragDrop();
+
+  // ステータス更新
+  document.getElementById('status').textContent =
+    `アーカイブから読み込み完了（配席済み: ${archiveDiff.matched.length}名, 新規: ${archiveDiff.newParticipants.length}名）`;
+
+  // 後片付け
+  archiveDiff = null;
+  archiveData = null;
 }
 
 function updateConfigSummary() {

@@ -1173,3 +1173,137 @@ body {
   font-size: 12px;
   text-align: center;
 }
+
+/* ===========================
+   続きから読み込むボタン
+   =========================== */
+.btn-archive {
+  background: #6366f1;
+  color: white;
+}
+
+/* ===========================
+   差分確認モーダル
+   =========================== */
+.diff-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.7);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.diff-modal-content {
+  background: white;
+  border-radius: 12px;
+  width: 90%;
+  max-width: 500px;
+  padding: 24px;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+}
+
+.diff-modal-header {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.diff-modal-header h3 {
+  margin: 0 0 8px 0;
+  font-size: 20px;
+  color: #111827;
+}
+
+.diff-saved-at {
+  margin: 0;
+  font-size: 14px;
+  color: #6b7280;
+}
+
+.diff-summary {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.diff-item {
+  text-align: center;
+  padding: 12px 16px;
+  border-radius: 8px;
+  min-width: 100px;
+}
+
+.diff-item.matched {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.diff-item.new {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.diff-item.absent {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.diff-count {
+  display: block;
+  font-size: 28px;
+  font-weight: bold;
+}
+
+.diff-label {
+  font-size: 12px;
+}
+
+.diff-details {
+  max-height: 200px;
+  overflow-y: auto;
+  margin-bottom: 20px;
+  font-size: 14px;
+}
+
+.diff-section {
+  margin-bottom: 12px;
+}
+
+.diff-section-title {
+  font-weight: bold;
+  margin-bottom: 4px;
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+.diff-section-title.new {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.diff-section-title.absent {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.diff-section-list {
+  padding-left: 20px;
+  margin: 0;
+  color: #4b5563;
+}
+
+.diff-modal-buttons {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
+.diff-modal-buttons .btn {
+  min-width: 120px;
+}

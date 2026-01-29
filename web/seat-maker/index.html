@@ -15,6 +15,9 @@
         <button class="btn btn-load" id="load-btn">
             📊 スプレッドシート読込
         </button>
+        <button class="btn btn-archive" id="load-archive-btn" style="display: none;">
+            📂 続きから読み込む
+        </button>
         <button class="btn btn-secondary" id="reset-btn">
             🔄 リセット
         </button>
@@ -169,7 +172,41 @@
         </div>
     </div>
 </div>
-    
+
+<!-- 差分確認モーダル -->
+<div class="diff-modal" id="diffModal" style="display: none;">
+    <div class="diff-modal-content">
+        <div class="diff-modal-header">
+            <h3>📂 保存した配席を読み込みます</h3>
+            <p class="diff-saved-at">保存日時: <span id="diffSavedAt">-</span></p>
+        </div>
+
+        <div class="diff-summary">
+            <div class="diff-item matched">
+                <span class="diff-count" id="diffMatchedCount">0</span>
+                <span class="diff-label">名 配席済み</span>
+            </div>
+            <div class="diff-item new">
+                <span class="diff-count" id="diffNewCount">0</span>
+                <span class="diff-label">名 新規追加</span>
+            </div>
+            <div class="diff-item absent">
+                <span class="diff-count" id="diffAbsentCount">0</span>
+                <span class="diff-label">名 欠席</span>
+            </div>
+        </div>
+
+        <div class="diff-details" id="diffDetails">
+            <!-- 動的生成 -->
+        </div>
+
+        <div class="diff-modal-buttons">
+            <button class="btn btn-secondary" id="diffCancelBtn">キャンセル</button>
+            <button class="btn btn-primary" id="diffApplyBtn">読み込む</button>
+        </div>
+    </div>
+</div>
+
     <script src="main.js"></script>
 </body>
 </html>
