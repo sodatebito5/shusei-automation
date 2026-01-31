@@ -22,6 +22,10 @@ let currentLayout = null;
 // 印刷関連
 let currentPaperSize = 'a3';
 
+// 同席希望グループのカラーマッピング
+let joinRequestColors = {};  // { personName: colorIndex }
+const JOIN_REQUEST_COLOR_COUNT = 5;  // 5色用意
+
 // ========== データ管理関数 ==========
 function initTables() {
   tables = {};
@@ -63,6 +67,42 @@ function setParticipants(rawParticipants) {
 
   // 待機ゾーンには PA・司会を除いたメンバー
   waitingZone = participants.filter(p => p.role !== 'PA' && p.role !== '事務局長');
+
+  // 同席希望グループのカラーマッピングを構築
+  buildJoinRequestColors();
+}
+
+/**
+ * 同席希望のペアに同じ色を割り当てる
+ * 希望者と希望先を同じグループとして扱う
+ */
+function buildJoinRequestColors() {
+  joinRequestColors = {};
+  let colorIndex = 0;
+
+  // 同席希望がある人をリストアップ
+  const requesters = participants.filter(p => p.joinNextSeat);
+
+  requesters.forEach(requester => {
+    const requesterName = requester.name;
+    const targetName = requester.joinNextSeat;
+
+    // 既に色が割り当てられているかチェック
+    if (joinRequestColors[requesterName] !== undefined) {
+      // 希望者に既に色がある場合、希望先も同じ色に
+      joinRequestColors[targetName] = joinRequestColors[requesterName];
+    } else if (joinRequestColors[targetName] !== undefined) {
+      // 希望先に既に色がある場合、希望者も同じ色に
+      joinRequestColors[requesterName] = joinRequestColors[targetName];
+    } else {
+      // 新しいペアなので新しい色を割り当て
+      joinRequestColors[requesterName] = colorIndex;
+      joinRequestColors[targetName] = colorIndex;
+      colorIndex = (colorIndex + 1) % JOIN_REQUEST_COLOR_COUNT;
+    }
+  });
+
+  console.log('同席希望カラーマッピング:', joinRequestColors);
 }
 
 function generateTables(count, minCap, maxCap) {
@@ -145,10 +185,22 @@ function createPersonCard(person, fromTable, fromSeat) {
 
   card.appendChild(name);
 
-  // 同席希望がある場合はクラスを追加
-  if (person.joinNextSeat) {
+  // 同席希望グループに属する場合はglowクラスを追加（希望者も希望先も同じ色で光る）
+  const colorIndex = joinRequestColors[person.name];
+  if (colorIndex !== undefined) {
     card.classList.add('has-join-request');
-    card.title = `同席希望: ${person.joinNextSeat}`;
+    card.classList.add(`join-color-${colorIndex}`);
+
+    // ツールチップ: 希望者か希望先かで表示を変える
+    if (person.joinNextSeat) {
+      card.title = `同席希望: ${person.joinNextSeat}`;
+    } else {
+      // 誰から希望されているか探す
+      const requester = participants.find(p => p.joinNextSeat === person.name);
+      if (requester) {
+        card.title = `${requester.name}さんから同席希望あり`;
+      }
+    }
   }
 
   card.addEventListener('dragstart', handleDragStart);

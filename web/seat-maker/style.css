@@ -1581,27 +1581,108 @@ body {
 }
 
 /* ===========================
-   同席希望カード - Glow Effect
+   同席希望カード - Glow Effect (5色)
    =========================== */
 .person-card.has-join-request {
-  animation: glowPulse 2s ease-in-out infinite;
   position: relative;
 }
 
-@keyframes glowPulse {
+/* Color 0: Amber/Yellow (#f59e0b) */
+.person-card.join-color-0 {
+  animation: glowPulse0 2s ease-in-out infinite;
+}
+@keyframes glowPulse0 {
   0%, 100% {
-    box-shadow: 0 0 5px 2px rgba(245, 158, 11, 0.4),
-                0 0 10px 4px rgba(245, 158, 11, 0.2);
+    box-shadow: 0 0 5px 2px rgba(245, 158, 11, 0.5),
+                0 0 10px 4px rgba(245, 158, 11, 0.25);
   }
   50% {
-    box-shadow: 0 0 10px 4px rgba(245, 158, 11, 0.6),
-                0 0 20px 8px rgba(245, 158, 11, 0.3);
+    box-shadow: 0 0 12px 5px rgba(245, 158, 11, 0.7),
+                0 0 22px 10px rgba(245, 158, 11, 0.35);
   }
 }
-
-/* ホバー時はアニメーション一時停止＋強調 */
-.person-card.has-join-request:hover {
+.person-card.join-color-0:hover {
   animation-play-state: paused;
-  box-shadow: 0 0 15px 6px rgba(245, 158, 11, 0.7),
-              0 0 25px 10px rgba(245, 158, 11, 0.4);
+  box-shadow: 0 0 15px 6px rgba(245, 158, 11, 0.8),
+              0 0 28px 12px rgba(245, 158, 11, 0.45);
+}
+
+/* Color 1: Pink (#ec4899) */
+.person-card.join-color-1 {
+  animation: glowPulse1 2s ease-in-out infinite;
+}
+@keyframes glowPulse1 {
+  0%, 100% {
+    box-shadow: 0 0 5px 2px rgba(236, 72, 153, 0.5),
+                0 0 10px 4px rgba(236, 72, 153, 0.25);
+  }
+  50% {
+    box-shadow: 0 0 12px 5px rgba(236, 72, 153, 0.7),
+                0 0 22px 10px rgba(236, 72, 153, 0.35);
+  }
+}
+.person-card.join-color-1:hover {
+  animation-play-state: paused;
+  box-shadow: 0 0 15px 6px rgba(236, 72, 153, 0.8),
+              0 0 28px 12px rgba(236, 72, 153, 0.45);
+}
+
+/* Color 2: Cyan (#06b6d4) */
+.person-card.join-color-2 {
+  animation: glowPulse2 2s ease-in-out infinite;
+}
+@keyframes glowPulse2 {
+  0%, 100% {
+    box-shadow: 0 0 5px 2px rgba(6, 182, 212, 0.5),
+                0 0 10px 4px rgba(6, 182, 212, 0.25);
+  }
+  50% {
+    box-shadow: 0 0 12px 5px rgba(6, 182, 212, 0.7),
+                0 0 22px 10px rgba(6, 182, 212, 0.35);
+  }
+}
+.person-card.join-color-2:hover {
+  animation-play-state: paused;
+  box-shadow: 0 0 15px 6px rgba(6, 182, 212, 0.8),
+              0 0 28px 12px rgba(6, 182, 212, 0.45);
+}
+
+/* Color 3: Purple (#8b5cf6) */
+.person-card.join-color-3 {
+  animation: glowPulse3 2s ease-in-out infinite;
+}
+@keyframes glowPulse3 {
+  0%, 100% {
+    box-shadow: 0 0 5px 2px rgba(139, 92, 246, 0.5),
+                0 0 10px 4px rgba(139, 92, 246, 0.25);
+  }
+  50% {
+    box-shadow: 0 0 12px 5px rgba(139, 92, 246, 0.7),
+                0 0 22px 10px rgba(139, 92, 246, 0.35);
+  }
+}
+.person-card.join-color-3:hover {
+  animation-play-state: paused;
+  box-shadow: 0 0 15px 6px rgba(139, 92, 246, 0.8),
+              0 0 28px 12px rgba(139, 92, 246, 0.45);
+}
+
+/* Color 4: Lime (#84cc16) */
+.person-card.join-color-4 {
+  animation: glowPulse4 2s ease-in-out infinite;
+}
+@keyframes glowPulse4 {
+  0%, 100% {
+    box-shadow: 0 0 5px 2px rgba(132, 204, 22, 0.5),
+                0 0 10px 4px rgba(132, 204, 22, 0.25);
+  }
+  50% {
+    box-shadow: 0 0 12px 5px rgba(132, 204, 22, 0.7),
+                0 0 22px 10px rgba(132, 204, 22, 0.35);
+  }
+}
+.person-card.join-color-4:hover {
+  animation-play-state: paused;
+  box-shadow: 0 0 15px 6px rgba(132, 204, 22, 0.8),
+              0 0 28px 12px rgba(132, 204, 22, 0.45);
 }
