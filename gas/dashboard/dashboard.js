@@ -7896,3 +7896,258 @@ function resetReminderMessageTemplate() {
     return { success: false, message: e.message };
   }
 }
+
+/** =========================================================
+ *  毎月1日 未回答者自動出席登録
+ * ======================================================= */
+
+/**
+ * 毎月1日に未回答者を自動で出席登録する
+ * トリガー: 毎月1日 AM 9:00
+ * @returns {Object} { success, count, eventKey }
+ */
+function autoRegisterAttendance() {
+  try {
+    const ss = SpreadsheetApp.openById(ATTEND_GUEST_SHEET_ID);
+    const configSs = SpreadsheetApp.openById(CONFIG_SHEET_ID);
+
+    // 1. 次回イベントキー取得（F2: 次月イベントキー）
+    const configSheet = configSs.getSheetByName(CONFIG_SHEET_NAME);
+    if (!configSheet) {
+      Logger.log('autoRegisterAttendance: 設定シートが見つかりません');
+      return { success: false, error: '設定シートが見つかりません' };
+    }
+
+    const eventKey = String(configSheet.getRange('F2').getValue() || '').trim();
+    if (!eventKey) {
+      Logger.log('autoRegisterAttendance: 次回イベントキー（F2）が空です');
+      return { success: false, error: '次回イベントキー（F2）が空です' };
+    }
+
+    // イベントキーを日本語形式に変換（例: 202603_01 → 2026年3月例会）
+    const eventKeyJp = eventKeyToJapanese_(eventKey);
+    Logger.log('autoRegisterAttendance: 対象イベント = ' + eventKeyJp);
+
+    // 2. 出欠状況シートから回答済みセット作成
+    const attendSheet = ss.getSheetByName(ATTEND_SHEET_NAME);
+    if (!attendSheet) {
+      Logger.log('autoRegisterAttendance: 出欠状況シートが見つかりません');
+      return { success: false, error: '出欠状況シートが見つかりません' };
+    }
+
+    const attendData = attendSheet.getDataRange().getValues();
+    const answeredSet = new Set();
+
+    // 3行目から検索（1行目:ヘッダー、2行目:ヘッダー2）
+    for (let i = 2; i < attendData.length; i++) {
+      const rowEventKey = String(attendData[i][1] || '').trim(); // B列: eventKey
+      const rowUserId = String(attendData[i][2] || '').trim();   // C列: userId
+      const rowName = String(attendData[i][3] || '').trim();     // D列: 氏名
+
+      // 日本語形式のイベントキーで比較
+      if (rowEventKey === eventKeyJp) {
+        if (rowUserId) answeredSet.add('uid:' + rowUserId);
+        if (rowName) answeredSet.add('name:' + rowName);
+      }
+    }
+
+    Logger.log('autoRegisterAttendance: 回答済み = ' + answeredSet.size + '件');
+
+    // 3. 会員名簿マスターから未回答者抽出
+    const memberSheet = ss.getSheetByName(MEMBER_SHEET_NAME);
+    if (!memberSheet) {
+      Logger.log('autoRegisterAttendance: 会員名簿マスターが見つかりません');
+      return { success: false, error: '会員名簿マスターが見つかりません' };
+    }
+
+    const memberData = memberSheet.getDataRange().getValues();
+    const newRows = [];
+    const now = new Date();
+
+    // 3行目からデータ開始（1行目:ヘッダー、2行目:ヘッダー2）
+    for (let i = 2; i < memberData.length; i++) {
+      const row = memberData[i];
+      const name = String(row[MEMBER_COL.NAME] || '').trim();           // C列: 氏名
+      const userId = String(row[MEMBER_COL.LINE_USER_ID] || '').trim(); // P列: LINE_userId
+      const retired = String(row[MEMBER_COL.RETIRED] || '').trim();     // AA列: 退会フラグ
+
+      // 退会者・名前なしはスキップ
+      if (retired || !name) continue;
+
+      // 回答済みチェック（userId または 氏名で判定）
+      if (userId && answeredSet.has('uid:' + userId)) continue;
+      if (answeredSet.has('name:' + name)) continue;
+
+      // 未回答者 → 出席登録データ作成
+      newRows.push([
+        now,           // A列: timestamp
+        eventKeyJp,    // B列: eventKey（日本語形式）
+        userId || '',  // C列: userId（LINE未登録は空）
+        name,          // D列: 氏名
+        '出席',        // E列: 出欠
+        '×',          // F列: ブース
+        '自動'         // G列: 登録元（自動登録の識別）
+      ]);
+    }
+
+    Logger.log('autoRegisterAttendance: 未回答者 = ' + newRows.length + '人');
+
+    // 4. 一括追加
+    if (newRows.length > 0) {
+      const lastRow = attendSheet.getLastRow();
+      attendSheet.getRange(lastRow + 1, 1, newRows.length, 7).setValues(newRows);
+
+      // 5. 名簿同期（参加者名簿の「出欠」列を更新）
+      try {
+        syncAttendanceToRoster_();
+      } catch (syncErr) {
+        Logger.log('autoRegisterAttendance: 名簿同期エラー = ' + syncErr.message);
+      }
+    }
+
+    Logger.log('autoRegisterAttendance: 完了 - ' + newRows.length + '人を登録 (' + eventKeyJp + ')');
+    return { success: true, count: newRows.length, eventKey: eventKeyJp };
+
+  } catch (e) {
+    Logger.log('autoRegisterAttendance error: ' + e.message);
+    return { success: false, error: e.message };
+  }
+}
+
+/**
+ * 出欠状況を参加者名簿に同期（氏名ベース対応版）
+ * LINE登録者: userId で照合
+ * LINE未登録者: 氏名で照合
+ */
+function syncAttendanceToRoster_() {
+  const ss = SpreadsheetApp.openById(ATTEND_GUEST_SHEET_ID);
+
+  // 出欠状況シート
+  const attendSheet = ss.getSheetByName(ATTEND_SHEET_NAME);
+  if (!attendSheet) {
+    Logger.log('syncAttendanceToRoster_: 出欠状況シートが見つかりません');
+    return;
+  }
+
+  // 参加者名簿シート
+  const rosterSheetName = '福岡飯塚_参加者名簿';
+  const rosterSheet = ss.getSheetByName(rosterSheetName);
+  if (!rosterSheet) {
+    Logger.log('syncAttendanceToRoster_: 参加者名簿が見つかりません');
+    return;
+  }
+
+  // 最新の出欠データを取得（userId と 氏名 の両方でマップ作成）
+  const attendData = attendSheet.getDataRange().getValues();
+  const latestByUserId = new Map();  // userId → 出欠マーク
+  const latestByName = new Map();    // 氏名 → 出欠マーク
+
+  // 下から見て、最初に見つかった（=最新の）出欠を採用
+  for (let i = attendData.length - 1; i >= 2; i--) {
+    const userId = String(attendData[i][2] || '').trim();   // C列
+    const name = String(attendData[i][3] || '').trim();     // D列
+    const status = String(attendData[i][4] || '').trim();   // E列
+
+    const mark = (status === '出席') ? '○' : (status === '欠席') ? '×' : '';
+
+    if (userId && !latestByUserId.has(userId)) {
+      latestByUserId.set(userId, mark);
+    }
+    if (name && !latestByName.has(name)) {
+      latestByName.set(name, mark);
+    }
+  }
+
+  // 参加者名簿のヘッダーを探す
+  const rosterData = rosterSheet.getDataRange().getValues();
+  let headerRow = -1;
+  let lineIdCol = -1;
+  let nameCol = -1;
+  let statusCol = -1;
+
+  for (let r = 0; r < Math.min(10, rosterData.length); r++) {
+    const cols = rosterData[r].map(v => String(v || '').trim());
+    const li = cols.indexOf('LINE_ID');
+    if (li >= 0) {
+      headerRow = r;
+      lineIdCol = li;
+      nameCol = cols.indexOf('氏名');
+      statusCol = cols.indexOf('出欠');
+      break;
+    }
+  }
+
+  if (headerRow < 0 || lineIdCol < 0) {
+    Logger.log('syncAttendanceToRoster_: LINE_ID列が見つかりません');
+    return;
+  }
+
+  // 出欠列がなければ作成
+  if (statusCol < 0) {
+    rosterSheet.insertColumnAfter(lineIdCol + 1);
+    statusCol = lineIdCol + 1;
+    rosterSheet.getRange(headerRow + 1, statusCol + 1).setValue('出欠');
+    // 再取得
+    const newRosterData = rosterSheet.getDataRange().getValues();
+    rosterData.splice(0, rosterData.length, ...newRosterData);
+  }
+
+  // 名簿の各行を更新
+  const lastRow = rosterSheet.getLastRow();
+  if (lastRow <= headerRow + 1) return;
+
+  const numRows = lastRow - headerRow - 1;
+  const idRange = rosterSheet.getRange(headerRow + 2, lineIdCol + 1, numRows, 1);
+  const ids = idRange.getValues();
+
+  // 氏名列も取得
+  let names = [];
+  if (nameCol >= 0) {
+    const nameRange = rosterSheet.getRange(headerRow + 2, nameCol + 1, numRows, 1);
+    names = nameRange.getValues();
+  }
+
+  const writeRange = rosterSheet.getRange(headerRow + 2, statusCol + 1, numRows, 1);
+  const out = new Array(numRows).fill(0).map(() => ['']);
+
+  for (let i = 0; i < numRows; i++) {
+    const uid = String(ids[i][0] || '').trim();
+    const name = (names[i] && names[i][0]) ? String(names[i][0]).trim() : '';
+
+    // userId優先、なければ氏名で照合
+    if (uid && latestByUserId.has(uid)) {
+      out[i][0] = latestByUserId.get(uid);
+    } else if (name && latestByName.has(name)) {
+      out[i][0] = latestByName.get(name);
+    }
+  }
+
+  writeRange.setValues(out);
+  Logger.log('syncAttendanceToRoster_: 名簿同期完了');
+}
+
+/**
+ * 自動出席登録のトリガーをセットアップ
+ * 毎月1日 AM 9:00 に autoRegisterAttendance を実行
+ * ★ 初回セットアップ時に1回だけ実行
+ */
+function setupAutoAttendanceTrigger() {
+  // 既存の同名トリガーを削除
+  const triggers = ScriptApp.getProjectTriggers();
+  triggers.forEach(t => {
+    if (t.getHandlerFunction() === 'autoRegisterAttendance') {
+      ScriptApp.deleteTrigger(t);
+      Logger.log('setupAutoAttendanceTrigger: 既存トリガーを削除');
+    }
+  });
+
+  // 毎月1日 AM 9:00 のトリガー作成
+  ScriptApp.newTrigger('autoRegisterAttendance')
+    .timeBased()
+    .onMonthDay(1)
+    .atHour(9)
+    .create();
+
+  Logger.log('setupAutoAttendanceTrigger: 毎月1日 AM 9:00 のトリガーを作成しました');
+  return { success: true, message: '毎月1日 AM 9:00 のトリガーを作成しました' };
+}

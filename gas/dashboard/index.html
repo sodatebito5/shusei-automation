@@ -215,6 +215,19 @@
     </table>
   </div>
 
+  <!-- 右：入会希望業種 -->
+  <div class="modern-card">
+    <div class="modern-card-header">
+      <h2 class="modern-card-title">
+        <span class="modern-card-title-icon">📋</span>
+        入会希望業種
+      </h2>
+    </div>
+    <div id="industryListBody" class="space-y-2 p-3">
+      <div class="text-slate-400 text-center py-3">データ取得中...</div>
+    </div>
+  </div>
+
   <!-- 右：売上ランキング（非表示）
   <div class="modern-card">
     <div class="modern-card-header">
@@ -2481,6 +2494,34 @@ function renderDashboard(data) {
       });
     } else {
       zeroListSection.classList.add('hidden');
+    }
+  }
+
+  // ------------------------------
+  // 入会希望業種（全期間）
+  // ------------------------------
+  const industryList = data.industryRanking || [];
+  const industryBody = document.getElementById('industryListBody');
+  if (industryBody) {
+    if (industryList.length === 0) {
+      industryBody.innerHTML = '<div class="text-slate-400 text-center py-3">希望業種の報告はありません</div>';
+    } else {
+      industryBody.innerHTML = industryList.map(item => {
+        const hasRecommendations = item.recommendations && item.recommendations.length > 0;
+        const recommendText = hasRecommendations
+          ? item.recommendations.map(r => escapeHtml(r)).join('、')
+          : 'なし';
+        return `
+        <div class="border-b border-slate-100 pb-2 mb-2 last:border-b-0 last:mb-0">
+          <div class="flex items-center justify-between">
+            <span class="font-medium text-slate-700">${escapeHtml(item.industry)}</span>
+            <span class="text-xs text-slate-500">（${item.reporters.map(r => escapeHtml(r)).join('、')}）</span>
+          </div>
+          <div class="text-xs mt-1 ${hasRecommendations ? 'text-blue-600' : 'text-slate-400'}">
+            → 会内に在籍: ${recommendText}
+          </div>
+        </div>
+      `}).join('');
     }
   }
 

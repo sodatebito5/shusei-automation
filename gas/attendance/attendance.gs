@@ -210,15 +210,24 @@ function handleAttendPost(data) {
     }
   }
 
-  const rowData = [new Date(), eventKey, userId, name, status, boothMark];
-
   let action;
   if (targetRow > 0) {
     // 同じユーザー＆同じイベントキー → 上書き
-    sh.getRange(targetRow, 1, 1, 6).setValues([rowData]);
+    // G列（登録元）の値をチェックして更新
+    const currentSource = String(sh.getRange(targetRow, 7).getValue() || '').trim();
+    let newSource = '';
+    if (currentSource === '自動') {
+      // 自動登録済み → LIFFで回答した場合
+      newSource = '自動→LIFF';
+    }
+    // currentSourceが空欄または「自動→LIFF」の場合はそのまま空欄
+
+    const rowData = [new Date(), eventKey, userId, name, status, boothMark, newSource];
+    sh.getRange(targetRow, 1, 1, 7).setValues([rowData]);
     action = 'updated';
   } else {
-    // 新しいイベントキー or 新規ユーザー → 追加
+    // 新しいイベントキー or 新規ユーザー → 追加（G列は空欄）
+    const rowData = [new Date(), eventKey, userId, name, status, boothMark, ''];
     sh.appendRow(rowData);
     action = 'inserted';
   }
