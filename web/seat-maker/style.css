@@ -230,6 +230,18 @@ body {
 }
 
 /* ===========================
+   同席希望バナー
+   =========================== */
+.join-next-seat-banner {
+  background: var(--accent-warning-light);
+  border-bottom: 2px solid var(--accent-warning);
+  color: #92400e;
+  padding: 10px 16px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+/* ===========================
    Welcome State (Initial)
    =========================== */
 .welcome-state {

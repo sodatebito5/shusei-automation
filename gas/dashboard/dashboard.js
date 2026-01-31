@@ -195,6 +195,270 @@ function setupEventKeyColumns() {
 }
 
 /**
+ * イベントキーを日本語月形式に変換（配席用）
+ * @param {string} eventKey - イベントキー（例: 202603_01）
+ * @returns {string} 日本語月形式（例: 2026年3月）
+ */
+function eventKeyToJapaneseMonth(eventKey) {
+  const match = String(eventKey).match(/^(\d{4})(\d{2})_\d+$/);
+  if (!match) return eventKey;
+  return `${match[1]}年${parseInt(match[2], 10)}月`;
+}
+
+/**
+ * イベントキーを次月に切り替える
+ * @param {string} phase - 'phase1' (18:00用) or 'phase2' (21:00用)
+ * @returns {Object} { success, message, phase, switchedCells }
+ */
+function switchEventKeys(phase) {
+  const ss = SpreadsheetApp.openById(CONFIG_SHEET_ID);
+  const sh = ss.getSheetByName(CONFIG_SHEET_NAME);
+
+  if (!sh) {
+    Logger.log('switchEventKeys: 設定シートが見つかりません');
+    return { success: false, message: '設定シートが見つかりません' };
+  }
+
+  const nextEventKey = String(sh.getRange('F2').getValue() || '').trim();
+  const nextEventDate = sh.getRange('G2').getValue();
+
+  if (!nextEventKey) {
+    Logger.log('switchEventKeys: 次月イベントキー（F2）が空です');
+    return { success: false, message: '次月イベントキー（F2）が空です' };
+  }
+
+  const switchedCells = [];
+
+  if (phase === 'phase1') {
+    // 18:00: H2のみ切り替え（出欠イベントキー）
+    sh.getRange('H2').setValue(nextEventKey);
+    switchedCells.push('H2');
+    Logger.log('switchEventKeys phase1: H2を ' + nextEventKey + ' に切り替えました');
+  }
+
+  if (phase === 'phase2') {
+    // 21:00: A2, I2, K2, P2 を切り替え
+    sh.getRange('A2').setValue(nextEventKey);
+    switchedCells.push('A2');
+
+    sh.getRange('I2').setValue(nextEventKey);
+    switchedCells.push('I2');
+
+    sh.getRange('K2').setValue(eventKeyToJapaneseMonth(nextEventKey));
+    switchedCells.push('K2');
+
+    if (nextEventDate) {
+      sh.getRange('P2').setValue(nextEventDate);  // 現在開催日（P2）を更新
+      switchedCells.push('P2');
+    }
+
+    Logger.log('switchEventKeys phase2: A2, I2, K2, P2 を切り替えました');
+    Logger.log('  A2, I2: ' + nextEventKey);
+    Logger.log('  K2: ' + eventKeyToJapaneseMonth(nextEventKey));
+    Logger.log('  P2: ' + nextEventDate);
+  }
+
+  return {
+    success: true,
+    message: `Phase ${phase === 'phase1' ? '1' : '2'} の切り替え完了`,
+    phase: phase,
+    switchedCells: switchedCells
+  };
+}
+
+/**
+ * トリガーから呼ばれる関数
+ * 現在時刻と開催日を比較して、必要なら切り替えを実行
+ * @returns {Object} { executed, phase, result }
+ */
+function checkAndSwitchEventKeys() {
+  const ss = SpreadsheetApp.openById(CONFIG_SHEET_ID);
+  const sh = ss.getSheetByName(CONFIG_SHEET_NAME);
+
+  if (!sh) {
+    Logger.log('checkAndSwitchEventKeys: 設定シートが見つかりません');
+    return { executed: false, message: '設定シートが見つかりません' };
+  }
+
+  const currentEventDate = sh.getRange('P2').getValue();  // 現在開催日
+  if (!currentEventDate) {
+    Logger.log('checkAndSwitchEventKeys: 現在開催日（P2）が空です');
+    return { executed: false, message: '現在開催日（P2）が空です' };
+  }
+
+  const now = new Date();
+  const eventDate = new Date(currentEventDate);
+
+  // 今日が例会当日でなければ何もしない
+  if (now.toDateString() !== eventDate.toDateString()) {
+    Logger.log('checkAndSwitchEventKeys: 今日は例会当日ではありません');
+    Logger.log('  今日: ' + now.toDateString());
+    Logger.log('  開催日: ' + eventDate.toDateString());
+    return { executed: false, message: '今日は例会当日ではありません' };
+  }
+
+  const hour = now.getHours();
+  const h2 = String(sh.getRange('H2').getValue() || '').trim();
+  const a2 = String(sh.getRange('A2').getValue() || '').trim();
+  const f2 = String(sh.getRange('F2').getValue() || '').trim();
+
+  Logger.log('checkAndSwitchEventKeys: 例会当日チェック');
+  Logger.log('  現在時刻: ' + hour + '時');
+  Logger.log('  H2(出欠): ' + h2);
+  Logger.log('  A2(現在): ' + a2);
+  Logger.log('  F2(次月): ' + f2);
+
+  // 18:00〜20:59 → phase1（H2のみ）
+  if (hour >= 18 && hour < 21) {
+    if (h2 !== f2) {
+      const result = switchEventKeys('phase1');
+      Logger.log('checkAndSwitchEventKeys: Phase1 実行完了');
+      return { executed: true, phase: 'phase1', result: result };
+    } else {
+      Logger.log('checkAndSwitchEventKeys: Phase1 は既に実行済み（H2 = F2）');
+      return { executed: false, message: 'Phase1 は既に実行済み' };
+    }
+  }
+
+  // 21:00以降 → phase2（A2, I2, K2, D2）
+  if (hour >= 21) {
+    if (a2 !== f2) {
+      const result = switchEventKeys('phase2');
+      Logger.log('checkAndSwitchEventKeys: Phase2 実行完了');
+      return { executed: true, phase: 'phase2', result: result };
+    } else {
+      Logger.log('checkAndSwitchEventKeys: Phase2 は既に実行済み（A2 = F2）');
+      return { executed: false, message: 'Phase2 は既に実行済み' };
+    }
+  }
+
+  Logger.log('checkAndSwitchEventKeys: 切り替え時刻前です（18時前）');
+  return { executed: false, message: '切り替え時刻前です（18時前）' };
+}
+
+/**
+ * 例会日の特定時刻にトリガーを設定
+ * @param {Date} triggerTime - トリガー実行時刻
+ * @param {string} handlerFunction - 実行する関数名
+ */
+function createTimeTrigger_(triggerTime, handlerFunction) {
+  if (triggerTime <= new Date()) {
+    Logger.log('createTimeTrigger_: 過去の時刻のためスキップ: ' + triggerTime);
+    return null;
+  }
+
+  const trigger = ScriptApp.newTrigger(handlerFunction)
+    .timeBased()
+    .at(triggerTime)
+    .create();
+
+  Logger.log('createTimeTrigger_: トリガー作成: ' + triggerTime + ' → ' + handlerFunction);
+  return trigger;
+}
+
+/**
+ * 例会日の17:00に実行するトリガーを動的に設定
+ * D2の開催日が変わった時に呼び出す
+ * @returns {Object} { success, message, triggers }
+ */
+function setupEventDayTriggers() {
+  // 既存の checkAndSwitchEventKeys トリガーを削除
+  const triggers = ScriptApp.getProjectTriggers();
+  let deletedCount = 0;
+  triggers.forEach(t => {
+    if (t.getHandlerFunction() === 'checkAndSwitchEventKeys') {
+      ScriptApp.deleteTrigger(t);
+      deletedCount++;
+    }
+  });
+  Logger.log('setupEventDayTriggers: 既存トリガー削除数: ' + deletedCount);
+
+  // D2の開催日を取得
+  const ss = SpreadsheetApp.openById(CONFIG_SHEET_ID);
+  const sh = ss.getSheetByName(CONFIG_SHEET_NAME);
+
+  if (!sh) {
+    Logger.log('setupEventDayTriggers: 設定シートが見つかりません');
+    return { success: false, message: '設定シートが見つかりません' };
+  }
+
+  const eventDate = sh.getRange('P2').getValue();  // 現在開催日
+  if (!eventDate) {
+    Logger.log('setupEventDayTriggers: 現在開催日（P2）が空です');
+    return { success: false, message: '現在開催日（P2）が空です' };
+  }
+
+  const d = new Date(eventDate);
+  const createdTriggers = [];
+
+  // 18:00と21:00にトリガー設定
+  [18, 21].forEach(hour => {
+    const triggerTime = new Date(d);
+    triggerTime.setHours(hour, 0, 0, 0);
+
+    const trigger = createTimeTrigger_(triggerTime, 'checkAndSwitchEventKeys');
+    if (trigger) {
+      createdTriggers.push({
+        time: triggerTime.toISOString(),
+        hour: hour
+      });
+    }
+  });
+
+  Logger.log('setupEventDayTriggers: トリガー設定完了');
+  Logger.log('  開催日: ' + d);
+  Logger.log('  作成数: ' + createdTriggers.length);
+
+  return {
+    success: true,
+    message: 'トリガー設定完了',
+    triggers: createdTriggers
+  };
+}
+
+/**
+ * イベントキー切り替えのテスト用関数
+ * 手動でphase1またはphase2を実行できる
+ * @param {string} phase - 'phase1' または 'phase2'
+ */
+function testSwitchEventKeys(phase) {
+  if (!phase) {
+    Logger.log('使用方法: testSwitchEventKeys("phase1") または testSwitchEventKeys("phase2")');
+    return;
+  }
+  const result = switchEventKeys(phase);
+  Logger.log('テスト結果: ' + JSON.stringify(result));
+  return result;
+}
+
+/**
+ * 現在のイベントキー設定状態を確認
+ * @returns {Object} 各セルの現在値
+ */
+function getEventKeyStatus() {
+  const ss = SpreadsheetApp.openById(CONFIG_SHEET_ID);
+  const sh = ss.getSheetByName(CONFIG_SHEET_NAME);
+
+  if (!sh) {
+    return { error: '設定シートが見つかりません' };
+  }
+
+  const status = {
+    A2_currentEventKey: sh.getRange('A2').getValue(),
+    P2_currentEventDate: sh.getRange('P2').getValue(),  // 現在開催日（トリガー用）
+    F2_nextEventKey: sh.getRange('F2').getValue(),
+    G2_nextEventDate: sh.getRange('G2').getValue(),
+    H2_attendanceEventKey: sh.getRange('H2').getValue(),
+    I2_eventDayEventKey: sh.getRange('I2').getValue(),
+    K2_seatingEventKey: sh.getRange('K2').getValue(),
+    timestamp: new Date().toISOString()
+  };
+
+  Logger.log('イベントキー状態: ' + JSON.stringify(status, null, 2));
+  return status;
+}
+
+/**
  * 設定シートからイベント情報を取得
  * @returns {Object} { currentEventKey, currentEventDate, nextEventKey, nextEventDate }
  */
@@ -207,7 +471,7 @@ function getEventSettings() {
   }
 
   const currentEventKey = String(sh.getRange('A2').getValue() || '').trim();
-  const currentEventDateRaw = sh.getRange('D2').getValue();
+  const currentEventDateRaw = sh.getRange('P2').getValue();  // 現在開催日
   const nextEventKey = String(sh.getRange('F2').getValue() || '').trim();
   const nextEventDateRaw = sh.getRange('G2').getValue();
 
@@ -1405,6 +1669,7 @@ function getDashboardData() {
   const otherVenues      = aggregateOtherVenues_(eventName);
   const prep             = aggregatePrep_(eventName);
   const monthlySummary   = getMonthlySummary_();
+  const industryRanking  = aggregateDesiredIndustries_();
 
   return {
     eventName,
@@ -1420,6 +1685,7 @@ function getDashboardData() {
     renewals,
     prep,
     monthlySummary,
+    industryRanking,
   };
 }
 
@@ -2017,6 +2283,262 @@ if (meetings === 0 && amount === 0) {
     ranking,
     teamRanking
   };
+}
+
+
+/** =========================================================
+ *  入会希望業種集計
+ * ======================================================= */
+
+/**
+ * デバッグ用：入会希望業種集計テスト
+ */
+function testIndustryRanking() {
+  const result = aggregateDesiredIndustries_();
+  Logger.log('industryRanking result: ' + JSON.stringify(result));
+  return result;
+}
+
+/**
+ * デバッグ用：マッチングテスト
+ */
+function testMatching() {
+  const memberBusinessList = getMemberBusinessList_();
+  Logger.log('会員営業内容一覧:');
+  memberBusinessList.forEach(function(m) {
+    Logger.log('  ' + m.name + ': ' + m.business);
+  });
+
+  // テスト
+  var testIndustries = ['イベント系の方', '電気工事', '保険'];
+  testIndustries.forEach(function(ind) {
+    var matches = findMatchingMembers_(ind, memberBusinessList);
+    Logger.log(ind + ' → マッチ: ' + JSON.stringify(matches));
+  });
+}
+
+/**
+ * LINEユーザーID→正式氏名のマップを取得
+ */
+function getLineUserIdToNameMap_() {
+  const ss = SpreadsheetApp.openById(ATTEND_GUEST_SHEET_ID);
+  const sh = ss.getSheetByName(MEMBER_SHEET_NAME);
+  if (!sh) return {};
+
+  const values = sh.getDataRange().getValues();
+  const map = {};
+
+  for (var i = 1; i < values.length; i++) {
+    var name = String(values[i][2] || '').trim();       // C列：氏名
+    var lineUserId = String(values[i][15] || '').trim(); // P列：LINE_userId
+
+    if (lineUserId && name) {
+      map[lineUserId] = name;
+    }
+  }
+  return map;
+}
+
+/**
+ * 会員の営業内容リストを取得（氏名と営業内容のペア）
+ */
+function getMemberBusinessList_() {
+  const ss = SpreadsheetApp.openById(ATTEND_GUEST_SHEET_ID);
+  const sh = ss.getSheetByName(MEMBER_SHEET_NAME);
+  if (!sh) return [];
+
+  const values = sh.getDataRange().getValues();
+  const list = [];
+
+  for (var i = 2; i < values.length; i++) {  // 2行目はヘッダー、3行目からデータ
+    var name = String(values[i][2] || '').trim();       // C列：氏名
+    var business = String(values[i][10] || '').trim();  // K列：営業内容
+    var retired = String(values[i][26] || '').trim();   // AA列：退会
+
+    if (name && business && !retired) {
+      list.push({ name: name, business: business });
+    }
+  }
+  return list;
+}
+
+/**
+ * キーワードを正規化（接尾辞除去）
+ * 「イベント系の方」→「イベント」
+ */
+function normalizeKeyword_(text) {
+  if (!text) return '';
+  var result = text;
+  // 1. 「の方」「など」を先に除去
+  result = result.replace(/の方$/, '').replace(/など$/, '');
+  // 2. 「系」「業」「関連」「店」「屋」などの接尾辞を除去
+  result = result.replace(/[系業関連店屋]+$/, '');
+  return result.trim();
+}
+
+/**
+ * 入会希望業種に対してオススメ会員を検索（部分一致）
+ */
+function findRecommendedMembers_(industry, memberBusinessList) {
+  var recommendations = [];
+  var industryLower = industry.toLowerCase();
+  var industryNormalized = normalizeKeyword_(industryLower);
+
+  memberBusinessList.forEach(function(member) {
+    var businessLower = member.business.toLowerCase();
+    var businessNormalized = normalizeKeyword_(businessLower);
+
+    // 双方向で部分一致チェック
+    var matched = false;
+
+    // 1. 希望業種が営業内容に含まれる
+    if (businessLower.indexOf(industryNormalized) >= 0) {
+      matched = true;
+    }
+    // 2. 営業内容が希望業種に含まれる
+    if (industryLower.indexOf(businessNormalized) >= 0 && businessNormalized.length >= 2) {
+      matched = true;
+    }
+    // 3. 正規化後のキーワードで部分一致
+    if (industryNormalized.length >= 2 && businessNormalized.length >= 2) {
+      if (businessNormalized.indexOf(industryNormalized) >= 0 || industryNormalized.indexOf(businessNormalized) >= 0) {
+        matched = true;
+      }
+    }
+
+    if (matched) {
+      recommendations.push(member.name);
+    }
+  });
+
+  return recommendations;
+}
+
+/**
+ * 業種テキストを分割して整形
+ * 「解体業、土木造成業務、土地家屋調査士」→ ["解体業", "土木造成業務", "土地家屋調査士"]
+ */
+function splitIndustryText_(text) {
+  if (!text) return [];
+  // 「、」「,」「・」「/」「／」で分割
+  var parts = text.split(/[、,・\/／]+/);
+  var result = [];
+  for (var i = 0; i < parts.length; i++) {
+    var trimmed = parts[i].trim();
+    if (trimmed) {
+      result.push(trimmed);
+    }
+  }
+  return result;
+}
+
+/**
+ * 単一業種に対してマッチする会員を検索
+ */
+function findMatchingMembers_(industry, memberBusinessList) {
+  var matches = [];
+  var industryLower = industry.toLowerCase();
+  var industryNormalized = normalizeKeyword_(industryLower);
+
+  memberBusinessList.forEach(function(member) {
+    var businessLower = member.business.toLowerCase();
+    var businessNormalized = normalizeKeyword_(businessLower);
+
+    var matched = false;
+
+    // 1. 希望業種が営業内容に含まれる
+    if (businessLower.indexOf(industryNormalized) >= 0 && industryNormalized.length >= 2) {
+      matched = true;
+    }
+    // 2. 営業内容が希望業種に含まれる
+    if (industryLower.indexOf(businessNormalized) >= 0 && businessNormalized.length >= 2) {
+      matched = true;
+    }
+    // 3. 正規化後のキーワードで部分一致
+    if (industryNormalized.length >= 2 && businessNormalized.length >= 2) {
+      if (businessNormalized.indexOf(industryNormalized) >= 0 || industryNormalized.indexOf(businessNormalized) >= 0) {
+        matched = true;
+      }
+    }
+
+    if (matched) {
+      matches.push(member.name);
+    }
+  });
+
+  return matches;
+}
+
+/**
+ * 入会希望業種の全期間集計
+ * eventKeyに関係なく、全データから業種を集計
+ * 業種テキストを分割して個別に集計
+ */
+function aggregateDesiredIndustries_() {
+  const ss = SpreadsheetApp.openById(SALES_SHEET_ID);
+  const sh = ss.getSheetByName(SALES_SHEET_NAME);
+  if (!sh) return [];
+
+  const lastRow = sh.getLastRow();
+  if (lastRow < 7) return [];
+
+  const values = sh.getRange(7, 1, lastRow - 6, sh.getLastColumn()).getValues();
+
+  // LINEユーザーID→正式氏名のマップを取得
+  const lineUserMap = getLineUserIdToNameMap_();
+
+  // 会員の営業内容リストを取得
+  const memberBusinessList = getMemberBusinessList_();
+
+  const industryData = {};  // { 業種名: { count: N, reporters: {} } }
+
+  values.forEach(function(row) {
+    const industryRaw = String(row[7] || '').trim();   // H列：入会希望業種
+    const lineUserId = String(row[1] || '').trim();    // B列：line_user_id
+    const displayName = String(row[13] || '').trim();  // N列：氏名（フォールバック）
+
+    // 正式氏名を取得（なければdisplayNameを使用）
+    const member = lineUserMap[lineUserId] || displayName;
+
+    if (!industryRaw) return;
+
+    // 業種テキストを分割
+    var industries = splitIndustryText_(industryRaw);
+
+    industries.forEach(function(industry) {
+      if (!industryData[industry]) {
+        industryData[industry] = { count: 0, reporters: {} };
+      }
+      industryData[industry].count++;
+      if (member) {
+        industryData[industry].reporters[member] = true;
+      }
+    });
+  });
+
+  // ランキング形式に変換（件数降順）+ 会内在籍会員を追加
+  const result = [];
+  for (var industry in industryData) {
+    if (industryData.hasOwnProperty(industry)) {
+      var data = industryData[industry];
+      var reporterNames = Object.keys(data.reporters);
+      var matches = findMatchingMembers_(industry, memberBusinessList);
+
+      // 報告者自身を除外
+      var filtered = matches.filter(function(name) {
+        return reporterNames.indexOf(name) === -1;
+      });
+
+      result.push({
+        industry: industry,
+        count: data.count,
+        reporters: reporterNames,
+        recommendations: filtered  // 会内に在籍する会員（報告者除く）
+      });
+    }
+  }
+  result.sort(function(a, b) { return b.count - a.count; });
+  return result;
 }
 
 
@@ -3337,6 +3859,41 @@ const RECEPTION_MAIN_SHEET = '受付名簿（自動）';
 const RECEPTION_OTHER_SHEET = '受付名簿（他会場・ゲスト）';
 
 /**
+ * 売上報告シートから同席希望情報を取得（直近のデータを優先）
+ * @returns {Object} { line_user_id: join_next_seat }
+ */
+function getJoinNextSeatMap_() {
+  try {
+    const ss = SpreadsheetApp.openById(SALES_SHEET_ID);
+    const sh = ss.getSheetByName(SALES_SHEET_NAME);
+    if (!sh) return {};
+
+    const lastRow = sh.getLastRow();
+    if (lastRow < 7) return {};
+
+    // salesシート構造:
+    // A列: timestamp, B列: line_user_id, ..., G列: join_next_seat, ..., O列: event_key
+    const values = sh.getRange(7, 1, lastRow - 6, 15).getValues();
+    const map = {};  // { line_user_id: join_next_seat }
+
+    // 全データを走査し、同一ユーザーは後から上書き（＝直近が優先）
+    values.forEach(row => {
+      const lineUserId = String(row[1] || '').trim();   // B列（0始まりで1）
+      const joinNextSeat = String(row[6] || '').trim(); // G列（0始まりで6）
+
+      if (lineUserId && joinNextSeat) {
+        map[lineUserId] = joinNextSeat;
+      }
+    });
+
+    return map;
+  } catch (e) {
+    console.error('getJoinNextSeatMap_ error:', e.message);
+    return {};
+  }
+}
+
+/**
  * 配席用参加者データを取得
  * @param {string} eventKey - 例会キー（省略時は現在の例会）
  * @returns {Object} 参加者データ
@@ -3350,7 +3907,12 @@ function getSeatingParticipants(eventKey) {
     const ss = SpreadsheetApp.openById(ATTEND_GUEST_SHEET_ID);
 
     // ========================================
-    // 0. 出欠状況から出席者セットを作成
+    // 0-1. 同席希望情報を取得
+    // ========================================
+    const joinNextSeatMap = getJoinNextSeatMap_();
+
+    // ========================================
+    // 0-2. 出欠状況から出席者セットを作成
     // ========================================
     const attendeeMap = {}; // userId -> { displayName, booth }
 
@@ -3439,6 +4001,7 @@ function getSeatingParticipants(eventKey) {
             booth: attendeeMap[userId].booth === '○' ? true : false,
             userId: userId,
             badge: String(row[idxBadge] || '').trim(),
+            joinNextSeat: joinNextSeatMap[userId] || '',  // 同席希望
             lastTable: '',
             lastSeat: ''
           });

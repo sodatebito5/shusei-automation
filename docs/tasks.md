@@ -42,46 +42,33 @@
 - [x] Phase 3: チェックインLIFF作成
   - web/checkin/index.html 作成
   - LIFF SDK連携
-- [ ] Phase 4: 本番セットアップ
-  - LINE Developers ConsoleでLIFF ID発行
-  - web/checkin/index.htmlのLIFF_IDを更新
-  - Cloudflare Pagesにデプロイ
-  - GASエディタでsetupCheckinColumns()を1回実行
+- [x] Phase 4: 本番セットアップ
+  - LIFF ID発行済: 2009007608-Gp3PtFdJ
+  - QRコードURL: https://liff.line.me/2009007608-Gp3PtFdJ
+- [ ] Phase 5: 他会場・ゲスト対応
+  - 他会場参加者のチェックイン方法検討
+  - ゲストのチェックイン方法検討（LINE未登録者）
+  - ダッシュボードからの手動チェックインで対応？
+
+### イベントキー自動設定 ✅
+- [x] 各種イベントキーの自動切り替え設定
+  - 現在イベントキー（A2）
+  - 次月イベントキー（F2）
+  - 出欠イベントキー（H2）
+  - 例会当日イベントキー（I2）
+  - 配席用イベントキー（K2）
+- [x] 切り替えタイミングの整理
+  - Phase1 (18:00): H2のみ（出欠LIFF向け）
+  - Phase2 (21:00): A2, I2, K2, D2（全体切替）
+- [x] トリガーで自動更新
+  - switchEventKeys(phase): 切り替え実行
+  - checkAndSwitchEventKeys(): 例会当日判定付き
+  - setupEventDayTriggers(): 18:00/21:00トリガー設定
+  - getEventKeyStatus(): 状態確認用
 
 ---
 
 ## 📋 バックログ（未着手）
-
-### 配席アーカイブ読み込み機能
-
-#### 概要
-配席アーカイブから過去の配席情報を読み込み、途中から配席を再開・編集できる機能
-
-#### ユースケース
-- 前回の配席をベースに微調整したい
-- 配席作業を中断して後で再開したい
-- 過去の配席パターンを参考にしたい
-
-#### タスク
-- [ ] 配席アプリ: アーカイブ選択UI追加
-- [ ] 配席アプリ: アーカイブデータを座席表に読み込む処理
-- [ ] 配席アプリ: 「読み込み」ボタン追加
-- [ ] 読み込み時の差分処理（新規参加者・欠席者の扱い）
-
-#### データソース
-- 配席アーカイブシート（ダッシュボードGAS）
-  - A列: eventKey
-  - D列: 氏名
-  - E列: 区分
-  - F列: 所属
-  - I列: テーブル
-
-#### 注意点
-- アーカイブ読み込み後、現在の参加者リストとの差分を表示
-- 新規参加者は未配席として追加
-- 欠席者は座席から除外（警告表示）
-
----
 
 ### Googleフォーム経由の他会場参加登録
 
@@ -152,7 +139,28 @@ https://docs.google.com/forms/d/e/1FAIpQLScbjVLeSyfusz_b9ANvDL-5win-w8_G0TGxQ7TO
 
 ## ✅ 完了
 
+### 2026-02-01
+- [x] **同席希望情報の自動配席アプリ表示**
+  - GAS: getJoinNextSeatMap_() 関数追加（売上報告シートG列から同席希望取得）
+  - GAS: getSeatingParticipants() に joinNextSeat フィールド追加
+  - web/seat-maker: setParticipants() で joinNextSeat フィールドをマッピング
+  - web/seat-maker: renderJoinNextSeatBanner() 関数追加
+  - HTML: 同席希望バナー要素追加（ステータスバー直下）
+  - CSS: 黄色帯スタイル追加
+  - 表示形式: 「🤝 同席希望: 山田太郎→佐藤さん、鈴木一郎→高橋さん」
+
 ### 2026-01-31
+- [x] **イベントキー自動切り替え機能**
+  - GAS関数: switchEventKeys(), checkAndSwitchEventKeys(), setupEventDayTriggers()
+  - Phase1 (18:00): 出欠イベントキー（H2）を次月へ
+  - Phase2 (21:00): A2, I2, K2, D2を次月へ
+  - eventKeyToJapaneseMonth(): 配席用日本語形式変換
+  - getEventKeyStatus(): 現在状態確認用
+  - testSwitchEventKeys(): 手動テスト用
+- [x] **配席アプリ完了**
+  - 自動配席用シートの数式修正（eventKey部分一致対応）
+  - 福岡飯塚会員が表示されない問題を解決
+  - 配席アーカイブ読み込み機能も含め全機能完了
 - [x] **出欠リマインド送信機能**
   - ダッシュボード出欠管理タブに「出欠リマインド管理」ボタン追加済み
   - GAS API: getUnrespondedMembersForReminder(), sendAttendanceReminder(), sendAttendanceReminderDryRun()

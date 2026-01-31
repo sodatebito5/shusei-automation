@@ -52,6 +52,7 @@ function setParticipants(rawParticipants) {
       team: p.team || p.チーム || '',
       affiliation: affiliation,
       business: p.business || p.営業内容 || '',
+      joinNextSeat: p.joinNextSeat || '',  // 同席希望
       assignedTable: 'waiting'
     };
   });
@@ -792,6 +793,9 @@ async function loadFromSheet() {
     rebuildLayoutCandidates();
     updateConfigSummary();
 
+    // 同席希望バナーを表示
+    renderJoinNextSeatBanner();
+
     // 「続きから読み込む」ボタンを表示
     document.getElementById('load-archive-btn').style.display = 'inline-block';
     // リセットボタンを表示
@@ -1259,6 +1263,23 @@ function renderAll() {
   renderWaitingZone();
   renderPAZone();
   renderMCZone();
+}
+
+// ========== 同席希望バナー ==========
+function renderJoinNextSeatBanner() {
+  const banner = document.getElementById('joinNextSeatBanner');
+  if (!banner) return;
+
+  const requests = participants
+    .filter(p => p.joinNextSeat)
+    .map(p => `${p.name}→${p.joinNextSeat}`);
+
+  if (requests.length === 0) {
+    banner.style.display = 'none';
+  } else {
+    banner.style.display = 'block';
+    banner.innerHTML = `🤝 同席希望: ${requests.join('、')}`;
+  }
 }
 
 function renderTables() {
