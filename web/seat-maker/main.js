@@ -119,8 +119,14 @@ function buildJoinRequestColors() {
 function findParticipantByName(nameQuery) {
   if (!nameQuery) return null;
 
-  // 検索用に正規化（空白除去、「様」除去）
-  const normalize = (s) => s.replace(/[\s　]/g, '').replace(/様$/g, '');
+  // 検索用に正規化（空白除去、敬称除去）
+  const normalize = (s) => s
+    .replace(/[\s　]/g, '')      // 空白除去
+    .replace(/様$/g, '')         // 「様」除去
+    .replace(/さん$/g, '')       // 「さん」除去
+    .replace(/くん$/g, '')       // 「くん」除去
+    .replace(/ちゃん$/g, '');    // 「ちゃん」除去
+
   const normalizedQuery = normalize(nameQuery);
 
   // 完全一致を優先
