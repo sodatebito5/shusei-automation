@@ -1579,3 +1579,29 @@ body {
 .fade-in {
   animation: fadeIn 0.3s ease;
 }
+
+/* ===========================
+   同席希望カード - Glow Effect
+   =========================== */
+.person-card.has-join-request {
+  animation: glowPulse 2s ease-in-out infinite;
+  position: relative;
+}
+
+@keyframes glowPulse {
+  0%, 100% {
+    box-shadow: 0 0 5px 2px rgba(245, 158, 11, 0.4),
+                0 0 10px 4px rgba(245, 158, 11, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 10px 4px rgba(245, 158, 11, 0.6),
+                0 0 20px 8px rgba(245, 158, 11, 0.3);
+  }
+}
+
+/* ホバー時はアニメーション一時停止＋強調 */
+.person-card.has-join-request:hover {
+  animation-play-state: paused;
+  box-shadow: 0 0 15px 6px rgba(245, 158, 11, 0.7),
+              0 0 25px 10px rgba(245, 158, 11, 0.4);
+}

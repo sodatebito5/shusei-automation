@@ -145,6 +145,12 @@ function createPersonCard(person, fromTable, fromSeat) {
 
   card.appendChild(name);
 
+  // 同席希望がある場合はクラスを追加
+  if (person.joinNextSeat) {
+    card.classList.add('has-join-request');
+    card.title = `同席希望: ${person.joinNextSeat}`;
+  }
+
   card.addEventListener('dragstart', handleDragStart);
   card.addEventListener('dragend', handleDragEnd);
   card.addEventListener('click', handleCardClick);
