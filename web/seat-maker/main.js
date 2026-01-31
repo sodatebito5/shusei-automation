@@ -75,34 +75,65 @@ function setParticipants(rawParticipants) {
 /**
  * 同席希望のペアに同じ色を割り当てる
  * 希望者と希望先を同じグループとして扱う
+ * IDベースでマッピングし、名前は部分一致で検索
  */
 function buildJoinRequestColors() {
-  joinRequestColors = {};
+  joinRequestColors = {};  // { participantId: colorIndex }
   let colorIndex = 0;
 
   // 同席希望がある人をリストアップ
   const requesters = participants.filter(p => p.joinNextSeat);
 
   requesters.forEach(requester => {
-    const requesterName = requester.name;
-    const targetName = requester.joinNextSeat;
+    const requesterId = requester.id;
+    const targetNameQuery = requester.joinNextSeat.trim();
+
+    // 希望先の参加者を名前で検索（部分一致）
+    const targetPerson = findParticipantByName(targetNameQuery);
 
     // 既に色が割り当てられているかチェック
-    if (joinRequestColors[requesterName] !== undefined) {
+    if (joinRequestColors[requesterId] !== undefined) {
       // 希望者に既に色がある場合、希望先も同じ色に
-      joinRequestColors[targetName] = joinRequestColors[requesterName];
-    } else if (joinRequestColors[targetName] !== undefined) {
+      if (targetPerson) {
+        joinRequestColors[targetPerson.id] = joinRequestColors[requesterId];
+      }
+    } else if (targetPerson && joinRequestColors[targetPerson.id] !== undefined) {
       // 希望先に既に色がある場合、希望者も同じ色に
-      joinRequestColors[requesterName] = joinRequestColors[targetName];
+      joinRequestColors[requesterId] = joinRequestColors[targetPerson.id];
     } else {
       // 新しいペアなので新しい色を割り当て
-      joinRequestColors[requesterName] = colorIndex;
-      joinRequestColors[targetName] = colorIndex;
+      joinRequestColors[requesterId] = colorIndex;
+      if (targetPerson) {
+        joinRequestColors[targetPerson.id] = colorIndex;
+      }
       colorIndex = (colorIndex + 1) % JOIN_REQUEST_COLOR_COUNT;
     }
   });
 
   console.log('同席希望カラーマッピング:', joinRequestColors);
+}
+
+/**
+ * 名前で参加者を検索（部分一致・あいまい検索）
+ */
+function findParticipantByName(nameQuery) {
+  if (!nameQuery) return null;
+
+  // 検索用に正規化（空白除去、「様」除去）
+  const normalize = (s) => s.replace(/[\s　]/g, '').replace(/様$/g, '');
+  const normalizedQuery = normalize(nameQuery);
+
+  // 完全一致を優先
+  let found = participants.find(p => normalize(p.name) === normalizedQuery);
+  if (found) return found;
+
+  // 部分一致（クエリが名前に含まれる、または名前がクエリに含まれる）
+  found = participants.find(p => {
+    const normalizedName = normalize(p.name);
+    return normalizedName.includes(normalizedQuery) || normalizedQuery.includes(normalizedName);
+  });
+
+  return found || null;
 }
 
 function generateTables(count, minCap, maxCap) {
@@ -186,7 +217,7 @@ function createPersonCard(person, fromTable, fromSeat) {
   card.appendChild(name);
 
   // 同席希望グループに属する場合はglowクラスを追加（希望者も希望先も同じ色で光る）
-  const colorIndex = joinRequestColors[person.name];
+  const colorIndex = joinRequestColors[person.id];
   if (colorIndex !== undefined) {
     card.classList.add('has-join-request');
     card.classList.add(`join-color-${colorIndex}`);
@@ -195,8 +226,12 @@ function createPersonCard(person, fromTable, fromSeat) {
     if (person.joinNextSeat) {
       card.title = `同席希望: ${person.joinNextSeat}`;
     } else {
-      // 誰から希望されているか探す
-      const requester = participants.find(p => p.joinNextSeat === person.name);
+      // 誰から希望されているか探す（名前検索で自分を見つけた人）
+      const requester = participants.find(p => {
+        if (!p.joinNextSeat) return false;
+        const target = findParticipantByName(p.joinNextSeat);
+        return target && target.id === person.id;
+      });
       if (requester) {
         card.title = `${requester.name}さんから同席希望あり`;
       }
