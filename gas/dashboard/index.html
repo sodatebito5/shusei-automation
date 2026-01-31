@@ -60,6 +60,7 @@
       <button class="tab-btn" data-tab="sales-tab">売上</button>
       <button class="tab-btn" data-tab="team-tab">チーム</button>
       <button class="tab-btn" data-tab="renew-tab">更新</button>
+      <button class="tab-btn" data-tab="member-tab">会員管理</button>
       <button class="tab-btn tab-btn-right" data-tab="prep-tab">例会事前準備</button>
       <button class="tab-btn" data-tab="eventday-tab">例会当日</button>
       <button class="tab-btn" data-tab="history-tab">履歴</button>
@@ -213,7 +214,7 @@
     </table>
   </div>
 
-  <!-- 右：売上ランキング -->
+  <!-- 右：売上ランキング（非表示）
   <div class="modern-card">
     <div class="modern-card-header">
       <h2 class="modern-card-title">
@@ -225,6 +226,7 @@
       <div class="text-sm text-slate-400 text-center py-4">データ取得中...</div>
     </div>
   </div>
+  -->
 </section>
       </div>
 
@@ -236,10 +238,16 @@
               <span class="modern-card-title-icon">✓</span>
               出欠管理
             </h2>
-            <div class="flex flex-wrap gap-3 text-xs">
-              <span class="bg-emerald-50 text-emerald-700 px-2 py-1 rounded-full">出席: <span id="attendCountAttend" class="font-semibold">0 名</span></span>
-              <span class="bg-red-50 text-red-700 px-2 py-1 rounded-full">欠席: <span id="attendCountAbsent" class="font-semibold">0 名</span></span>
-              <span class="bg-slate-100 text-slate-600 px-2 py-1 rounded-full">未回答: <span id="attendCountNoAnswer" class="font-semibold">0 名</span></span>
+            <div class="flex flex-wrap items-center gap-3">
+              <div class="flex flex-wrap gap-3 text-xs">
+                <span class="bg-emerald-50 text-emerald-700 px-2 py-1 rounded-full">出席: <span id="attendCountAttend" class="font-semibold">0 名</span></span>
+                <span class="bg-red-50 text-red-700 px-2 py-1 rounded-full">欠席: <span id="attendCountAbsent" class="font-semibold">0 名</span></span>
+                <span class="bg-slate-100 text-slate-600 px-2 py-1 rounded-full">未回答: <span id="attendCountNoAnswer" class="font-semibold">0 名</span></span>
+              </div>
+              <button id="reminderManageBtn" onclick="openReminderModal()" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-lg flex items-center gap-1 transition-colors">
+                <span class="material-icons text-sm">notifications</span>
+                出欠リマインド管理
+              </button>
             </div>
           </div>
           <p class="text-xs text-slate-500 mb-4">
@@ -634,6 +642,13 @@
               ← 選択に戻る
             </button>
             <button
+              id="prepPdfPreviewButton"
+              type="button"
+              class="text-xs px-3 py-1 rounded-full border border-blue-400 text-blue-600 hover:bg-blue-50 font-medium"
+            >
+              👁 PDFプレビュー
+            </button>
+            <button
               id="prepPrintButton"
               type="button"
               class="text-xs px-3 py-1 rounded-full border border-slate-300 text-slate-600 hover:bg-slate-100"
@@ -806,14 +821,110 @@
           役割分担編集
         </button>
         <button
-          id="btnCheckin"
-          class="prep-menu-btn px-4 py-2.5 text-xs md:text-sm rounded-lg border border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-300 transition-all shadow-sm text-slate-400"
+          id="btnSeatingChart"
+          class="prep-menu-btn px-4 py-2.5 text-xs md:text-sm rounded-lg border border-blue-200 bg-white hover:bg-blue-50 hover:border-blue-300 transition-all shadow-sm text-blue-700"
         >
-          チェックイン（準備中）
+          配席表
+        </button>
+        <button
+          id="btnCheckin"
+          class="prep-menu-btn px-4 py-2.5 text-xs md:text-sm rounded-lg border border-amber-200 bg-white hover:bg-amber-50 hover:border-amber-300 transition-all shadow-sm text-amber-700"
+        >
+          チェックイン管理
         </button>
       </div>
     </section>
-    
+
+    <!-- チェックイン管理画面 -->
+    <section id="checkinSection" class="hidden bg-white rounded-xl shadow p-3 md:p-4 mt-4">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-sm md:text-base font-bold text-slate-800">📋 チェックイン管理</h2>
+        <button
+          id="checkinBackButton"
+          type="button"
+          class="text-xs px-3 py-1.5 rounded-full border border-slate-300 text-slate-600 hover:bg-slate-100 active:bg-slate-200"
+        >
+          ← 戻る
+        </button>
+      </div>
+
+      <!-- サマリー -->
+      <div id="checkinSummary" class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+        <div class="mini-stat-card">
+          <div class="mini-stat-label">到着</div>
+          <div id="checkinArrived" class="mini-stat-value" style="color: #059669;">-/-</div>
+        </div>
+        <div class="mini-stat-card" style="background: #eff6ff;">
+          <div class="mini-stat-label">バッジ貸出中</div>
+          <div id="checkinBadgeLent" class="mini-stat-value" style="color: #2563eb;">-</div>
+        </div>
+        <div class="mini-stat-card" style="background: #fef2f2;">
+          <div class="mini-stat-label">バッジ未返却</div>
+          <div id="checkinBadgeNotReturned" class="mini-stat-value" style="color: #dc2626;">-</div>
+        </div>
+        <div class="mini-stat-card" style="background: #f5f3ff;">
+          <div class="mini-stat-label">最終更新</div>
+          <div id="checkinLastUpdate" class="mini-stat-value text-xs" style="color: #7c3aed;">--:--</div>
+        </div>
+      </div>
+
+      <!-- フィルタ・操作ボタン -->
+      <div class="flex flex-wrap items-center gap-2 mb-4">
+        <button onclick="filterCheckin('all')" class="checkin-filter-btn active px-3 py-1.5 text-xs rounded-lg border border-teal-200 bg-teal-50 text-teal-700 font-medium" data-filter="all">全員</button>
+        <button onclick="filterCheckin('arrived')" class="checkin-filter-btn px-3 py-1.5 text-xs rounded-lg border border-slate-200 hover:bg-slate-50 font-medium" data-filter="arrived">到着済</button>
+        <button onclick="filterCheckin('notArrived')" class="checkin-filter-btn px-3 py-1.5 text-xs rounded-lg border border-slate-200 hover:bg-slate-50 font-medium" data-filter="notArrived">未到着</button>
+        <button onclick="filterCheckin('badgeNotReturned')" class="checkin-filter-btn px-3 py-1.5 text-xs rounded-lg border border-red-200 hover:bg-red-50 text-red-600 font-medium" data-filter="badgeNotReturned">未返却</button>
+        <div class="flex-1"></div>
+        <button onclick="refreshCheckinStatus()" class="px-3 py-1.5 text-xs rounded-lg border border-slate-300 hover:bg-slate-100 font-medium">
+          🔄 更新
+        </button>
+        <!-- 管理者メニュー（折りたたみ） -->
+        <details class="relative">
+          <summary class="px-3 py-1.5 text-xs rounded-lg border border-slate-300 hover:bg-slate-100 font-medium cursor-pointer list-none flex items-center gap-1">
+            ⚙️ 管理
+          </summary>
+          <div class="absolute right-0 top-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg p-2 z-10 min-w-[140px]">
+            <button onclick="initCheckinData()" class="w-full px-3 py-2 text-xs rounded-lg border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-700 font-medium">
+              📥 データ初期化
+            </button>
+          </div>
+        </details>
+      </div>
+
+      <!-- 会員リスト -->
+      <div class="mb-4">
+        <h3 class="text-sm font-bold text-slate-700 mb-2 flex items-center gap-1">
+          <span class="text-base">👔</span> 福岡飯塚会員
+          <span id="checkinMemberCount" class="text-xs text-slate-400 font-normal ml-2">(-人)</span>
+        </h3>
+        <div id="checkinMemberList" class="space-y-1">
+          <div class="text-center text-slate-400 py-4">読み込み中...</div>
+        </div>
+      </div>
+
+      <!-- 他会場リスト -->
+      <div class="mb-4">
+        <h3 class="text-sm font-bold text-slate-700 mb-2 flex items-center gap-1">
+          <span class="text-base">🏢</span> 他会場参加者
+          <span id="checkinOtherCount" class="text-xs text-slate-400 font-normal ml-2">(-人)</span>
+        </h3>
+        <div id="checkinOtherList" class="space-y-1">
+          <div class="text-center text-slate-400 py-4">-</div>
+        </div>
+      </div>
+
+      <!-- ゲストリスト -->
+      <div class="mb-4">
+        <h3 class="text-sm font-bold text-slate-700 mb-2 flex items-center gap-1">
+          <span class="text-base">🎁</span> ゲスト
+          <span id="checkinGuestCount" class="text-xs text-slate-400 font-normal ml-2">(-人)</span>
+        </h3>
+        <div id="checkinGuestList" class="space-y-1">
+          <div class="text-center text-slate-400 py-4">-</div>
+        </div>
+      </div>
+    </section>
+
     <!-- 役割分担プレビュー画面 -->
 <section id="rolePreviewSection" class="hidden bg-white rounded-xl shadow p-3 md:p-4 mt-4">
   <div class="flex items-center justify-between mb-4">
@@ -891,6 +1002,266 @@
     </div>
   </div>
 </section>
+  </div>
+
+  <!-- ★ 会員管理タブ -->
+  <div id="member-tab" class="tab-panel">
+    <section class="modern-card mt-4">
+      <div class="modern-card-header">
+        <h2 class="modern-card-title">
+          <span class="modern-card-title-icon">👥</span>
+          会員名簿管理
+        </h2>
+      </div>
+
+      <!-- 検索・追加バー -->
+      <div class="member-search-bar">
+        <div class="member-search-wrapper">
+          <span class="member-search-icon">🔍</span>
+          <input type="text" id="memberSearchInput" class="member-search-input" placeholder="名前・フリガナ・会社名で検索..." oninput="filterMembers()">
+        </div>
+        <button class="member-add-btn" onclick="openMemberModal(null)">
+          ➕ 新規追加
+        </button>
+      </div>
+
+      <!-- フィルタ行 -->
+      <div class="member-filter-row">
+        <span class="member-filter-label">絞り込み:</span>
+        <select id="memberTeamFilter" class="member-filter-select" onchange="filterMembers()">
+          <option value="">チーム: 全て</option>
+        </select>
+        <select id="memberBadgeFilter" class="member-filter-select" onchange="filterMembers()">
+          <option value="">バッジ: 全て</option>
+          <option value="ゴ">🥇 ゴールド</option>
+          <option value="正">🔴 正会員</option>
+          <option value="準">🟢 準会員</option>
+          <option value="紫">🟣 紫バッジ</option>
+          <option value="ダイヤ">💎 ダイヤ</option>
+        </select>
+        <select id="memberRenewalFilter" class="member-filter-select" onchange="filterMembers()">
+          <option value="">更新月: 全て</option>
+          <option value="1">1月</option>
+          <option value="2">2月</option>
+          <option value="3">3月</option>
+          <option value="4">4月</option>
+          <option value="5">5月</option>
+          <option value="6">6月</option>
+          <option value="7">7月</option>
+          <option value="8">8月</option>
+          <option value="9">9月</option>
+          <option value="10">10月</option>
+          <option value="11">11月</option>
+          <option value="12">12月</option>
+        </select>
+        <label class="member-checkbox-label">
+          <input type="checkbox" id="memberShowRetiredOnly" onchange="loadMembersForEdit()">
+          退会者のみ表示
+        </label>
+        <div class="member-count-display">
+          会員数: <strong id="memberCountDisplay">-</strong>名
+        </div>
+      </div>
+
+      <!-- 会員一覧 -->
+      <div id="memberCardGrid" class="member-card-grid">
+        <div class="member-loading">
+          <div class="member-loading-spinner"></div>
+          <p>会員データを読み込み中...</p>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- 会員編集モーダル -->
+  <div id="memberModal" class="member-modal">
+    <div class="member-modal-overlay" onclick="closeMemberModal()"></div>
+    <div class="member-modal-content">
+      <div class="member-modal-header">
+        <h3 class="member-modal-title">
+          <span id="memberModalIcon">✏️</span>
+          <span id="memberModalTitle">会員情報編集</span>
+        </h3>
+        <button class="member-modal-close" onclick="closeMemberModal()">×</button>
+      </div>
+      <div class="member-modal-body">
+        <input type="hidden" id="memberEditRowIndex">
+
+        <!-- 基本情報 -->
+        <div class="member-form-section">
+          <div class="member-form-section-title">📋 基本情報</div>
+          <div class="member-form-grid">
+            <div class="member-form-group">
+              <label class="member-form-label">会員ID</label>
+              <input type="text" id="memberEditId" class="member-form-input" disabled>
+            </div>
+            <div class="member-form-group">
+              <label class="member-form-label">バッジ</label>
+              <select id="memberEditBadge" class="member-form-select">
+                <option value="">なし</option>
+                <option value="ゴ">🥇 ゴールド</option>
+                <option value="正">🔴 正会員</option>
+                <option value="準">🟢 準会員</option>
+                <option value="紫">🟣 紫バッジ</option>
+                <option value="ダイヤ">💎 ダイヤ</option>
+              </select>
+            </div>
+            <div class="member-form-group">
+              <label class="member-form-label">氏名 *</label>
+              <input type="text" id="memberEditName" class="member-form-input" required>
+            </div>
+            <div class="member-form-group">
+              <label class="member-form-label">フリガナ</label>
+              <input type="text" id="memberEditFurigana" class="member-form-input">
+            </div>
+          </div>
+        </div>
+
+        <!-- 所属情報 -->
+        <div class="member-form-section">
+          <div class="member-form-section-title">🏢 所属情報</div>
+          <div class="member-form-grid">
+            <div class="member-form-group">
+              <label class="member-form-label">チーム</label>
+              <select id="memberEditTeam" class="member-form-select">
+                <option value="">未配属</option>
+              </select>
+            </div>
+            <div class="member-form-group">
+              <label class="member-form-label">所属</label>
+              <input type="text" id="memberEditAffiliation" class="member-form-input">
+            </div>
+            <div class="member-form-group">
+              <label class="member-form-label">会社名</label>
+              <input type="text" id="memberEditCompany" class="member-form-input">
+            </div>
+            <div class="member-form-group">
+              <label class="member-form-label">役職</label>
+              <input type="text" id="memberEditPosition" class="member-form-input">
+            </div>
+            <div class="member-form-group full-width">
+              <label class="member-form-label">営業内容</label>
+              <input type="text" id="memberEditBusiness" class="member-form-input">
+            </div>
+          </div>
+        </div>
+
+        <!-- 役割・紹介 -->
+        <div class="member-form-section">
+          <div class="member-form-section-title">🎯 役割・紹介</div>
+          <div class="member-form-grid">
+            <div class="member-form-group">
+              <label class="member-form-label">役割</label>
+              <select id="memberEditRole" class="member-form-input">
+                <option value="">なし</option>
+                <option value="統括">統括</option>
+                <option value="PA">PA</option>
+                <option value="MC">MC</option>
+                <option value="バッジ授与">バッジ授与</option>
+                <option value="受付">受付</option>
+                <option value="ゲスト誘導">ゲスト誘導</option>
+                <option value="会員サポート">会員サポート</option>
+                <option value="名刺回収">名刺回収</option>
+                <option value="撮影">撮影</option>
+              </select>
+            </div>
+            <div class="member-form-group">
+              <label class="member-form-label">紹介者</label>
+              <input type="text" id="memberEditIntroducer" class="member-form-input">
+            </div>
+            <div class="member-form-group">
+              <label class="member-form-label">紹介数</label>
+              <input type="text" id="memberEditReferralCount" class="member-form-input">
+            </div>
+            <div class="member-form-group">
+              <label class="member-form-label">自会場紹介在籍人数</label>
+              <input type="text" id="memberEditReferralActive" class="member-form-input">
+            </div>
+            <div class="member-form-group">
+              <label class="member-form-label">賞</label>
+              <select id="memberEditAward" class="member-form-input">
+                <option value="">なし</option>
+                <option value="鬼">鬼</option>
+                <option value="盾">盾</option>
+                <option value="G">G</option>
+              </select>
+            </div>
+            <div class="member-form-group">
+              <label class="member-form-label">紫バッジ</label>
+              <input type="text" id="memberEditPurpleBadge" class="member-form-input">
+            </div>
+          </div>
+        </div>
+
+        <!-- 更新管理 -->
+        <div class="member-form-section">
+          <div class="member-form-section-title">📅 更新管理</div>
+          <div class="member-form-grid">
+            <div class="member-form-group">
+              <label class="member-form-label">入会日</label>
+              <input type="date" id="memberEditJoinDate" class="member-form-input">
+            </div>
+            <div class="member-form-group">
+              <label class="member-form-label">更新月</label>
+              <select id="memberEditRenewalMonth" class="member-form-select">
+                <option value="">未設定</option>
+                <option value="1">1月</option>
+                <option value="2">2月</option>
+                <option value="3">3月</option>
+                <option value="4">4月</option>
+                <option value="5">5月</option>
+                <option value="6">6月</option>
+                <option value="7">7月</option>
+                <option value="8">8月</option>
+                <option value="9">9月</option>
+                <option value="10">10月</option>
+                <option value="11">11月</option>
+                <option value="12">12月</option>
+              </select>
+            </div>
+            <div class="member-form-group">
+              <label class="member-form-label">継続月</label>
+              <input type="text" id="memberEditContinuedMonths" class="member-form-input">
+            </div>
+            <div class="member-form-group">
+              <label class="member-form-label">区分</label>
+              <input type="text" id="memberEditCategory" class="member-form-input">
+            </div>
+          </div>
+        </div>
+
+        <!-- 退会チェック -->
+        <div class="member-retire-section" id="memberRetireSection">
+          <label class="member-retire-label">
+            <input type="checkbox" id="memberEditRetired">
+            この会員を退会扱いにする
+          </label>
+        </div>
+      </div>
+      <div class="member-modal-footer">
+        <button class="member-btn-cancel" onclick="closeMemberModal()">キャンセル</button>
+        <button class="member-btn-save" onclick="saveMember()">
+          💾 保存
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- パスワード確認モーダル -->
+  <div id="passwordModal" class="password-modal">
+    <div class="password-modal-overlay" onclick="closePasswordModal()"></div>
+    <div class="password-modal-content">
+      <div class="password-modal-title">🔐 パスワード確認</div>
+      <p class="password-modal-desc">編集パスワードを入力してください</p>
+      <div class="password-input-wrapper">
+        <input type="password" id="memberPassword" class="password-input" placeholder="パスワード" onkeypress="if(event.key==='Enter')confirmPassword()">
+        <p id="passwordError" class="password-error">パスワードが違います</p>
+      </div>
+      <div class="password-modal-buttons">
+        <button class="member-btn-cancel" onclick="closePasswordModal()">キャンセル</button>
+        <button class="member-btn-save" onclick="confirmPassword()">確認</button>
+      </div>
+    </div>
   </div>
 
   <!-- ★ 履歴タブ -->
@@ -1167,6 +1538,117 @@ async function generatePDF() {
   }
 }
 
+// PDFプレビュー（ブラウザで直接表示）
+async function previewPDF() {
+  const area = document.getElementById('prepPreviewContainer');
+
+  if (!area) {
+    alert('名簿が表示されていません');
+    return;
+  }
+
+  const btn = document.getElementById('prepPdfPreviewButton');
+  const originalText = btn ? btn.textContent : '';
+  if (btn) {
+    btn.textContent = '生成中...';
+    btn.disabled = true;
+  }
+
+  // A4横固定サイズ（px @ 96dpi）
+  const A4_WIDTH = 1123;
+  const A4_HEIGHT = 794;
+
+  try {
+    const pages = area.querySelectorAll('.print-page');
+    if (!pages.length) {
+      alert('表示するページがありません');
+      return;
+    }
+
+    // フォント読み込み待機
+    if (document.fonts && document.fonts.ready) {
+      await document.fonts.ready;
+    }
+    await new Promise(r => setTimeout(r, 50));
+
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({
+      orientation: 'landscape',
+      unit: 'px',
+      format: [A4_WIDTH, A4_HEIGHT],
+      hotfixes: ['px_scaling']
+    });
+
+    for (let i = 0; i < pages.length; i++) {
+      const clone = pages[i].cloneNode(true);
+      clone.querySelectorAll('[id]').forEach(el => el.removeAttribute('id'));
+      clone.classList.add('pdf-export');
+
+      clone.querySelectorAll('[style]').forEach(el => {
+        if (el.style.backgroundColor) el.style.backgroundColor = 'transparent';
+        if (el.style.background) el.style.background = 'transparent';
+      });
+
+      clone.style.cssText = `
+        position: absolute;
+        top: -9999px;
+        left: -9999px;
+        width: ${A4_WIDTH}px;
+        height: ${A4_HEIGHT}px;
+        max-width: ${A4_WIDTH}px;
+        max-height: ${A4_HEIGHT}px;
+        overflow: hidden;
+        padding: 20px 30px;
+        box-sizing: border-box;
+        background: #ffffff;
+        transform: none;
+        font-family: "Noto Sans JP", "Hiragino Kaku Gothic ProN", "Meiryo", sans-serif;
+      `;
+      document.body.appendChild(clone);
+
+      await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+
+      const canvas = await html2canvas(clone, {
+        useCORS: true,
+        allowTaint: false,
+        backgroundColor: '#ffffff',
+        width: A4_WIDTH,
+        height: A4_HEIGHT,
+        windowWidth: A4_WIDTH,
+        windowHeight: A4_HEIGHT,
+        scrollX: 0,
+        scrollY: 0,
+        scale: 2,  // 高解像度でプレビュー
+        logging: false
+      });
+
+      document.body.removeChild(clone);
+
+      if (i > 0) {
+        pdf.addPage([A4_WIDTH, A4_HEIGHT], 'landscape');
+      }
+      const imgData = canvas.toDataURL('image/jpeg', 0.92);
+      pdf.addImage(imgData, 'JPEG', 0, 0, A4_WIDTH, A4_HEIGHT);
+    }
+
+    // BlobURLを生成してプレビュー表示
+    const pdfBlob = pdf.output('blob');
+    const blobUrl = URL.createObjectURL(pdfBlob);
+    window.open(blobUrl, '_blank');
+
+    console.log('[PDFプレビュー] 完了');
+
+  } catch (e) {
+    console.error('[PDFプレビュー] エラー:', e);
+    alert('PDFプレビュー生成に失敗しました: ' + e.message);
+  } finally {
+    if (btn) {
+      btn.textContent = originalText;
+      btn.disabled = false;
+    }
+  }
+}
+
 // タブ切り替え
 console.log('=== DEFINING setupTabs ===');
 function setupTabs() {
@@ -1200,6 +1682,13 @@ function setupTabs() {
       if (targetId === 'history-tab') {
         setTimeout(() => {
           initHistoryTab();
+        }, 50);
+      }
+
+      // ★会員管理タブに切り替えた時に初期化
+      if (targetId === 'member-tab') {
+        setTimeout(() => {
+          initMemberTab();
         }, 50);
       }
 
@@ -1478,15 +1967,17 @@ function showPrepPreview(kind) {
   </div>
 `;
 
+    // 他会場参加者テーブル列幅（A4横最適化・折り返し不可）
     const otherColgroup = `
       <col style="width:22px">
+      <col style="width:22px">
+      <col style="width:72px">
+      <col style="width:95px">
+      <col style="width:120px">
+      <col style="width:35px">
+      <col style="width:175px">
       <col style="width:70px">
-      <col style="width:90px">
-      <col style="width:70px">
-      <col style="width:50px">
-      <col style="width:180px">
-      <col style="width:100px">
-      <col style="width:70px">
+      <col style="width:60px">
       <col style="width:auto">
     `;
 
@@ -1497,6 +1988,7 @@ function showPrepPreview(kind) {
     <thead>
       <tr>
         <th style="padding:6px 2px;font-size:8px;line-height:1.1;">バ<br>ッ<br>ジ</th>
+        <th style="padding:8px 2px;font-size:8px;line-height:1.1;">ブ<br>|<br>ス</th>
         <th style="font-size:9px;">氏名</th>
         <th style="font-size:8px;">フリガナ</th>
         <th style="font-size:9px;">所属</th>
@@ -1512,6 +2004,8 @@ function showPrepPreview(kind) {
 
     otherVenueList.forEach(row => {
       const badge = row.badge || '';
+      let boothDisplay = row.booth || '';
+      if (boothDisplay === '×' || boothDisplay === 'x') boothDisplay = '';
       const badgeClass = getBadgeClass(badge);
       const businessFs = getFontSize(row.business, 'business');
       const businessStyle = `white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:${businessFs};vertical-align:middle;height:20px;line-height:20px;`;
@@ -1519,6 +2013,7 @@ function showPrepPreview(kind) {
       contentHtml += `
         <tr style="height:20px;">
           <td class="${badgeClass}" style="${badgeCellStyle}">${badge}</td>
+          <td style="${centerCell}">${boothDisplay}</td>
           <td style="${cellStyle}">${row.name || ''}</td>
           <td style="${cellStyle}">${row.furigana || ''}</td>
           <td style="${cellStyle}">${row.venue || ''}</td>
@@ -1543,23 +2038,15 @@ function showPrepPreview(kind) {
   </div>
 `;
 
+    // ゲストテーブル列幅（A4横最適化・折り返し不可）
     const guestColgroup = `
       <col style="width:70px">
       <col style="width:70px">
-      <col style="width:90px">
-      <col style="width:250px">
-      <col style="width:80px">
+      <col style="width:85px">
+      <col style="width:230px">
+      <col style="width:180px">
       <col style="width:auto">
     `;
-
-    // 会社名用スタイル（折り返し許可、フォントサイズ動的調整）
-    const getCompanyStyle = (company) => {
-      const len = (company || '').length;
-      let fs = '9px';
-      if (len > 20) fs = '7px';
-      else if (len > 15) fs = '8px';
-      return `white-space:normal;word-break:break-all;overflow:hidden;font-size:${fs};vertical-align:middle;height:20px;line-height:10px;padding:1px 2px;`;
-    };
 
     contentHtml += `
       <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
@@ -1581,14 +2068,13 @@ function showPrepPreview(kind) {
     guestList.forEach(row => {
       const businessFs = getFontSize(row.business, 'business');
       const businessStyle = `white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:${businessFs};vertical-align:middle;height:20px;line-height:20px;`;
-      const companyStyle = getCompanyStyle(row.company);
 
       contentHtml += `
         <tr style="height:20px;">
           <td style="${cellStyle}">${row.introducer || ''}</td>
           <td style="${cellStyle}">${row.name || ''}</td>
           <td style="${cellStyle}">${row.furigana || ''}</td>
-          <td style="${companyStyle}">${row.company || ''}</td>
+          <td style="${cellStyle}">${row.company || ''}</td>
           <td style="${cellStyle}">${row.position || ''}</td>
           <td style="${businessStyle}">${row.business || ''}</td>
         </tr>
@@ -1642,6 +2128,14 @@ document.addEventListener('DOMContentLoaded', () => {
   if (prepPrintButton) {
     prepPrintButton.addEventListener('click', () => {
       generatePDF();
+    });
+  }
+
+  // PDFプレビューボタン
+  const prepPdfPreviewButton = document.getElementById('prepPdfPreviewButton');
+  if (prepPdfPreviewButton) {
+    prepPdfPreviewButton.addEventListener('click', () => {
+      previewPDF();
     });
   }
 
@@ -1707,11 +2201,33 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // チェックインボタン（仮）
+  // チェックインボタン
   const btnCheckin = document.getElementById('btnCheckin');
+  const checkinSection = document.getElementById('checkinSection');
+  const checkinBackButton = document.getElementById('checkinBackButton');
+
   if (btnCheckin) {
     btnCheckin.addEventListener('click', () => {
-      alert('チェックイン機能は準備中です');
+      if (eventdayMenuSection) eventdayMenuSection.classList.add('hidden');
+      if (rolePreviewSection) rolePreviewSection.classList.add('hidden');
+      if (roleEditSection) roleEditSection.classList.add('hidden');
+      if (checkinSection) checkinSection.classList.remove('hidden');
+      loadCheckinStatus();
+    });
+  }
+
+  if (checkinBackButton) {
+    checkinBackButton.addEventListener('click', () => {
+      if (checkinSection) checkinSection.classList.add('hidden');
+      if (eventdayMenuSection) eventdayMenuSection.classList.remove('hidden');
+    });
+  }
+
+  // 配席表ボタン
+  const btnSeatingChart = document.getElementById('btnSeatingChart');
+  if (btnSeatingChart) {
+    btnSeatingChart.addEventListener('click', () => {
+      openSeatingChartModal();
     });
   }
 
@@ -2264,6 +2780,246 @@ function renderMonthlyChart(monthlySummary) {
     },
   });
 }
+
+// =============================================
+// 配席表モーダル関連
+// =============================================
+
+/**
+ * 配席表モーダルを開く
+ */
+function openSeatingChartModal() {
+  const modal = document.getElementById('seatingChartModal');
+  if (modal) {
+    modal.classList.add('active');
+    document.body.style.overflow = 'hidden';
+    loadSeatingChart();
+  }
+}
+
+/**
+ * 配席表モーダルを閉じる
+ */
+function closeSeatingChartModal() {
+  const modal = document.getElementById('seatingChartModal');
+  if (modal) {
+    modal.classList.remove('active');
+    document.body.style.overflow = '';
+  }
+}
+
+/**
+ * 配席データを読み込む
+ */
+function loadSeatingChart() {
+  const content = document.getElementById('seatingChartContent');
+  const titleEl = document.getElementById('seatingChartTitle');
+
+  if (!content) return;
+
+  // ローディング表示
+  content.innerHTML = '<div class="seating-loading">配席データを読み込み中...</div>';
+
+  // dashboardDataからeventKeyを取得
+  let eventKey = '';
+  console.log('[配席表] dashboardData:', dashboardData);
+
+  if (dashboardData && dashboardData.eventKey) {
+    eventKey = dashboardData.eventKey;
+    console.log('[配席表] eventKey from dashboardData:', eventKey);
+  } else if (dashboardData && dashboardData.eventName) {
+    // eventNameからeventKeyを生成（例: 2026年1月例会 → 202601_01）
+    eventKey = generateEventKeyFromName(dashboardData.eventName);
+    console.log('[配席表] eventKey generated from eventName:', dashboardData.eventName, '->', eventKey);
+  }
+
+  if (!eventKey) {
+    content.innerHTML = '<div class="seating-error">例会情報が取得できません</div>';
+    console.error('[配席表] eventKeyが取得できません');
+    return;
+  }
+
+  // タイトルに例会名を表示
+  if (titleEl && dashboardData && dashboardData.eventName) {
+    titleEl.textContent = `配席表（${dashboardData.eventName}）`;
+  }
+
+  // GASからデータ取得
+  console.log('[配席表] getSeatingArchive呼び出し:', eventKey);
+  google.script.run
+    .withSuccessHandler(result => {
+      console.log('[配席表] getSeatingArchive結果:', result);
+      if (result.success) {
+        renderSeatingChart(result);
+      } else {
+        content.innerHTML = `<div class="seating-error">${result.error || '配席データの取得に失敗しました'}</div>`;
+      }
+    })
+    .withFailureHandler(err => {
+      console.error('[配席表] getSeatingArchiveエラー:', err);
+      content.innerHTML = `<div class="seating-error">エラー: ${err.message || '不明なエラー'}</div>`;
+    })
+    .getSeatingArchive(eventKey);
+}
+
+/**
+ * eventNameからeventKeyを生成
+ * 例: "2026年1月例会" → "202601_01"
+ *     "2026年01月 第1例会" → "202601_01"
+ */
+function generateEventKeyFromName(eventName) {
+  if (!eventName) return '';
+
+  // パターン1: "2026年1月例会" のシンプルな形式
+  let match = eventName.match(/(\d{4})年(\d{1,2})月例会/);
+  if (match) {
+    const year = match[1];
+    const month = match[2].padStart(2, '0');
+    return `${year}${month}_01`;
+  }
+
+  // パターン2: "2026年01月 第1例会" の形式
+  match = eventName.match(/(\d{4})年(\d{1,2})月\s*第(\d+)例会/);
+  if (match) {
+    const year = match[1];
+    const month = match[2].padStart(2, '0');
+    const no = match[3].padStart(2, '0');
+    return `${year}${month}_${no}`;
+  }
+
+  return '';
+}
+
+/**
+ * 配席表を描画
+ * @param {Object} data - 配席アーカイブデータ
+ */
+function renderSeatingChart(data) {
+  const content = document.getElementById('seatingChartContent');
+  if (!content) return;
+
+  const { assignments, tables, layout } = data;
+
+  // データがない場合
+  if (!assignments || assignments.length === 0) {
+    content.innerHTML = '<div class="seating-empty">配席データがありません<br><span style="font-size: 0.8em;">（座席配置がまだ反映されていません）</span></div>';
+    return;
+  }
+
+  let html = '';
+
+  // ステージ表示
+  html += '<div class="seating-stage">【ステージ】</div>';
+
+  // PAテーブルは除外
+  const tableNames = Object.keys(tables).filter(t => t !== 'PA').sort();
+
+  // layout配列に従って配置
+  if (layout && layout.length > 0) {
+    let tableIndex = 0;
+    layout.forEach(rowCount => {
+      html += '<div class="seating-table-row">';
+      for (let i = 0; i < rowCount && tableIndex < tableNames.length; i++) {
+        html += renderTableCard(tableNames[tableIndex], assignments);
+        tableIndex++;
+      }
+      html += '</div>';
+    });
+    // 残りがあれば追加
+    if (tableIndex < tableNames.length) {
+      html += '<div class="seating-table-row">';
+      for (; tableIndex < tableNames.length; tableIndex++) {
+        html += renderTableCard(tableNames[tableIndex], assignments);
+      }
+      html += '</div>';
+    }
+  } else {
+    // layoutがない場合は3列
+    for (let i = 0; i < tableNames.length; i += 3) {
+      html += '<div class="seating-table-row">';
+      for (let j = i; j < i + 3 && j < tableNames.length; j++) {
+        html += renderTableCard(tableNames[j], assignments);
+      }
+      html += '</div>';
+    }
+  }
+
+  // PA/司会表示（PAテーブルがある場合）
+  if (tables && tables['PA']) {
+    const paMembers = assignments.filter(a => a.table === 'PA');
+    if (paMembers.length > 0) {
+      html += '<div class="seating-pa-row">';
+      paMembers.forEach(m => {
+        const role = m.seat === 0 ? 'PA' : '司会';
+        html += `<div class="seating-pa-badge"><span class="seating-pa-role">${role}</span><span class="seating-pa-name">${escapeHtml(m.name || '')}</span></div>`;
+      });
+      html += '</div>';
+    }
+  }
+
+  content.innerHTML = html;
+}
+
+/**
+ * テーブルカードを生成（2列レイアウト）
+ */
+function renderTableCard(tableName, assignments) {
+  const tableMembers = assignments
+    .filter(a => a.table === tableName)
+    .sort((a, b) => a.seat - b.seat);
+
+  let html = `<div class="seating-table-card">`;
+  html += `<div class="seating-card-header">テーブル ${escapeHtml(tableName)}</div>`;
+  html += `<div class="seating-card-grid">`;
+
+  // 左右に分ける
+  const leftCol = [], rightCol = [];
+  tableMembers.forEach((m, i) => (i % 2 === 0 ? leftCol : rightCol).push(m));
+
+  html += `<div class="seating-card-col">`;
+  leftCol.forEach(m => { html += renderMemberCell(m); });
+  html += `</div>`;
+
+  html += `<div class="seating-card-col">`;
+  rightCol.forEach(m => { html += renderMemberCell(m); });
+  html += `</div>`;
+
+  html += `</div></div>`;
+  return html;
+}
+
+/**
+ * メンバーセルを生成
+ */
+function renderMemberCell(member) {
+  const isTM = member.seat === 0;
+  const category = member.category || '会員';
+
+  // 名前のスペースを詰める（全角スペース→なし）
+  const name = (member.name || '').replace(/　/g, '');
+
+  let cellClass = 'seating-cell';
+  let label = '';
+
+  if (isTM) {
+    cellClass += ' seating-cell-tm';
+    label = '<span class="seating-cell-label">TM</span>';
+  } else if (category === 'ゲスト') {
+    cellClass += ' seating-cell-guest';
+    label = '<span class="seating-cell-label">ゲスト</span>';
+  } else if (category === '他会場') {
+    cellClass += ' seating-cell-other';
+    label = '<span class="seating-cell-label">他会場</span>';
+  } else {
+    cellClass += ' seating-cell-member';
+  }
+
+  return `<div class="${cellClass}">${label}<span class="seating-cell-name">${escapeHtml(name)}</span></div>`;
+}
+
+// =============================================
+// 役割分担関連
+// =============================================
 
 // 役割分担の読み込み＆描画（表示専用）
 function loadRoleAssignment() {
@@ -3554,6 +4310,40 @@ function closeSalesPasswordModal() {
   document.getElementById('salesPasswordModal').classList.add('hidden');
 }
 
+// ★出欠リマインド管理モーダル
+function openReminderModal() {
+  document.getElementById('reminderModal').classList.remove('hidden');
+  // TODO: 未回答者リストを読み込む
+  loadReminderNoAnswerList();
+}
+
+function closeReminderModal() {
+  document.getElementById('reminderModal').classList.add('hidden');
+}
+
+function loadReminderNoAnswerList() {
+  const listEl = document.getElementById('reminderNoAnswerList');
+  // 既存の出欠データから未回答者を取得
+  const noAnswerList = document.getElementById('attendListNoAnswer');
+  if (noAnswerList && noAnswerList.children.length > 0) {
+    const names = Array.from(noAnswerList.querySelectorAll('span')).map(el => el.textContent.trim()).filter(n => n);
+    if (names.length > 0) {
+      listEl.innerHTML = `
+        <div class="text-left">
+          <p class="text-slate-600 mb-2">未回答: <span class="font-semibold text-orange-600">${names.length}名</span></p>
+          <div class="flex flex-wrap gap-2">
+            ${names.map(name => `<span class="bg-orange-100 text-orange-700 px-2 py-1 rounded text-xs">${name}</span>`).join('')}
+          </div>
+        </div>
+      `;
+    } else {
+      listEl.innerHTML = '<p class="text-emerald-600">全員回答済みです</p>';
+    }
+  } else {
+    listEl.innerHTML = '<p class="text-slate-400">データを読み込み中...</p>';
+  }
+}
+
 function verifySalesPassword() {
   const password = document.getElementById('salesPasswordInput').value;
   const errorEl = document.getElementById('salesPasswordError');
@@ -4144,7 +4934,869 @@ document.addEventListener('keydown', function(e) {
     }
   }
 });
+
+/** =========================================================
+ *  チェックイン機能
+ * ======================================================= */
+
+let checkinData = null;  // チェックイン状況データ
+let checkinFilter = 'all';  // 現在のフィルタ
+
+// チェックイン状況を取得
+function loadCheckinStatus() {
+  const memberList = document.getElementById('checkinMemberList');
+  const otherList = document.getElementById('checkinOtherList');
+  const guestList = document.getElementById('checkinGuestList');
+
+  if (memberList) memberList.innerHTML = '<div class="text-center text-slate-400 py-4">読み込み中...</div>';
+  if (otherList) otherList.innerHTML = '<div class="text-center text-slate-400 py-4">読み込み中...</div>';
+  if (guestList) guestList.innerHTML = '<div class="text-center text-slate-400 py-4">読み込み中...</div>';
+
+  google.script.run
+    .withSuccessHandler(result => {
+      if (result.success) {
+        checkinData = result.data;
+        renderCheckinStatus();
+      } else {
+        if (memberList) memberList.innerHTML = '<div class="text-center text-red-500 py-4">エラー: ' + (result.message || '取得失敗') + '</div>';
+      }
+    })
+    .withFailureHandler(err => {
+      if (memberList) memberList.innerHTML = '<div class="text-center text-red-500 py-4">エラー: ' + err + '</div>';
+    })
+    .getCheckinStatus();
+}
+
+// チェックイン状況を表示
+function renderCheckinStatus() {
+  if (!checkinData) return;
+
+  // サマリー更新
+  const summary = checkinData.summary || {};
+  document.getElementById('checkinArrived').textContent = `${summary.checkedIn || 0}/${summary.total || 0}`;
+  document.getElementById('checkinBadgeLent').textContent = summary.badgeLent || 0;
+  document.getElementById('checkinBadgeNotReturned').textContent = summary.badgeNotReturned || 0;
+  document.getElementById('checkinLastUpdate').textContent = new Date().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
+
+  // フィルタリング
+  const members = filterCheckinList(checkinData.members || []);
+  const others = filterCheckinList(checkinData.otherVenue || []);
+  const guests = filterCheckinList(checkinData.guests || []);
+
+  // カウント更新
+  document.getElementById('checkinMemberCount').textContent = `(${members.length}人)`;
+  document.getElementById('checkinOtherCount').textContent = `(${others.length}人)`;
+  document.getElementById('checkinGuestCount').textContent = `(${guests.length}人)`;
+
+  // 会員リスト
+  const memberList = document.getElementById('checkinMemberList');
+  if (memberList) {
+    memberList.innerHTML = members.length > 0
+      ? members.map(p => renderCheckinCard(p, true)).join('')
+      : '<div class="text-center text-slate-400 py-4">該当なし</div>';
+  }
+
+  // 他会場リスト
+  const otherList = document.getElementById('checkinOtherList');
+  if (otherList) {
+    otherList.innerHTML = others.length > 0
+      ? others.map(p => renderCheckinCard(p, true)).join('')
+      : '<div class="text-center text-slate-400 py-4">該当なし</div>';
+  }
+
+  // ゲストリスト
+  const guestList = document.getElementById('checkinGuestList');
+  if (guestList) {
+    guestList.innerHTML = guests.length > 0
+      ? guests.map(p => renderCheckinCard(p, false)).join('')
+      : '<div class="text-center text-slate-400 py-4">該当なし</div>';
+  }
+}
+
+// フィルタリング
+function filterCheckinList(list) {
+  switch (checkinFilter) {
+    case 'arrived':
+      return list.filter(p => p.checkedIn);
+    case 'notArrived':
+      return list.filter(p => !p.checkedIn);
+    case 'badgeNotReturned':
+      return list.filter(p => p.badgeLent && !p.badgeReturned);
+    default:
+      return list;
+  }
+}
+
+// チェックインカード生成
+function renderCheckinCard(person, showBadge) {
+  const checkedIn = person.checkedIn;
+  const bgColor = checkedIn ? 'bg-emerald-50 border-emerald-200' : 'bg-white border-slate-200';
+  const badgeLentChecked = person.badgeLent ? 'checked' : '';
+  const badgeReturnedChecked = person.badgeReturned ? 'checked' : '';
+  const badgeLentDisabled = !checkedIn ? 'disabled' : '';
+  const badgeReturnedDisabled = !person.badgeLent ? 'disabled' : '';
+
+  const seatBadge = person.seat
+    ? `<span class="text-xs px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded">${person.seat}</span>`
+    : '';
+
+  const affiliationText = person.affiliation
+    ? `<span class="text-xs text-slate-500">(${person.affiliation})</span>`
+    : '';
+
+  const checkinTimeText = person.checkinTime
+    ? `<span class="text-xs text-slate-400 ml-2">${person.checkinTime}</span>`
+    : '';
+
+  // バッジ欄（会員・他会場のみ）
+  const badgeSection = showBadge ? `
+    <div class="flex items-center gap-3 mt-1">
+      <label class="flex items-center gap-1 text-xs ${badgeLentDisabled ? 'text-slate-300' : 'text-slate-600'}">
+        <input type="checkbox" ${badgeLentChecked} ${badgeLentDisabled}
+          onchange="updateCheckinField(${person.rowIndex}, 'badgeLent', this.checked)"
+          class="w-4 h-4 rounded border-slate-300" />
+        バッジ貸出
+      </label>
+      <label class="flex items-center gap-1 text-xs ${badgeReturnedDisabled ? 'text-slate-300' : 'text-slate-600'}">
+        <input type="checkbox" ${badgeReturnedChecked} ${badgeReturnedDisabled}
+          onchange="updateCheckinField(${person.rowIndex}, 'badgeReturned', this.checked)"
+          class="w-4 h-4 rounded border-slate-300" />
+        返却
+      </label>
+    </div>
+  ` : '';
+
+  // キャンセル状態の判定
+  const isCancelled = person.cancelled === true;
+
+  // カード背景色（キャンセル済みは薄紫）
+  const cardBgColor = isCancelled ? 'bg-purple-50 border-purple-200' : bgColor;
+  const nameTextColor = isCancelled ? 'text-purple-600' : (checkedIn ? 'text-emerald-800' : 'text-slate-700');
+
+  // チェックインボタン + キャンセルボタン
+  const actionButtons = isCancelled ? `
+    <button onclick="undoCancelCheckin(${person.rowIndex})"
+      class="text-xs px-2 py-1 bg-slate-400 text-white rounded hover:bg-slate-500 transition-colors">
+      取消解除
+    </button>
+  ` : (checkedIn ? `
+    <button onclick="cancelManualCheckin(${person.rowIndex})"
+      class="text-xs px-2 py-1 bg-purple-500 text-white rounded hover:bg-purple-600 transition-colors">
+      キャンセル
+    </button>
+  ` : `
+    <button onclick="manualCheckin(${person.rowIndex})"
+      class="text-xs px-2 py-1 bg-amber-500 text-white rounded hover:bg-amber-600 transition-colors">
+      チェックイン
+    </button>
+    <button onclick="markAsCancelled(${person.rowIndex})"
+      class="text-xs px-2 py-1 bg-purple-500 text-white rounded hover:bg-purple-600 transition-colors">
+      キャンセル
+    </button>
+  `);
+
+  // キャンセル済みバッジ
+  const cancelledBadge = isCancelled ? `
+    <span class="text-xs px-1.5 py-0.5 rounded bg-purple-200 text-purple-700 font-medium">欠席</span>
+  ` : '';
+
+  return `
+    <div class="checkin-card p-2 rounded-lg border ${cardBgColor}" data-checked="${checkedIn}" data-cancelled="${isCancelled}" data-row="${person.rowIndex}">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <span class="text-sm font-medium ${nameTextColor}">${person.name}</span>
+          ${affiliationText}
+          ${seatBadge}
+          ${cancelledBadge}
+          ${checkinTimeText}
+        </div>
+        <div class="flex items-center gap-2">
+          ${actionButtons}
+          <input type="text" placeholder="領収書No" value="${person.receiptNo || ''}"
+            onchange="updateCheckinField(${person.rowIndex}, 'receiptNo', this.value)"
+            class="w-20 text-xs px-2 py-1 border border-slate-200 rounded" />
+        </div>
+      </div>
+      ${badgeSection}
+    </div>
+  `;
+}
+
+// フィルタ切り替え
+function filterCheckin(filter) {
+  checkinFilter = filter;
+
+  // ボタンのアクティブ状態を更新
+  document.querySelectorAll('.checkin-filter-btn').forEach(btn => {
+    if (btn.dataset.filter === filter) {
+      btn.classList.remove('border-slate-200', 'hover:bg-slate-50');
+      btn.classList.add('active', 'border-teal-200', 'bg-teal-50', 'text-teal-700');
+    } else {
+      btn.classList.remove('active', 'border-teal-200', 'bg-teal-50', 'text-teal-700');
+      btn.classList.add('border-slate-200', 'hover:bg-slate-50');
+    }
+  });
+
+  renderCheckinStatus();
+}
+
+// チェックインフィールド更新
+function updateCheckinField(rowIndex, field, value) {
+  google.script.run
+    .withSuccessHandler(result => {
+      if (result.success) {
+        // データをリロード
+        refreshCheckinStatus();
+      } else {
+        alert('更新に失敗しました: ' + (result.message || '不明なエラー'));
+      }
+    })
+    .withFailureHandler(err => {
+      alert('エラー: ' + err);
+    })
+    .updateCheckinField(rowIndex, field, value);
+}
+
+// 手動チェックイン
+function manualCheckin(rowIndex) {
+  if (!confirm('このメンバーをチェックインしますか？')) return;
+
+  google.script.run
+    .withSuccessHandler(result => {
+      if (result.success) {
+        refreshCheckinStatus();
+      } else {
+        alert('チェックインに失敗しました: ' + (result.message || '不明なエラー'));
+      }
+    })
+    .withFailureHandler(err => {
+      alert('エラー: ' + err);
+    })
+    .manualCheckin(rowIndex);
+}
+
+// キャンセル（欠席）マーク
+function markAsCancelled(rowIndex) {
+  if (!confirm('このメンバーを欠席扱いにしますか？')) return;
+
+  // UIを即座に更新（薄紫に）
+  const card = document.querySelector(`.checkin-card[data-row="${rowIndex}"]`);
+  if (card) {
+    card.classList.remove('bg-white', 'border-slate-200', 'bg-emerald-50', 'border-emerald-200');
+    card.classList.add('bg-purple-50', 'border-purple-200');
+    card.dataset.cancelled = 'true';
+  }
+
+  google.script.run
+    .withSuccessHandler(result => {
+      if (result.success) {
+        refreshCheckinStatus();
+      } else {
+        alert('キャンセルに失敗しました: ' + (result.message || '不明なエラー'));
+        refreshCheckinStatus();
+      }
+    })
+    .withFailureHandler(err => {
+      alert('エラー: ' + err);
+      refreshCheckinStatus();
+    })
+    .markCheckinCancelled(rowIndex, true);
+}
+
+// キャンセル（チェックイン済みからのキャンセル）
+function cancelManualCheckin(rowIndex) {
+  if (!confirm('このメンバーのチェックインをキャンセルしますか？')) return;
+
+  google.script.run
+    .withSuccessHandler(result => {
+      if (result.success) {
+        refreshCheckinStatus();
+      } else {
+        alert('キャンセルに失敗しました: ' + (result.message || '不明なエラー'));
+      }
+    })
+    .withFailureHandler(err => {
+      alert('エラー: ' + err);
+    })
+    .cancelCheckinByRow(rowIndex);
+}
+
+// キャンセル解除
+function undoCancelCheckin(rowIndex) {
+  if (!confirm('欠席を取り消しますか？')) return;
+
+  google.script.run
+    .withSuccessHandler(result => {
+      if (result.success) {
+        refreshCheckinStatus();
+      } else {
+        alert('取消解除に失敗しました: ' + (result.message || '不明なエラー'));
+      }
+    })
+    .withFailureHandler(err => {
+      alert('エラー: ' + err);
+    })
+    .markCheckinCancelled(rowIndex, false);
+}
+
+// チェックインデータ初期化（2段階確認）
+function initCheckinData() {
+  // 第1段階: 基本確認
+  if (!confirm('⚠️ チェックインデータを初期化しますか？\n\n配席アーカイブから参加者情報をコピーします。')) return;
+
+  // 第2段階: 最終確認（既存データ上書き警告）
+  const finalConfirm = prompt(
+    '【最終確認】\n\n' +
+    '既存のチェックインデータは全て上書きされます。\n' +
+    'チェックイン済み・バッジ貸出状況も消えます。\n\n' +
+    '本当に実行する場合は「初期化」と入力してください:'
+  );
+
+  if (finalConfirm !== '初期化') {
+    alert('初期化をキャンセルしました。');
+    return;
+  }
+
+  const btn = event.target;
+  btn.disabled = true;
+  btn.textContent = '初期化中...';
+
+  google.script.run
+    .withSuccessHandler(result => {
+      btn.disabled = false;
+      btn.textContent = '📥 データ初期化';
+      if (result.success) {
+        alert('✅ 初期化完了: ' + result.count + '件のデータをコピーしました');
+        refreshCheckinStatus();
+        // 管理メニューを閉じる
+        document.querySelector('details')?.removeAttribute('open');
+      } else {
+        alert('初期化に失敗しました: ' + (result.message || '不明なエラー'));
+      }
+    })
+    .withFailureHandler(err => {
+      btn.disabled = false;
+      btn.textContent = '📥 データ初期化';
+      alert('エラー: ' + err);
+    })
+    .initCheckinData();
+}
+
+// 更新ボタン
+function refreshCheckinStatus() {
+  loadCheckinStatus();
+}
+
+/** =========================================================
+ *  会員名簿編集機能
+ * ======================================================= */
+
+let memberEditData = [];  // 全会員データ
+let memberTeams = [];     // チーム一覧
+let memberBadges = [];    // バッジ一覧
+let memberEditPassword = '';  // 認証済みパスワード
+let pendingSaveData = null;   // 保存待ちデータ
+
+// 会員一覧を取得
+function loadMembersForEdit() {
+  const grid = document.getElementById('memberCardGrid');
+  if (grid) {
+    grid.innerHTML = `
+      <div class="member-loading">
+        <div class="member-loading-spinner"></div>
+        <p>会員データを読み込み中...</p>
+      </div>
+    `;
+  }
+
+  const showRetiredOnly = document.getElementById('memberShowRetiredOnly')?.checked || false;
+
+  google.script.run
+    .withSuccessHandler(result => {
+      if (result.success) {
+        memberEditData = result.members || [];
+        memberTeams = result.teams || [];
+        memberBadges = result.badges || [];
+        updateMemberTeamFilter();
+        filterMembers();
+        // 会員数は退会者を除外して表示
+        updateMemberCount();
+      } else {
+        if (grid) {
+          grid.innerHTML = `<div class="member-empty"><div class="member-empty-icon">⚠️</div><p>エラー: ${result.message || '取得失敗'}</p></div>`;
+        }
+      }
+    })
+    .withFailureHandler(err => {
+      if (grid) {
+        grid.innerHTML = `<div class="member-empty"><div class="member-empty-icon">⚠️</div><p>エラー: ${err}</p></div>`;
+      }
+    })
+    .getMembersForEdit({ showRetiredOnly: showRetiredOnly });
+}
+
+// チームフィルタのオプションを更新
+function updateMemberTeamFilter() {
+  const select = document.getElementById('memberTeamFilter');
+  if (!select) return;
+
+  let html = '<option value="">チーム: 全て</option>';
+  html += '<option value="__unassigned__">未配属</option>';
+  memberTeams.forEach(team => {
+    html += `<option value="${escapeHtml(team)}">${escapeHtml(team)}</option>`;
+  });
+  select.innerHTML = html;
+}
+
+// 会員をフィルタして表示
+function filterMembers() {
+  const searchText = (document.getElementById('memberSearchInput')?.value || '').toLowerCase();
+  const teamFilter = document.getElementById('memberTeamFilter')?.value || '';
+  const badgeFilter = document.getElementById('memberBadgeFilter')?.value || '';
+  const renewalFilter = document.getElementById('memberRenewalFilter')?.value || '';
+
+  let filtered = memberEditData.filter(m => {
+    // 検索テキスト
+    if (searchText) {
+      const target = (m.name + m.furigana + m.company).toLowerCase();
+      if (target.indexOf(searchText) === -1) return false;
+    }
+    // チーム（未配属は空文字列で判定）
+    if (teamFilter) {
+      if (teamFilter === '__unassigned__') {
+        if (m.team) return false; // チームが設定されていたら除外
+      } else {
+        if (m.team !== teamFilter) return false;
+      }
+    }
+    // バッジ
+    if (badgeFilter && m.badge !== badgeFilter) return false;
+    // 更新月
+    if (renewalFilter && m.renewalMonth !== renewalFilter) return false;
+    return true;
+  });
+
+  renderMemberCards(filtered);
+}
+
+// 会員数を更新（退会者を除外）
+function updateMemberCount() {
+  const showRetiredOnly = document.getElementById('memberShowRetiredOnly')?.checked || false;
+  if (showRetiredOnly) {
+    // 退会者のみ表示モードの場合は退会者数を表示
+    document.getElementById('memberCountDisplay').textContent = memberEditData.length + '（退会者）';
+  } else {
+    // 通常モードは現役会員数を表示
+    const activeCount = memberEditData.filter(m => !m.retired && !m.isFromRetiredSheet).length;
+    document.getElementById('memberCountDisplay').textContent = activeCount;
+  }
+}
+
+// 会員カードを描画
+function renderMemberCards(members) {
+  const grid = document.getElementById('memberCardGrid');
+  if (!grid) return;
+
+  if (members.length === 0) {
+    grid.innerHTML = `
+      <div class="member-empty">
+        <div class="member-empty-icon">👥</div>
+        <p>該当する会員がいません</p>
+      </div>
+    `;
+    return;
+  }
+
+  let html = '';
+  members.forEach(m => {
+    const badgeEmoji = getMemberBadgeEmoji(m.badge);
+    const isRetiredSheet = m.isFromRetiredSheet === true;
+    const retiredClass = (m.retired || isRetiredSheet) ? ' retired' : '';
+
+    // 退会者シートからのデータは閲覧のみ
+    const clickHandler = isRetiredSheet
+      ? `showRetiredMemberInfo(${JSON.stringify(m).replace(/"/g, '&quot;')})`
+      : `openMemberModal(${m.rowIndex})`;
+
+    // メタ情報の表示（退会者は退会月を表示）
+    const metaInfo = isRetiredSheet
+      ? `<span>${m.team || '未配属'}</span><span>|</span><span style="color:#dc2626;">退会: ${m.retiredMonth || '-'}</span>`
+      : `<span>${m.team || '未配属'}</span><span>|</span><span>更新: ${m.renewalMonth ? m.renewalMonth + '月' : '-'}</span>`;
+
+    // 退会ラベル
+    const retiredLabel = isRetiredSheet
+      ? ' <span style="color:#dc2626;font-size:0.65rem;background:#fee2e2;padding:0 4px;border-radius:3px;">(退会者)</span>'
+      : (m.retired ? ' <span style="color:#dc2626;font-size:0.65rem;">(退会)</span>' : '');
+
+    // ボタン（退会者シートは閲覧ボタン）
+    const buttonLabel = isRetiredSheet ? '詳細' : '編集';
+    const buttonHandler = isRetiredSheet
+      ? `event.stopPropagation(); showRetiredMemberInfo(${JSON.stringify(m).replace(/"/g, '&quot;')})`
+      : `event.stopPropagation(); openMemberModal(${m.rowIndex})`;
+
+    html += `
+      <div class="member-edit-card${retiredClass}" onclick="${clickHandler}">
+        <span class="member-card-badge">${badgeEmoji}</span>
+        <div class="member-card-info">
+          <div class="member-card-name">${escapeHtml(m.name)}${retiredLabel}</div>
+          <div class="member-card-meta">${metaInfo}</div>
+        </div>
+        <button class="member-card-edit-btn" onclick="${buttonHandler}">${buttonLabel}</button>
+      </div>
+    `;
+  });
+
+  grid.innerHTML = html;
+}
+
+// バッジ絵文字を取得
+function getMemberBadgeEmoji(badge) {
+  switch (badge) {
+    case 'ゴ': return '🥇';
+    case '正': return '🔴';
+    case '準': return '🟢';
+    case '紫': return '🟣';
+    case 'ダイヤ': return '💎';
+    default: return '👤';
+  }
+}
+
+// 退会者情報を表示（閲覧のみ）
+function showRetiredMemberInfo(member) {
+  const badgeName = {
+    'ゴ': 'ゴールド',
+    '正': '正会員',
+    '準': '準会員',
+    '紫': '紫バッジ',
+    'ダイヤ': 'ダイヤモンド'
+  }[member.badge] || member.badge || '不明';
+
+  const info = `
+【退会者情報】
+
+氏名: ${member.name}
+フリガナ: ${member.furigana || '-'}
+バッジ: ${badgeName}
+チーム: ${member.team || '-'}
+会社名: ${member.company || '-'}
+役職: ${member.position || '-'}
+営業内容: ${member.business || '-'}
+
+入会月: ${member.joinDate || '-'}
+退会月: ${member.retiredMonth || '-'}
+紹介者: ${member.introducer || '-'}
+紹介数: ${member.referralCount || '-'}
+
+※退会者シートのデータは閲覧のみです
+  `.trim();
+
+  alert(info);
+}
+
+// 編集モーダルを開く
+function openMemberModal(rowIndex) {
+  const modal = document.getElementById('memberModal');
+  if (!modal) return;
+
+  // チームセレクトボックスを更新
+  const teamSelect = document.getElementById('memberEditTeam');
+  if (teamSelect) {
+    let html = '<option value="">未配属</option>';
+    memberTeams.forEach(team => {
+      html += `<option value="${escapeHtml(team)}">${escapeHtml(team)}</option>`;
+    });
+    teamSelect.innerHTML = html;
+  }
+
+  if (rowIndex === null) {
+    // 新規追加モード
+    document.getElementById('memberModalIcon').textContent = '➕';
+    document.getElementById('memberModalTitle').textContent = '新規会員追加';
+    document.getElementById('memberEditRowIndex').value = '';
+    document.getElementById('memberEditId').value = '(自動採番)';
+    document.getElementById('memberRetireSection').style.display = 'none';
+
+    // フォームをクリア
+    clearMemberForm();
+  } else {
+    // 編集モード
+    document.getElementById('memberModalIcon').textContent = '✏️';
+    document.getElementById('memberModalTitle').textContent = '会員情報編集';
+    document.getElementById('memberEditRowIndex').value = rowIndex;
+    document.getElementById('memberRetireSection').style.display = 'block';
+
+    // データを取得してフォームにセット
+    const member = memberEditData.find(m => m.rowIndex === rowIndex);
+    if (member) {
+      fillMemberForm(member);
+    }
+  }
+
+  modal.classList.add('active');
+}
+
+// モーダルを閉じる
+function closeMemberModal() {
+  const modal = document.getElementById('memberModal');
+  if (modal) {
+    modal.classList.remove('active');
+  }
+}
+
+// フォームをクリア（新規追加用にデフォルト値を設定）
+function clearMemberForm() {
+  document.getElementById('memberEditBadge').value = '';
+  document.getElementById('memberEditName').value = '';
+  document.getElementById('memberEditFurigana').value = '';
+  document.getElementById('memberEditTeam').value = '';
+  document.getElementById('memberEditAffiliation').value = '福岡飯塚'; // デフォルト所属
+  document.getElementById('memberEditCompany').value = '';
+  document.getElementById('memberEditPosition').value = '';
+  document.getElementById('memberEditBusiness').value = '';
+  document.getElementById('memberEditRole').value = '';
+  document.getElementById('memberEditIntroducer').value = '';
+  document.getElementById('memberEditReferralCount').value = '';
+  document.getElementById('memberEditReferralActive').value = '';
+  document.getElementById('memberEditAward').value = '';
+  document.getElementById('memberEditPurpleBadge').value = '';
+  document.getElementById('memberEditJoinDate').value = '';
+  document.getElementById('memberEditRenewalMonth').value = '';
+  document.getElementById('memberEditContinuedMonths').value = '';
+  document.getElementById('memberEditCategory').value = '';
+  document.getElementById('memberEditRetired').checked = false;
+}
+
+// フォームにデータをセット
+function fillMemberForm(m) {
+  document.getElementById('memberEditId').value = m.memberId || '';
+  document.getElementById('memberEditBadge').value = m.badge || '';
+  document.getElementById('memberEditName').value = m.name || '';
+  document.getElementById('memberEditFurigana').value = m.furigana || '';
+  document.getElementById('memberEditTeam').value = m.team || '';
+  document.getElementById('memberEditAffiliation').value = m.affiliation || '';
+  document.getElementById('memberEditCompany').value = m.company || '';
+  document.getElementById('memberEditPosition').value = m.position || '';
+  document.getElementById('memberEditBusiness').value = m.business || '';
+  document.getElementById('memberEditRole').value = m.role || '';
+  document.getElementById('memberEditIntroducer').value = m.introducer || '';
+  document.getElementById('memberEditReferralCount').value = m.referralCount || '';
+  document.getElementById('memberEditReferralActive').value = m.referralActive || '';
+  document.getElementById('memberEditAward').value = m.award || '';
+  document.getElementById('memberEditPurpleBadge').value = m.purpleBadge || '';
+  document.getElementById('memberEditJoinDate').value = m.joinDate || '';
+  document.getElementById('memberEditRenewalMonth').value = m.renewalMonth || '';
+  document.getElementById('memberEditContinuedMonths').value = m.continuedMonths || '';
+  document.getElementById('memberEditCategory').value = m.category || '';
+  document.getElementById('memberEditRetired').checked = !!m.retired;
+}
+
+// フォームからデータを収集
+function collectMemberFormData() {
+  return {
+    badge: document.getElementById('memberEditBadge').value,
+    name: document.getElementById('memberEditName').value.trim(),
+    furigana: document.getElementById('memberEditFurigana').value.trim(),
+    team: document.getElementById('memberEditTeam').value,
+    affiliation: document.getElementById('memberEditAffiliation').value.trim(),
+    company: document.getElementById('memberEditCompany').value.trim(),
+    position: document.getElementById('memberEditPosition').value.trim(),
+    business: document.getElementById('memberEditBusiness').value.trim(),
+    role: document.getElementById('memberEditRole').value.trim(),
+    introducer: document.getElementById('memberEditIntroducer').value.trim(),
+    referralCount: document.getElementById('memberEditReferralCount').value.trim(),
+    referralActive: document.getElementById('memberEditReferralActive').value.trim(),
+    award: document.getElementById('memberEditAward').value.trim(),
+    purpleBadge: document.getElementById('memberEditPurpleBadge').value.trim(),
+    joinDate: document.getElementById('memberEditJoinDate').value,
+    renewalMonth: document.getElementById('memberEditRenewalMonth').value,
+    continuedMonths: document.getElementById('memberEditContinuedMonths').value.trim(),
+    category: document.getElementById('memberEditCategory').value.trim(),
+    retired: document.getElementById('memberEditRetired').checked
+  };
+}
+
+// 保存ボタン
+function saveMember() {
+  const data = collectMemberFormData();
+
+  // バリデーション
+  if (!data.name) {
+    alert('氏名は必須です');
+    return;
+  }
+
+  const rowIndex = document.getElementById('memberEditRowIndex').value;
+
+  // 保存データを一時保存
+  pendingSaveData = {
+    rowIndex: rowIndex ? parseInt(rowIndex, 10) : null,
+    data: data
+  };
+
+  // パスワードモーダルを開く
+  openPasswordModal();
+}
+
+// パスワードモーダルを開く
+function openPasswordModal() {
+  const modal = document.getElementById('passwordModal');
+  if (modal) {
+    modal.classList.add('active');
+    document.getElementById('memberPassword').value = '';
+    document.getElementById('passwordError').classList.remove('show');
+    document.getElementById('memberPassword').focus();
+  }
+}
+
+// パスワードモーダルを閉じる
+function closePasswordModal() {
+  const modal = document.getElementById('passwordModal');
+  if (modal) {
+    modal.classList.remove('active');
+  }
+  pendingSaveData = null;
+}
+
+// パスワード確認
+function confirmPassword() {
+  const password = document.getElementById('memberPassword').value;
+  const errorEl = document.getElementById('passwordError');
+
+  if (!password) {
+    errorEl.textContent = 'パスワードを入力してください';
+    errorEl.classList.add('show');
+    return;
+  }
+
+  // パスワード検証
+  google.script.run
+    .withSuccessHandler(result => {
+      if (result.success) {
+        memberEditPassword = password;
+        closePasswordModal();
+        executeSave();
+      } else {
+        errorEl.textContent = result.message || 'パスワードが違います';
+        errorEl.classList.add('show');
+      }
+    })
+    .withFailureHandler(err => {
+      errorEl.textContent = 'エラー: ' + err;
+      errorEl.classList.add('show');
+    })
+    .verifyMemberEditPassword(password);
+}
+
+// 実際の保存処理
+function executeSave() {
+  if (!pendingSaveData) return;
+
+  const { rowIndex, data } = pendingSaveData;
+
+  const saveBtn = document.querySelector('.member-btn-save');
+  if (saveBtn) {
+    saveBtn.disabled = true;
+    saveBtn.innerHTML = '保存中...';
+  }
+
+  if (rowIndex) {
+    // 更新
+    google.script.run
+      .withSuccessHandler(result => {
+        if (saveBtn) {
+          saveBtn.disabled = false;
+          saveBtn.innerHTML = '💾 保存';
+        }
+        if (result.success) {
+          alert('保存しました');
+          closeMemberModal();
+          loadMembersForEdit();
+        } else {
+          alert('エラー: ' + (result.message || '保存に失敗しました'));
+        }
+      })
+      .withFailureHandler(err => {
+        if (saveBtn) {
+          saveBtn.disabled = false;
+          saveBtn.innerHTML = '💾 保存';
+        }
+        alert('エラー: ' + err);
+      })
+      .updateMember(rowIndex, data, memberEditPassword);
+  } else {
+    // 新規追加
+    google.script.run
+      .withSuccessHandler(result => {
+        if (saveBtn) {
+          saveBtn.disabled = false;
+          saveBtn.innerHTML = '💾 保存';
+        }
+        if (result.success) {
+          alert('会員を追加しました（ID: ' + result.memberId + '）');
+          closeMemberModal();
+          loadMembersForEdit();
+        } else {
+          alert('エラー: ' + (result.message || '追加に失敗しました'));
+        }
+      })
+      .withFailureHandler(err => {
+        if (saveBtn) {
+          saveBtn.disabled = false;
+          saveBtn.innerHTML = '💾 保存';
+        }
+        alert('エラー: ' + err);
+      })
+      .addMember(data, memberEditPassword);
+  }
+
+  pendingSaveData = null;
+}
+
+// 会員管理タブ初期化
+function initMemberTab() {
+  if (memberEditData.length === 0) {
+    loadMembersForEdit();
+  }
+}
+
     </script>
+
+<!-- ★配席表モーダル -->
+<div id="seatingChartModal" class="seating-modal">
+  <div class="seating-modal-overlay" onclick="closeSeatingChartModal()"></div>
+  <div class="seating-modal-content">
+    <div class="seating-modal-header">
+      <h3 class="seating-modal-title">
+        <span>🪑</span>
+        <span id="seatingChartTitle">配席表</span>
+      </h3>
+      <button class="seating-modal-close" onclick="closeSeatingChartModal()">&times;</button>
+    </div>
+    <div class="seating-modal-body">
+      <div id="seatingChartContent" class="seating-chart-container">
+        <div class="seating-loading">配席データを読み込み中...</div>
+      </div>
+    </div>
+    <div class="seating-modal-footer">
+      <div class="seating-legend-item">
+        <span class="seating-legend-dot" style="background: #f59e0b;"></span>
+        <span>TM</span>
+      </div>
+      <div class="seating-legend-item">
+        <span class="seating-legend-dot" style="background: #22c55e;"></span>
+        <span>会員</span>
+      </div>
+      <div class="seating-legend-item">
+        <span class="seating-legend-dot" style="background: #3b82f6;"></span>
+        <span>ゲスト</span>
+      </div>
+      <div class="seating-legend-item">
+        <span class="seating-legend-dot" style="background: #f97316;"></span>
+        <span>他会場</span>
+      </div>
+    </div>
+  </div>
+</div>
 
 <!-- ★パスワード入力モーダル -->
 <div id="salesPasswordModal" class="hidden fixed inset-0 z-50 flex items-center justify-center">
@@ -4176,6 +5828,69 @@ document.addEventListener('keydown', function(e) {
         class="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
       >
         確認
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ★出欠リマインド管理モーダル -->
+<div id="reminderModal" class="hidden fixed inset-0 z-50 flex items-center justify-center">
+  <!-- オーバーレイ -->
+  <div class="absolute inset-0 bg-black bg-opacity-50" onclick="closeReminderModal()"></div>
+  <!-- モーダル本体 -->
+  <div class="relative bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-hidden mx-4">
+    <!-- ヘッダー -->
+    <div class="bg-blue-600 text-white px-6 py-4 flex items-center justify-between">
+      <h3 class="text-lg font-semibold flex items-center gap-2">
+        <span class="material-icons">notifications</span>
+        出欠リマインド管理
+      </h3>
+      <button onclick="closeReminderModal()" class="text-white hover:bg-blue-700 rounded-full p-1 transition">
+        <span class="material-icons">close</span>
+      </button>
+    </div>
+
+    <!-- コンテンツ -->
+    <div class="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
+      <!-- リマインド設定セクション -->
+      <div class="mb-6">
+        <h4 class="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
+          <span class="material-icons text-blue-500 text-lg">schedule</span>
+          リマインド設定
+        </h4>
+        <div class="bg-slate-50 rounded-lg p-4">
+          <p class="text-sm text-slate-500 text-center py-8">
+            ここにリマインド設定機能を実装予定
+          </p>
+        </div>
+      </div>
+
+      <!-- 未回答者リストセクション -->
+      <div class="mb-6">
+        <h4 class="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
+          <span class="material-icons text-orange-500 text-lg">person_off</span>
+          未回答者一覧
+        </h4>
+        <div class="bg-slate-50 rounded-lg p-4">
+          <div id="reminderNoAnswerList" class="text-sm text-slate-500 text-center py-8">
+            ここに未回答者リストを表示予定
+          </div>
+        </div>
+      </div>
+
+      <!-- アクションボタン -->
+      <div class="flex flex-wrap gap-3 justify-center">
+        <button id="sendReminderBtn" disabled class="px-4 py-2 bg-orange-500 text-white rounded-lg opacity-50 cursor-not-allowed flex items-center gap-2">
+          <span class="material-icons text-sm">send</span>
+          リマインド送信（未実装）
+        </button>
+      </div>
+    </div>
+
+    <!-- フッター -->
+    <div class="bg-slate-50 px-6 py-3 flex justify-end">
+      <button onclick="closeReminderModal()" class="px-4 py-2 bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300 transition">
+        閉じる
       </button>
     </div>
   </div>
