@@ -1,6 +1,6 @@
-/** Code.gs（上書き対応：line_user_id だけでUPSERT） **/
+/** Code.gs（event_key対応版） **/
 const SHEET_ID   = '1QYLHr7wMj0jQW5ApgWf-l1Bk9_9M5EV54FDHQp2Rkic';
-const SHEET_NAME = 'Sales';
+const SHEET_NAME = 'sales';
 const API_KEY    = 'shusei_2025_secret_1016';
 
 function doGet(e) {
@@ -22,22 +22,18 @@ function doPost(e) {
       return _json({ ok:false, error:'unauthorized' });
     }
 
-    // 受け取り（report_date は任意に）
+    // 受け取り
     const {
       line_user_id = '',
       display_name = '',
       report_date  = '',
-
       deals_count      = '',
       sales_amount     = '',
       join_next_seat   = '',
       desired_industry = '',
       next_guest       = '',
-
-      product = '',
-      amount  = '',
-      payment = '',
-      notes   = ''
+      meetings_count   = '',
+      event_key  = ''
     } = body;
 
     if (!line_user_id) {
@@ -45,74 +41,72 @@ function doPost(e) {
     }
 
     // 数値整形
-    const nDeals  = deals_count  === '' ? '' : Number(deals_count);
-    const nSales  = sales_amount === '' ? '' : Number(sales_amount);
-    const nAmount = amount       === '' ? '' : Number(amount);
+    const nDeals    = deals_count    === '' ? '' : Number(deals_count);
+    const nSales    = sales_amount   === '' ? '' : Number(sales_amount);
+    const nMeetings = meetings_count === '' ? '' : Number(meetings_count);
 
     // シート準備
     const ss    = SpreadsheetApp.openById(SHEET_ID);
-    const sheet = ss.getSheetByName(SHEET_NAME) || ss.insertSheet(SHEET_NAME);
+    const sheet = ss.getSheetByName(SHEET_NAME);
 
-    const headers = [
-      'timestamp','line_user_id','display_name','report_date',
-      'deals_count','sales_amount','join_next_seat','desired_industry','next_guest',
-      'product','amount','payment','notes'
-    ];
-
-    if (sheet.getLastRow() === 0) {
-      sheet.appendRow(headers);
-    } else {
-      const firstRow = sheet.getRange(1,1,1,headers.length).getValues()[0];
-      const needFix  = headers.some((h, i) => firstRow[i] !== h);
-      if (needFix) {
-        sheet.insertRowBefore(1);
-        sheet.getRange(1,1,1,headers.length).setValues([headers]);
-      }
+    if (!sheet) {
+      return _json({ ok:false, error:'sheet not found: ' + SHEET_NAME });
     }
 
-    // 1行分のデータをヘッダー順で整形
-    const rowData = [
-      new Date(),
-      line_user_id,
-      display_name,
-      report_date,      // 任意。渡さなければ空欄で上書き
-      nDeals,
-      nSales,
-      join_next_seat,
-      desired_industry,
-      next_guest,
-      product,
-      nAmount,
-      payment,
-      notes
-    ];
-
-    // 既存検索：line_user_id が一致する最新行を上から（下から）探す
     const lastRow = sheet.getLastRow();
-    const lastCol = headers.length;
+    const DATA_START_ROW = 7;
 
-    if (lastRow > 1) {
-      const values = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues(); // データ部
-      const IDX = { line_user_id: headers.indexOf('line_user_id') };
+    // 既存行を検索（B列: line_user_id, O列: event_key で一致）
+    let targetRow = -1;
 
-      let targetRow = -1; // シート上の絶対行番号
-      for (let i = values.length - 1; i >= 0; i--) {
-        if (values[i][IDX.line_user_id] === line_user_id) {
-          targetRow = i + 2; // データは2行目開始なので +2
+    if (lastRow >= DATA_START_ROW && event_key) {
+      const dataRows = lastRow - DATA_START_ROW + 1;
+      const data = sheet.getRange(DATA_START_ROW, 1, dataRows, 16).getValues();
+
+      for (let i = data.length - 1; i >= 0; i--) {
+        const rowUserId   = String(data[i][1] || '').trim();  // B列
+        const rowEventKey = String(data[i][14] || '').trim(); // O列
+
+        if (rowUserId === line_user_id && rowEventKey === event_key) {
+          targetRow = i + DATA_START_ROW;
           break;
         }
       }
-
-      if (targetRow !== -1) {
-        // 上書き（timestamp は毎回更新）
-        sheet.getRange(targetRow, 1, 1, lastCol).setValues([rowData]);
-        return _json({ ok:true, mode:'updated', row: targetRow });
-      }
     }
 
-    // 見つからなければ追記（= 初回送信）
-    sheet.appendRow(rowData);
-    return _json({ ok:true, mode:'inserted', row: sheet.getLastRow() });
+    const now = new Date();
+
+    if (targetRow !== -1) {
+      // 既存行を上書き
+      sheet.getRange(targetRow, 1).setValue(now);              // A: timestamp
+      sheet.getRange(targetRow, 4).setValue(report_date);      // D: 回答日
+      sheet.getRange(targetRow, 5).setValue(nDeals);           // E: 成約件数
+      sheet.getRange(targetRow, 6).setValue(nSales);           // F: 金額
+      sheet.getRange(targetRow, 7).setValue(join_next_seat);   // G: 同席希望
+      sheet.getRange(targetRow, 8).setValue(desired_industry); // H: 入会希望業種
+      sheet.getRange(targetRow, 9).setValue(next_guest);       // I: 次回ゲスト
+      sheet.getRange(targetRow, 15).setValue(event_key);       // O: event_key
+      sheet.getRange(targetRow, 16).setValue(nMeetings);       // P: 商談件数
+
+      return _json({ ok:true, mode:'updated', row: targetRow });
+    }
+
+    // 新規行を追加
+    const newRow = lastRow + 1;
+    sheet.getRange(newRow, 1).setValue(now);              // A: timestamp
+    sheet.getRange(newRow, 2).setValue(line_user_id);     // B: LINEユーザーID
+    sheet.getRange(newRow, 3).setValue(display_name);     // C: LINE名
+    sheet.getRange(newRow, 4).setValue(report_date);      // D: 回答日
+    sheet.getRange(newRow, 5).setValue(nDeals);           // E: 成約件数
+    sheet.getRange(newRow, 6).setValue(nSales);           // F: 金額
+    sheet.getRange(newRow, 7).setValue(join_next_seat);   // G: 同席希望
+    sheet.getRange(newRow, 8).setValue(desired_industry); // H: 入会希望業種
+    sheet.getRange(newRow, 9).setValue(next_guest);       // I: 次回ゲスト
+    sheet.getRange(newRow, 14).setValue(display_name);    // N: 氏名
+    sheet.getRange(newRow, 15).setValue(event_key);       // O: event_key
+    sheet.getRange(newRow, 16).setValue(nMeetings);       // P: 商談件数
+
+    return _json({ ok:true, mode:'inserted', row: newRow });
 
   } catch (err) {
     return _json({ ok:false, error:String(err) });

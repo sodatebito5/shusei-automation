@@ -10,39 +10,105 @@
     html, body { height: 100%; }
     body {
       font-family: system-ui, -apple-system, Segoe UI, Roboto, "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif;
-      margin: 0; padding: 16px; background: #ffffff;
+      margin: 0;
+      padding: 16px;
+      background: #ffffff;
       -webkit-text-size-adjust: 100%;
     }
     .card {
-      border: 1px solid #e5e7eb; border-radius: 14px; padding: 18px;
-      max-width: 640px; margin: 0 auto;
-      background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.04);
+      border: 1px solid #e5e7eb;
+      border-radius: 14px;
+      padding: 18px;
+      max-width: 640px;
+      margin: 0 auto;
+      background: #fff;
+      box-shadow: 0 1px 2px rgba(0,0,0,.04);
     }
-    h1 { font-size: 20px; margin: 0 0 8px; }
-    .note { font-size: 12px; color: #6b7280; margin: 0 0 12px; }
-    .row { display: grid; gap: 10px; margin-bottom: 14px; }
-    label { font-size: 14px; color: #374151; }
+    h1 {
+      font-size: 20px;
+      margin: 0 0 8px;
+    }
+    .note {
+      font-size: 12px;
+      color: #6b7280;
+      margin: 0 0 12px;
+    }
+    .row {
+      display: grid;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+    label {
+      font-size: 17px;
+      font-weight: 700;
+      color: #374151;
+    }
+    .required {
+      color: #dc2626;
+      font-weight: 700;
+    }
     input, select {
-      width: 100%; max-width: 100%;
+      width: 100%;
+      max-width: 100%;
       padding: 12px 12px;
-      border: 1px solid #d1d5db; border-radius: 10px;
-      font-size: 16px; background: #fff;
-      appearance: none; -webkit-appearance: none;
+      border: 1px solid #d1d5db;
+      border-radius: 10px;
+      font-size: 16px;
+      background: #fff;
+      appearance: none;
+      -webkit-appearance: none;
       line-height: 1.3;
     }
-    input[type="date"] { padding-right: 36px; }
-    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-    @media (max-width: 420px) { .grid-2 { grid-template-columns: 1fr; } }
-    .btn { width: 100%; padding: 14px; border: 0; border-radius: 10px; font-weight: 700; font-size: 16px; cursor: pointer; }
-    .btn-primary { background: #06c755; color: #fff; }
-    .btn-ghost { background: #f3f4f6; color: #111827; }
-    .btn + .btn { margin-top: 8px; }
-    #status { margin-top: 6px; min-height: 22px; }
-    .ok { color: #0a7f3f; font-weight: 600; }
-    .err { color: #b00020; font-weight: 600; white-space: pre-line; }
-    
-    /* ★ 完了画面用スタイル追加 */
-    .hidden { display: none; }
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    @media (max-width: 420px) {
+      .grid-2 {
+        grid-template-columns: 1fr;
+      }
+    }
+    .btn {
+      width: 100%;
+      padding: 14px;
+      border: 0;
+      border-radius: 10px;
+      font-weight: 700;
+      font-size: 16px;
+      cursor: pointer;
+    }
+    .btn-primary {
+      background: #06c755;
+      color: #fff;
+    }
+    .btn-primary:disabled {
+      background: #9ca3af;
+      cursor: not-allowed;
+    }
+    .btn-ghost {
+      background: #f3f4f6;
+      color: #111827;
+    }
+    .btn + .btn {
+      margin-top: 8px;
+    }
+    #status {
+      margin-top: 6px;
+      min-height: 22px;
+    }
+    .ok {
+      color: #0a7f3f;
+      font-weight: 600;
+    }
+    .err {
+      color: #b00020;
+      font-weight: 600;
+      white-space: pre-line;
+    }
+    .hidden {
+      display: none;
+    }
     .complete-screen {
       text-align: center;
       padding: 40px 20px;
@@ -61,42 +127,91 @@
 </head>
 <body>
   <div class="card">
-    <!-- ★ フォーム画面 -->
+    <!-- フォーム画面 -->
     <div id="formScreen">
       <h1>売上報告フォーム</h1>
-      <p class="note">必要項目を入力してください。</p>
+      <p class="note">必要項目を入力してください。<span class="required">*</span>は必須</p>
 
+      <!-- 対象月（必須） -->
       <div class="row">
-        <label>報告日 <span class="note">（自動で本日が入ります。空でも送信可）</span></label>
-        <input type="date" id="report_date" />
+        <label>報告対象月 <span class="required">*</span></label>
+        <select id="target_month"></select>
       </div>
 
+      <!-- 商談件数・成約件数（必須） -->
       <div class="row">
-        <label style="font-weight:700">成約・売上</label>
         <div class="grid-2">
           <div class="row" style="margin:0">
-            <label>成約件数</label>
-            <input type="number" inputmode="numeric" id="deals_count" placeholder="例：1" />
+            <label>商談件数 <span class="required">*</span></label>
+            <select id="meetings_count">
+              <option value="">選択してください</option>
+              <option value="0">0件</option>
+              <option value="1">1件</option>
+              <option value="2">2件</option>
+              <option value="3">3件</option>
+              <option value="4">4件</option>
+              <option value="5">5件</option>
+              <option value="6">6件</option>
+              <option value="7">7件</option>
+              <option value="8">8件</option>
+              <option value="9">9件</option>
+              <option value="10">10件</option>
+              <option value="11">11件</option>
+              <option value="12">12件</option>
+              <option value="13">13件</option>
+              <option value="14">14件</option>
+              <option value="15">15件</option>
+              <option value="16">16件</option>
+              <option value="17">17件</option>
+              <option value="18">18件</option>
+              <option value="19">19件</option>
+              <option value="20">20件以上</option>
+            </select>
           </div>
           <div class="row" style="margin:0">
-            <label>売上金額（円）</label>
-            <input type="number" inputmode="numeric" id="sales_amount" placeholder="例：30000" />
+            <label>成約件数 <span class="required">*</span></label>
+            <select id="deals_count">
+              <option value="">選択してください</option>
+              <option value="0">0件</option>
+              <option value="1">1件</option>
+              <option value="2">2件</option>
+              <option value="3">3件</option>
+              <option value="4">4件</option>
+              <option value="5">5件</option>
+              <option value="6">6件</option>
+              <option value="7">7件</option>
+              <option value="8">8件</option>
+              <option value="9">9件</option>
+              <option value="10">10件</option>
+              <option value="11">11件</option>
+              <option value="12">12件</option>
+              <option value="13">13件</option>
+              <option value="14">14件</option>
+              <option value="15">15件</option>
+              <option value="16">16件</option>
+              <option value="17">17件</option>
+              <option value="18">18件</option>
+              <option value="19">19件</option>
+              <option value="20">20件以上</option>
+            </select>
           </div>
         </div>
       </div>
 
+      <!-- 売上金額（必須） -->
       <div class="row">
-        <label style="font-weight:700">例会関連</label>
+        <label>売上金額（円） <span class="required">*</span></label>
+        <input type="text" inputmode="numeric" id="sales_amount" placeholder="" />
       </div>
 
       <div class="row">
         <label>次回同席希望（名前） <span class="note">複数はカンマ区切りOK</span></label>
-        <input type="text" id="join_next_seat" placeholder="例：田中太郎, 山田花子" />
+        <input type="text" id="join_next_seat" placeholder="" />
       </div>
 
       <div class="row">
         <label>入会して欲しい業種 <span class="note">カンマ区切りOK</span></label>
-        <input type="text" id="desired_industry" placeholder="例：建設, 介護, 士業" />
+        <input type="text" id="desired_industry" placeholder="" />
       </div>
 
       <div class="row">
@@ -109,14 +224,14 @@
       </div>
 
       <div class="row">
-        <button class="btn btn-primary" id="submitBtn">送信する</button>
+        <button class="btn btn-primary" id="submitBtn" disabled>送信する</button>
         <button class="btn btn-ghost" id="closeBtn">閉じる</button>
       </div>
 
       <div id="status"></div>
     </div>
 
-    <!-- ★ 完了画面（最初は非表示） -->
+    <!-- 完了画面 -->
     <div id="completeScreen" class="complete-screen hidden">
       <h2>売上報告完了！</h2>
       <p>報告内容をシートに反映しました。</p>
@@ -124,105 +239,186 @@
     </div>
   </div>
 
-<script>
-/* ===== LIFF / GAS 設定 ===== */
-const LIFF_ID      = '2008299790-J3WnAP3j';
-const GAS_ENDPOINT = 'https://script.google.com/macros/s/AKfycbw_K0031SKFJbEeaG0OUYqW4grvWNnQ5briAdAvDlKpvrcB5Uek5h-SxtxxC9qdqDPC2w/exec';
-const API_KEY      = 'shusei_2025_secret_1016';
+  <script>
+  /* ===== 設定 ===== */
+  const LIFF_ID      = '2008299790-J3WnAP3j';
+  const GAS_ENDPOINT = 'https://script.google.com/macros/s/AKfycbw_K0031SKFJbEeaG0OUYqW4grvWNnQ5briAdAvDlKpvrcB5Uek5h-SxtxxC9qdqDPC2w/exec';
+  const API_KEY      = 'shusei_2025_secret_1016';
 
-const setStatus = (msg, err=false) => {
-  document.getElementById('status').innerHTML = err
-    ? `<span class="err">${msg}</span>`
-    : `<span class="ok">${msg}</span>`;
-};
+  const setStatus = (msg, err=false) => {
+    document.getElementById('status').innerHTML = err
+      ? `<span class="err">${msg}</span>`
+      : `<span class="ok">${msg}</span>`;
+  };
 
-/* 本日を端末ローカルタイムで自動入力 */
-function setTodayLocal() {
-  const d = new Date();
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  document.getElementById('report_date').value = `${y}-${m}-${day}`;
-}
+  /* 対象月セレクト生成（直近3ヶ月） */
+  function setupTargetMonth() {
+    const select = document.getElementById('target_month');
+    const now = new Date();
 
-/* ★ 画面切り替え関数 */
-function showCompleteScreen() {
-  document.getElementById('formScreen').classList.add('hidden');
-  document.getElementById('completeScreen').classList.remove('hidden');
-}
+    const defaultOpt = document.createElement('option');
+    defaultOpt.value = '';
+    defaultOpt.textContent = '選択してください';
+    defaultOpt.selected = true;
+    select.appendChild(defaultOpt);
 
-/* LIFF初期化 */
-async function init() {
-  try {
-    setTodayLocal();
+    for (let i = 0; i < 3; i++) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const month = d.getMonth() + 1;
+      const eventKey = `${d.getFullYear()}年${month}月_売上報告`;
+      const label = `${d.getFullYear()}年${month}月`;
 
-    await liff.init({ liffId: LIFF_ID });
-    if (!liff.isLoggedIn()) { liff.login({ scope: ['openid','profile'] }); return; }
-
-    try { window.__lineProfile = await liff.getProfile(); } catch (e) {}
-
-    document.getElementById('submitBtn').addEventListener('click', submit);
-    
-    // ★ 両方の閉じるボタンにイベント設定
-    document.getElementById('closeBtn').addEventListener('click', closeLiff);
-    document.getElementById('closeCompleteBtn').addEventListener('click', closeLiff);
-  } catch (e) {
-    setStatus('初期化エラー：' + String(e), true);
+      const opt = document.createElement('option');
+      opt.value = eventKey;
+      opt.textContent = label;
+      select.appendChild(opt);
+    }
   }
-}
 
-/* ★ 閉じる処理 */
-function closeLiff() {
-  if (liff.isInClient()) {
-    liff.closeWindow();
-  } else {
-    window.close();
+  /* 必須項目バリデーション */
+  function validateForm() {
+    const targetMonth = document.getElementById('target_month').value;
+    const meetingsCount = document.getElementById('meetings_count').value;
+    const dealsCount = document.getElementById('deals_count').value;
+    const salesAmount = document.getElementById('sales_amount').value.replace(/[^\d]/g, '');
+
+    const isValid = targetMonth && meetingsCount && dealsCount && salesAmount;
+    document.getElementById('submitBtn').disabled = !isValid;
   }
-}
 
-/* 送信処理 */
-async function submit() {
-  const btn = document.getElementById('submitBtn');
-  try {
-    btn.disabled = true;
-    setStatus('送信中...'); // ★ ローディング表示
+  /* 本日の日付を取得（送信用） */
+  function getTodayString() {
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  }
 
-    const p = window.__lineProfile || {};
-    const payload = {
-      api_key: API_KEY,
-      line_user_id: p.userId || '',
-      display_name: p.displayName || '',
-      report_date: (document.getElementById('report_date').value || '').trim(),
-      deals_count: (document.getElementById('deals_count').value || '').trim(),
-      sales_amount: (document.getElementById('sales_amount').value || '').trim(),
-      join_next_seat: (document.getElementById('join_next_seat').value || '').trim(),
-      desired_industry: (document.getElementById('desired_industry').value || '').trim(),
-      next_guest: (document.getElementById('next_guest').value || '').trim()
-    };
+  /* 画面切り替え関数 */
+  function showCompleteScreen() {
+    document.getElementById('formScreen').classList.add('hidden');
+    document.getElementById('completeScreen').classList.remove('hidden');
+  }
 
-    const res = await fetch(GAS_ENDPOINT, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify(payload)
+  /* 金額入力フィールドに桁区切りカンマを自動追加 */
+  function formatCurrencyInput(fieldId) {
+    const input = document.getElementById(fieldId);
+
+    input.addEventListener('input', function() {
+      let value = this.value.replace(/[^\d]/g, '');
+      if (!value) {
+        this.value = '';
+        validateForm();
+        return;
+      }
+      const formatted = Number(value).toLocaleString();
+      this.value = formatted + ' 円';
+
+      const pos = formatted.length;
+      this.setSelectionRange(pos, pos);
+      validateForm();
     });
 
-    let text = '', data = null;
-    try { text = await res.text(); data = JSON.parse(text); } catch (_) {}
-
-    if (res.ok && data && data.ok) {
-      // ★ 成功時は完了画面に切り替え
-      showCompleteScreen();
-    } else {
-      setStatus('送信失敗：' + (data?.error || text || `HTTP ${res.status}`), true);
-    }
-  } catch (e) {
-    setStatus('通信エラー：' + String(e), true);
-  } finally {
-    btn.disabled = false;
+    input.addEventListener('blur', function() {
+      if (this.value && !this.value.endsWith(' 円')) {
+        let value = this.value.replace(/[^\d]/g, '');
+        if (value) {
+          this.value = Number(value).toLocaleString() + ' 円';
+        }
+      }
+    });
   }
-}
 
-init();
-</script>
+  /* LIFF初期化 */
+  async function init() {
+    try {
+      setupTargetMonth();
+
+      await liff.init({ liffId: LIFF_ID });
+      if (!liff.isLoggedIn()) {
+        liff.login({ scope: ['openid','profile'] });
+        return;
+      }
+
+      try {
+        window.__lineProfile = await liff.getProfile();
+      } catch (e) {}
+
+      document.getElementById('submitBtn').addEventListener('click', submit);
+      document.getElementById('closeBtn').addEventListener('click', closeLiff);
+      document.getElementById('closeCompleteBtn').addEventListener('click', closeLiff);
+
+      ['target_month', 'meetings_count', 'deals_count'].forEach(id => {
+        document.getElementById(id).addEventListener('change', validateForm);
+      });
+
+      formatCurrencyInput('sales_amount');
+    } catch (e) {
+      setStatus('初期化エラー：' + String(e), true);
+    }
+  }
+
+  /* 閉じる処理 */
+  function closeLiff() {
+    if (liff.isInClient()) {
+      liff.closeWindow();
+    } else {
+      window.close();
+    }
+  }
+
+  /* 送信処理 */
+  async function submit() {
+    const btn = document.getElementById('submitBtn');
+    try {
+      btn.disabled = true;
+      setStatus('送信中...');
+
+      const p = window.__lineProfile || {};
+      const eventKey = document.getElementById('target_month').value;
+
+      const payload = {
+        api_key: API_KEY,
+        line_user_id: p.userId || '',
+        display_name: p.displayName || '',
+        report_date: getTodayString(),
+        meetings_count: (document.getElementById('meetings_count').value || '').trim(),
+        deals_count: (document.getElementById('deals_count').value || '').trim(),
+        sales_amount: (document.getElementById('sales_amount').value || '').replace(/[^\d]/g, ''),
+        join_next_seat: (document.getElementById('join_next_seat').value || '').trim(),
+        desired_industry: (document.getElementById('desired_industry').value || '').trim(),
+        next_guest: (document.getElementById('next_guest').value || '').trim(),
+        event_key: eventKey
+      };
+
+      console.log('送信データ:', payload);
+
+      const res = await fetch(GAS_ENDPOINT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(payload)
+      });
+
+      let text = '', data = null;
+      try {
+        text = await res.text();
+        data = JSON.parse(text);
+      } catch (_) {}
+
+      if (res.ok && data && data.ok) {
+        showCompleteScreen();
+      } else {
+        setStatus('送信失敗：' + (data?.error || text || `HTTP ${res.status}`), true);
+      }
+    } catch (e) {
+      setStatus('通信エラー：' + String(e), true);
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  init();
+  </script>
 </body>
 </html>
