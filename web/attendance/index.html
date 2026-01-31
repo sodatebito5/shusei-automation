@@ -2,90 +2,496 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>出欠確認</title>
-  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+
+  <!-- Preconnect for faster resource loading -->
+  <link rel="preconnect" href="https://static.line-scdn.net">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+  <!-- Google Fonts (optimized: fewer weights + swap) -->
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;600&family=Outfit:wght@600;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+  <noscript><link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;600&family=Outfit:wght@600;700&display=swap" rel="stylesheet"></noscript>
+
+  <!-- LIFF SDK (async loading) -->
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js" async></script>
 
   <style>
-    * { margin:0; padding:0; box-sizing:border-box; }
+    :root {
+      --color-primary: #00a960;
+      --color-primary-light: #00c96b;
+      --color-primary-dark: #008f52;
+      --color-accent: #ff6b6b;
+      --color-accent-soft: #ffb4b4;
+      --color-surface: rgba(255, 255, 255, 0.82);
+      --color-surface-solid: #ffffff;
+      --color-text: #1a2e1a;
+      --color-text-secondary: #5a6b5a;
+      --color-text-muted: #8a9b8a;
+      --gradient-bg: linear-gradient(145deg, #e8f5e9 0%, #c8e6c9 30%, #a5d6a7 70%, #81c784 100%);
+      --gradient-btn: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-light) 100%);
+      --shadow-card: 0 8px 32px rgba(0, 80, 40, 0.12), 0 2px 8px rgba(0, 0, 0, 0.04);
+      --shadow-btn: 0 4px 16px rgba(0, 169, 96, 0.35);
+      --shadow-btn-hover: 0 6px 24px rgba(0, 169, 96, 0.45);
+      --radius-lg: 24px;
+      --radius-md: 16px;
+      --radius-sm: 12px;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
 
     body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      background: #f5f5f5;
-      min-height:100vh;
-      display:flex;
-      justify-content:center;
-      align-items:center;
-      padding:20px;
+      font-family: 'Noto Sans JP', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--gradient-bg);
+      min-height: 100vh;
+      min-height: 100dvh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+      position: relative;
+      overflow-x: hidden;
     }
 
+    /* 背景装飾 */
+    body::before {
+      content: '';
+      position: fixed;
+      top: -50%;
+      right: -30%;
+      width: 80%;
+      height: 80%;
+      background: radial-gradient(circle, rgba(255,255,255,0.4) 0%, transparent 70%);
+      pointer-events: none;
+      animation: floatBg 20s ease-in-out infinite;
+    }
+
+    body::after {
+      content: '';
+      position: fixed;
+      bottom: -30%;
+      left: -20%;
+      width: 60%;
+      height: 60%;
+      background: radial-gradient(circle, rgba(0,169,96,0.15) 0%, transparent 60%);
+      pointer-events: none;
+      animation: floatBg 15s ease-in-out infinite reverse;
+    }
+
+    @keyframes floatBg {
+      0%, 100% { transform: translate(0, 0) scale(1); }
+      50% { transform: translate(20px, 30px) scale(1.05); }
+    }
+
+    /* カード */
     .container {
-      background:#fff;
-      padding:40px 30px;
-      border-radius:12px;
-      width:100%;
-      max-width:400px;
-      box-shadow:0 2px 10px rgba(0,0,0,0.1);
-      text-align:center;
+      background: var(--color-surface);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      padding: 36px 28px 32px;
+      border-radius: var(--radius-lg);
+      width: 100%;
+      max-width: 380px;
+      box-shadow: var(--shadow-card);
+      border: 1px solid rgba(255, 255, 255, 0.6);
+      position: relative;
+      z-index: 1;
+      animation: slideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1);
     }
 
-    h1 { font-size:28px; margin-bottom:0px; color:#333; }
+    @keyframes slideUp {
+      from {
+        opacity: 0;
+        transform: translateY(30px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
 
+    /* ヘッダーセクション（中央揃え） */
+    .header-section {
+      text-align: center;
+      margin-bottom: 8px;
+    }
+
+    /* ステータス表示 */
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 10px 16px;
+      border-radius: 50px;
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 20px;
+      transition: all 0.3s ease;
+    }
+
+    .status-badge.loading {
+      background: #f5f5f5;
+      color: var(--color-text-muted);
+    }
+
+    .status-badge.answered {
+      background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
+      color: var(--color-primary-dark);
+      border: 1px solid rgba(0, 169, 96, 0.2);
+    }
+
+    .status-badge.unanswered {
+      background: linear-gradient(135deg, #fff8e1 0%, #ffecb3 100%);
+      color: #e65100;
+      border: 1px solid rgba(230, 81, 0, 0.2);
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.02); }
+    }
+
+    .status-badge .icon {
+      font-size: 16px;
+    }
+
+    /* タイトル */
+    .event-title {
+      font-family: 'Outfit', 'Noto Sans JP', sans-serif;
+      font-size: 28px;
+      font-weight: 700;
+      color: var(--color-text);
+      margin-bottom: 28px;
+      letter-spacing: -0.02em;
+      line-height: 1.3;
+    }
+
+    .event-title .month {
+      color: var(--color-primary);
+    }
+
+    /* ボタン共通 */
     .btn {
-      width:100%;
-      border:none;
-      border-radius:8px;
-      font-size:18px;
-      font-weight:bold;
-      cursor:pointer;
+      width: 100%;
+      border: none;
+      border-radius: var(--radius-md);
+      font-family: 'Noto Sans JP', sans-serif;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      position: relative;
+      overflow: hidden;
     }
-    .btn-attend { background:#06c755; color:#fff; padding:20px; margin-top:8px; margin-bottom:25px; }
-.btn-absent { background:#ff5c5c; color:#fff; padding:15px; width:50%; margin:0 auto; display:block; }
 
-    .btn-close { background:#ddd; color:#333; padding:15px; margin-top:20px; }
-
-    .result-text { font-size:18px; margin:20px 0; }
-
-    .hidden { display:none; }
-
-    /* ▼ 前回回答表示 */
-.prev-status {
-  background: #f5f5f5;
-  border: none;
-  border-radius: 8px;
-  padding: 16px;
-  margin-bottom: 24px;
-  font-size: 16px;
-  font-weight: bold;
-  color: #333;
-}
-.prev-status.unanswered {
-  background: #fff3e0;
-  color: #e65100;
-}
-
-    /* ▼ UI追加：中央寄せ＋位置揃え */
-    .booth-block {
-      margin-top:28px;
-      text-align:center;
-      color:#333;
+    .btn::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(rgba(255,255,255,0.2), transparent);
+      opacity: 0;
+      transition: opacity 0.25s;
     }
+
+    .btn:active::before {
+      opacity: 1;
+    }
+
+    /* 出席ボタン */
+    .btn-attend {
+      background: var(--gradient-btn);
+      color: #fff;
+      padding: 22px 24px;
+      font-size: 18px;
+      box-shadow: var(--shadow-btn);
+      margin-bottom: 14px;
+    }
+
+    .btn-attend:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-btn-hover);
+    }
+
+    .btn-attend:active {
+      transform: translateY(0) scale(0.98);
+    }
+
+    .btn-attend .icon {
+      font-size: 22px;
+    }
+
+    /* 欠席ボタン */
+    .btn-absent {
+      background: var(--color-surface-solid);
+      color: var(--color-text-secondary);
+      padding: 16px 20px;
+      font-size: 15px;
+      border: 1.5px solid #e0e0e0;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    }
+
+    .btn-absent:hover {
+      background: #fafafa;
+      border-color: var(--color-accent-soft);
+      color: var(--color-accent);
+    }
+
+    .btn-absent:active {
+      transform: scale(0.98);
+    }
+
+    /* ブース出店セクション */
+    .booth-section {
+      margin-top: 28px;
+      padding-top: 24px;
+      border-top: 1px solid rgba(0, 0, 0, 0.06);
+      text-align: center;
+    }
+
     .booth-title {
-      font-size:16px;
-      font-weight:bold;
-      margin-bottom:10px;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--color-text);
+      margin-bottom: 14px;
     }
+
+    .booth-title .icon {
+      font-size: 18px;
+    }
+
     .booth-options {
-      display:inline-block; 
-      text-align:left;
+      display: flex;
+      justify-content: center;
+      gap: 10px;
     }
+
     .booth-option {
-      display:flex;
-      align-items:center;
-      gap:6px;
-      margin-bottom:6px;
+      flex: 1;
+      position: relative;
     }
-    .booth-option input { margin:0; }
+
+    .booth-option input {
+      position: absolute;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .booth-option label {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 14px 12px;
+      background: var(--color-surface-solid);
+      border: 2px solid #e8e8e8;
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--color-text-secondary);
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .booth-option input:checked + label {
+      background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+      border-color: #2196f3;
+      color: #1565c0;
+    }
+
+    .booth-option label:hover {
+      border-color: #bdbdbd;
+    }
+
+    .booth-option input:checked + label:hover {
+      border-color: #2196f3;
+    }
+
+    /* ローディング */
+    .loading-text {
+      text-align: center;
+      color: var(--color-text-muted);
+      font-size: 14px;
+      padding: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+    }
+
+    .loading-spinner {
+      width: 18px;
+      height: 18px;
+      border: 2px solid #e0e0e0;
+      border-top-color: var(--color-primary);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* 完了画面 */
+    .result-container {
+      text-align: center;
+    }
+
+    .result-icon {
+      width: 80px;
+      height: 80px;
+      margin: 0 auto 24px;
+      background: var(--gradient-btn);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 8px 32px rgba(0, 169, 96, 0.3);
+      animation: scaleIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    @keyframes scaleIn {
+      from {
+        opacity: 0;
+        transform: scale(0.5);
+      }
+      to {
+        opacity: 1;
+        transform: scale(1);
+      }
+    }
+
+    .result-icon .checkmark {
+      width: 36px;
+      height: 36px;
+      stroke: white;
+      stroke-width: 3;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      fill: none;
+    }
+
+    .result-icon .checkmark path {
+      stroke-dasharray: 48;
+      stroke-dashoffset: 48;
+      animation: drawCheck 0.4s ease-out 0.3s forwards;
+    }
+
+    @keyframes drawCheck {
+      to { stroke-dashoffset: 0; }
+    }
+
+    .result-title {
+      font-family: 'Outfit', 'Noto Sans JP', sans-serif;
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--color-primary);
+      margin-bottom: 8px;
+    }
+
+    .result-subtitle {
+      font-size: 14px;
+      color: var(--color-text-secondary);
+      margin-bottom: 24px;
+    }
+
+    .result-card {
+      background: #f8faf8;
+      border-radius: var(--radius-md);
+      padding: 20px;
+      margin-bottom: 24px;
+      border: 1px solid rgba(0, 169, 96, 0.1);
+    }
+
+    .result-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 0;
+    }
+
+    .result-item:not(:last-child) {
+      border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+    }
+
+    .result-label {
+      font-size: 13px;
+      color: var(--color-text-muted);
+    }
+
+    .result-value {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--color-text);
+    }
+
+    .result-value.attend {
+      color: var(--color-primary);
+    }
+
+    .result-value.absent {
+      color: var(--color-accent);
+    }
+
+    /* 閉じるボタン */
+    .btn-close {
+      background: #f5f5f5;
+      color: var(--color-text-secondary);
+      padding: 16px 24px;
+      font-size: 15px;
+    }
+
+    .btn-close:hover {
+      background: #eeeeee;
+    }
+
+    /* 非表示 */
+    .hidden {
+      display: none !important;
+    }
+
+    /* 紙吹雪 */
+    .confetti {
+      position: fixed;
+      pointer-events: none;
+      z-index: 100;
+    }
+
+    .confetti-piece {
+      position: absolute;
+      width: 10px;
+      height: 10px;
+      background: var(--color-primary);
+      animation: confettiFall 3s ease-out forwards;
+    }
+
+    .confetti-piece:nth-child(odd) {
+      background: #ffd54f;
+    }
+
+    .confetti-piece:nth-child(3n) {
+      background: #ff8a65;
+    }
+
+    @keyframes confettiFall {
+      0% {
+        transform: translateY(-100vh) rotate(0deg);
+        opacity: 1;
+      }
+      100% {
+        transform: translateY(100vh) rotate(720deg);
+        opacity: 0;
+      }
+    }
   </style>
 </head>
 
@@ -93,101 +499,192 @@
 
   <!-- 選択画面 -->
   <div id="selectScreen" class="container">
-  <!-- ▼ ステータス表示エリア -->
-  <div id="prevStatus" class="prev-status">⏳ 読み込み中...</div>
+    <!-- ステータス表示 -->
+    <div class="header-section">
+      <div id="prevStatus" class="status-badge unanswered">
+        <span class="icon">📝</span>
+        <span>出欠を回答してください</span>
+      </div>
 
-  <h1 id="eventTitle">読み込み中...</h1>
+      <!-- タイトル（キャッシュまたはAPI取得後に表示） -->
+      <h1 id="eventTitle" class="event-title">例会に</h1>
+    </div>
 
-    <button class="btn btn-attend" onclick="submitStatus('出席')">出席します！</button>
-    <button class="btn btn-absent" onclick="submitStatus('欠席')">欠席します。</button>
+    <!-- 出席ボタン -->
+    <button class="btn btn-attend" onclick="submitStatus('出席')">
+      出席します！
+    </button>
 
-    <!-- ▼ ブース出店 -->
-    <div class="booth-block">
-      <div class="booth-title">ブース出店しますか？</div>
+    <!-- 欠席ボタン -->
+    <button class="btn btn-absent" onclick="submitStatus('欠席')">
+      欠席します
+    </button>
+
+    <!-- ブース出店 -->
+    <div class="booth-section">
+      <div class="booth-title">ブース出店</div>
 
       <div class="booth-options">
-        <label class="booth-option">
-          <input type="radio" name="booth" value="出店したいです。">
-          <span>出店したいです。</span>
-        </label>
-
-        <label class="booth-option">
-          <input type="radio" name="booth" value="出店しません。" checked>
-          <span>出店しません。</span>
-        </label>
+        <div class="booth-option">
+          <input type="radio" name="booth" id="boothYes" value="出店したいです。">
+          <label for="boothYes">出店する</label>
+        </div>
+        <div class="booth-option">
+          <input type="radio" name="booth" id="boothNo" value="出店しません。" checked>
+          <label for="boothNo">出店しない</label>
+        </div>
       </div>
     </div>
 
-    <p id="loading" class="hidden">送信中...</p>
+    <!-- ローディング -->
+    <div id="loading" class="loading-text hidden">
+      <div class="loading-spinner"></div>
+      <span>送信中...</span>
+    </div>
   </div>
 
   <!-- 完了画面 -->
   <div id="resultScreen" class="container hidden">
-    <h1 style="color:#06c755;">出欠連絡完了！</h1>
-    <p id="resultText" class="result-text"></p>
-    <button class="btn btn-close" onclick="closeLiff()">閉じる</button>
+    <div class="result-container">
+      <!-- チェックマークアイコン -->
+      <div class="result-icon">
+        <svg class="checkmark" viewBox="0 0 36 36">
+          <path d="M8 18 L15 25 L28 11" />
+        </svg>
+      </div>
+
+      <h1 class="result-title">回答完了！</h1>
+      <p class="result-subtitle">ご回答ありがとうございます</p>
+
+      <!-- 回答内容 -->
+      <div class="result-card">
+        <div class="result-item">
+          <span class="result-label">出欠</span>
+          <span id="resultStatus" class="result-value">-</span>
+        </div>
+        <div class="result-item">
+          <span class="result-label">ブース出店</span>
+          <span id="resultBooth" class="result-value">-</span>
+        </div>
+      </div>
+
+      <button class="btn btn-close" onclick="closeLiff()">閉じる</button>
+    </div>
   </div>
 
   <script>
     const LIFF_ID = '2008446831-256wkWVY';
     const GAS_URL = 'https://script.google.com/macros/s/AKfycby-rXLMy1lKIhyl60ZaS_tCob20cAuCgrkzf9B0Ky738DyvTWNBh_7AuDb1iNrEhf7ElA/exec';
+    const CACHE_KEY = 'attendance_cache';
 
     let profile = null;
 
-    // LIFF初期化
-    liff.init({ liffId: LIFF_ID })
-      .then(() => {
-        if (!liff.isLoggedIn()) return liff.login();
-        return liff.getProfile();
-      })
-      .then(p => {
-        profile = p;
-        // 前回ステータス取得
-        if (profile && profile.userId) {
-          fetchPrevStatus(profile.userId);
+    // キャッシュから初期表示（即座に実行）
+    function showFromCache() {
+      try {
+        const cache = JSON.parse(localStorage.getItem(CACHE_KEY));
+        if (cache && cache.eventKey) {
+          const match = cache.eventKey.match(/(\d+)月例会/);
+          if (match) {
+            document.getElementById('eventTitle').innerHTML =
+              `<span class="month">${match[1]}月</span>例会に`;
+          }
+          // 回答状況もキャッシュから表示
+          const el = document.getElementById('prevStatus');
+          if (cache.status && cache.status !== '未回答') {
+            const boothText = cache.booth === '○' ? '・ブース出店' : '';
+            el.innerHTML = `<span class="icon">✅</span><span>${cache.status}で回答済み${boothText}</span>`;
+            el.className = 'status-badge answered';
+          }
         }
-      })
-      .catch(err => alert("LIFFエラー: " + err));
+      } catch (e) { /* ignore */ }
+    }
+    showFromCache();
+
+    // LIFF SDKの読み込みを待ってから初期化
+    function initApp() {
+      if (typeof liff === 'undefined') {
+        setTimeout(initApp, 50);
+        return;
+      }
+
+      liff.init({ liffId: LIFF_ID })
+        .then(() => {
+          if (!liff.isLoggedIn()) return liff.login();
+          return liff.getProfile();
+        })
+        .then(p => {
+          profile = p;
+          if (profile && profile.userId) {
+            fetchPrevStatus(profile.userId);
+          }
+        })
+        .catch(err => alert("LIFFエラー: " + err));
+    }
+
+    // DOMContentLoaded後に初期化開始
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initApp);
+    } else {
+      initApp();
+    }
 
     // 前回ステータス取得
     function fetchPrevStatus(userId) {
       const url = GAS_URL + '?mode=getAttendanceStatus&userId=' + encodeURIComponent(userId);
-      
+
       fetch(url)
         .then(res => res.json())
         .then(data => {
           if (data.success) {
-  showPrevStatus(data.eventKey, data.status, data.booth);
-}
+            showPrevStatus(data.eventKey, data.status, data.booth);
+          }
         })
         .catch(err => console.log('前回ステータス取得エラー:', err));
     }
 
     // ステータス表示
-function showPrevStatus(eventKey, status, booth) {
-  const el = document.getElementById('prevStatus');
-  
-  // eventKeyから「○月例会」部分を抽出（例：2026年1月例会 → 1月例会）
-  const match = eventKey.match(/(\d+月例会)/);
-  const monthText = match ? match[1] : eventKey;
-  
-  if (status === '未回答') {
-    el.innerHTML = `📝 <strong>${monthText}</strong>の出欠を回答してください`;
-    el.classList.add('unanswered');
-  } else {
-    const boothText = booth === '○' ? '（ブース出店あり）' : '';
-    el.innerHTML = `✅ <strong>${monthText}</strong>に「${status}」で回答済み${boothText}`;
-    el.classList.remove('unanswered');
-  }
-  
-  // タイトル更新
-  document.getElementById('eventTitle').textContent = monthText + 'に';
-}
+    function showPrevStatus(eventKey, status, booth) {
+      const el = document.getElementById('prevStatus');
+      const titleEl = document.getElementById('eventTitle');
 
+      // eventKeyがない場合のフォールバック
+      if (!eventKey) {
+        el.innerHTML = '<span class="icon">⚠️</span><span>情報を取得できませんでした</span>';
+        el.className = 'status-badge unanswered';
+        titleEl.textContent = '例会に';
+        return;
+      }
+
+      // キャッシュに保存
+      try {
+        localStorage.setItem(CACHE_KEY, JSON.stringify({ eventKey, status, booth }));
+      } catch (e) { /* ignore */ }
+
+      // eventKeyから「○月例会」部分を抽出
+      const match = eventKey.match(/(\d+)月例会/);
+      const monthNum = match ? match[1] : '';
+      const monthText = match ? match[1] + '月例会' : eventKey;
+
+      if (status === '未回答') {
+        el.innerHTML = '<span class="icon">📝</span><span>まだ回答していません</span>';
+        el.className = 'status-badge unanswered';
+      } else {
+        const boothText = booth === '○' ? '・ブース出店' : '';
+        el.innerHTML = `<span class="icon">✅</span><span>${status}で回答済み${boothText}</span>`;
+        el.className = 'status-badge answered';
+      }
+
+      // タイトル更新
+      if (monthNum) {
+        titleEl.innerHTML = `<span class="month">${monthNum}月</span>例会に`;
+      } else {
+        titleEl.textContent = monthText + 'に';
+      }
+    }
 
     // 送信
     function submitStatus(status) {
-
       if (!profile) {
         alert("ユーザー情報が取得できません。再読み込みしてください。");
         return;
@@ -218,10 +715,42 @@ function showPrevStatus(eventKey, status, booth) {
     function showResult(status, booth) {
       document.getElementById("selectScreen").classList.add("hidden");
       document.getElementById("resultScreen").classList.remove("hidden");
-      document.getElementById("resultText").textContent = `「${status} ／ ${booth}」で受付けました。`;
+
+      // 結果表示
+      const statusEl = document.getElementById("resultStatus");
+      statusEl.textContent = status;
+      statusEl.className = 'result-value ' + (status === '出席' ? 'attend' : 'absent');
+
+      document.getElementById("resultBooth").textContent =
+        booth === '出店したいです。' ? '出店する' : '出店しない';
+
+      // 出席の場合は紙吹雪
+      if (status === '出席') {
+        createConfetti();
+      }
     }
 
-    function closeLiff() { liff.closeWindow(); }
+    function closeLiff() {
+      liff.closeWindow();
+    }
+
+    // 紙吹雪エフェクト
+    function createConfetti() {
+      const container = document.createElement('div');
+      container.className = 'confetti';
+      document.body.appendChild(container);
+
+      for (let i = 0; i < 30; i++) {
+        const piece = document.createElement('div');
+        piece.className = 'confetti-piece';
+        piece.style.left = Math.random() * 100 + 'vw';
+        piece.style.animationDelay = Math.random() * 0.5 + 's';
+        piece.style.animationDuration = (2 + Math.random() * 2) + 's';
+        container.appendChild(piece);
+      }
+
+      setTimeout(() => container.remove(), 4000);
+    }
   </script>
 
 </body>

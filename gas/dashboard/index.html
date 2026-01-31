@@ -59,6 +59,7 @@
       <button class="tab-btn" data-tab="other-venue-tab">他会場</button>
       <button class="tab-btn" data-tab="sales-tab">売上</button>
       <button class="tab-btn" data-tab="team-tab">チーム</button>
+      <button class="tab-btn" data-tab="contact-tab">連絡網</button>
       <button class="tab-btn" data-tab="renew-tab">更新</button>
       <button class="tab-btn" data-tab="member-tab">会員管理</button>
       <button class="tab-btn tab-btn-right" data-tab="prep-tab">例会事前準備</button>
@@ -244,8 +245,7 @@
                 <span class="bg-red-50 text-red-700 px-2 py-1 rounded-full">欠席: <span id="attendCountAbsent" class="font-semibold">0 名</span></span>
                 <span class="bg-slate-100 text-slate-600 px-2 py-1 rounded-full">未回答: <span id="attendCountNoAnswer" class="font-semibold">0 名</span></span>
               </div>
-              <button id="reminderManageBtn" onclick="openReminderModal()" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-lg flex items-center gap-1 transition-colors">
-                <span class="material-icons text-sm">notifications</span>
+              <button id="reminderManageBtn" onclick="openReminderModal()" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-lg transition-colors">
                 出欠リマインド管理
               </button>
             </div>
@@ -503,6 +503,29 @@
           </p>
           <div id="teamContainer"
                class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+        </section>
+      </div>
+
+      <!-- 連絡網タブ -->
+      <div id="contact-tab" class="tab-panel">
+        <section class="modern-card mt-4">
+          <div class="modern-card-header flex justify-between items-center">
+            <h2 class="modern-card-title">
+              <span class="modern-card-title-icon">📞</span>
+              連絡網グループ
+            </h2>
+            <button onclick="printContactGroups()" class="contact-print-btn">
+              🖨️ 印刷プレビュー
+            </button>
+          </div>
+          <div id="contactPrintArea">
+            <div class="contact-print-title">連絡網グループ一覧</div>
+            <div class="contact-scroll-wrapper">
+              <div id="contactGroupsContainer" class="space-y-3">
+                <div class="text-center text-slate-500 py-8">読み込み中...</div>
+              </div>
+            </div>
+          </div>
         </section>
       </div>
 
@@ -1692,8 +1715,81 @@ function setupTabs() {
         }, 50);
       }
 
+      // ★連絡網タブに切り替えた時に初期化
+      if (targetId === 'contact-tab') {
+        setTimeout(() => {
+          loadContactGroups();
+        }, 50);
+      }
+
     });
   });
+}
+
+// ★連絡網グループを読み込み・表示
+let contactGroupsLoaded = false;
+function loadContactGroups() {
+  if (contactGroupsLoaded) return;
+
+  const container = document.getElementById('contactGroupsContainer');
+  container.innerHTML = '<div class="text-center text-slate-500 py-8">読み込み中...</div>';
+
+  google.script.run
+    .withSuccessHandler((result) => {
+      if (!result.success) {
+        container.innerHTML = '<div class="text-center text-red-500 py-8">エラー: ' + escapeHtml(result.error) + '</div>';
+        return;
+      }
+
+      if (!result.groups || result.groups.length === 0) {
+        container.innerHTML = '<div class="text-center text-slate-500 py-8">連絡網データがありません。<br>会員名簿マスターのAD列に連絡網順序（例: A1-2）を入力してください。</div>';
+        return;
+      }
+
+      let html = '';
+      result.groups.forEach(group => {
+        html += '<div class="contact-group-section">';
+        html += '<div class="contact-group-header">';
+        html += '<span class="contact-group-badge">' + escapeHtml(group.name) + '</span>グループ　';
+        html += '<span class="contact-leader-name">' + escapeHtml(group.leader || '未設定') + '</span>';
+        html += '</div>';
+
+        // 各行をレンダリング
+        if (group.rows && group.rows.length > 0) {
+          group.rows.forEach(row => {
+            html += '<div class="contact-row">';
+            row.forEach((name, idx) => {
+              html += '<div class="contact-member-card">' + escapeHtml(name) + '</div>';
+              // 最後の要素でなければコネクタを追加
+              if (idx < row.length - 1) {
+                html += '<span class="contact-connector"></span>';
+              }
+            });
+            html += '</div>';
+          });
+        } else {
+          html += '<div class="text-slate-400 text-sm">メンバーなし</div>';
+        }
+
+        html += '</div>';
+      });
+
+      container.innerHTML = html;
+      contactGroupsLoaded = true;
+    })
+    .withFailureHandler((err) => {
+      container.innerHTML = '<div class="text-center text-red-500 py-8">読み込みエラー: ' + escapeHtml(err.message || err) + '</div>';
+    })
+    .getContactGroups();
+}
+
+// ★連絡網グループ印刷プレビュー
+function printContactGroups() {
+  if (!contactGroupsLoaded) {
+    alert('データを読み込み中です。しばらくお待ちください。');
+    return;
+  }
+  window.print();
 }
 
 // HTMLエスケープ（営業内容などに使う）
@@ -2096,6 +2192,30 @@ document.addEventListener('DOMContentLoaded', () => {
   console.log('=== DOMContentLoaded FIRED ===');
   console.log('typeof setupTabs:', typeof setupTabs);
   setupTabs();
+
+  // URLパラメータで特定タブを開く（例: ?tab=contact）
+  // パラメータ指定時は他のタブを非表示にする（単独ページモード）
+  const urlParams = new URLSearchParams(window.location.search);
+  const tabParam = urlParams.get('tab');
+  if (tabParam) {
+    const targetTabId = tabParam + '-tab';
+    const tabBtn = document.querySelector('.tab-btn[data-tab="' + targetTabId + '"]');
+    if (tabBtn) {
+      // 他のタブボタンを非表示
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        if (btn.dataset.tab !== targetTabId) {
+          btn.style.display = 'none';
+        }
+      });
+      // タブコンテナのスタイル調整（単独表示用）
+      const tabContainer = document.querySelector('.tab-container');
+      if (tabContainer) {
+        tabContainer.style.justifyContent = 'flex-start';
+      }
+      // 該当タブをクリックして表示
+      tabBtn.click();
+    }
+  }
 
   const prepMenuSection    = document.getElementById('prepMenuSection');
   const prepPreviewSection = document.getElementById('prepPreviewSection');
@@ -4310,37 +4430,386 @@ function closeSalesPasswordModal() {
   document.getElementById('salesPasswordModal').classList.add('hidden');
 }
 
-// ★出欠リマインド管理モーダル
+// ★出欠リマインド管理モーダル（自動送信設定UI）
+let reminderData = null;
+
 function openReminderModal() {
   document.getElementById('reminderModal').classList.remove('hidden');
-  // TODO: 未回答者リストを読み込む
-  loadReminderNoAnswerList();
+  loadReminderStatusFromAPI();
 }
 
 function closeReminderModal() {
   document.getElementById('reminderModal').classList.add('hidden');
+  reminderData = null;
 }
 
-function loadReminderNoAnswerList() {
-  const listEl = document.getElementById('reminderNoAnswerList');
-  // 既存の出欠データから未回答者を取得
-  const noAnswerList = document.getElementById('attendListNoAnswer');
-  if (noAnswerList && noAnswerList.children.length > 0) {
-    const names = Array.from(noAnswerList.querySelectorAll('span')).map(el => el.textContent.trim()).filter(n => n);
-    if (names.length > 0) {
-      listEl.innerHTML = `
-        <div class="text-left">
-          <p class="text-slate-600 mb-2">未回答: <span class="font-semibold text-orange-600">${names.length}名</span></p>
-          <div class="flex flex-wrap gap-2">
-            ${names.map(name => `<span class="bg-orange-100 text-orange-700 px-2 py-1 rounded text-xs">${name}</span>`).join('')}
+// リマインド状態を読み込む
+function loadReminderStatusFromAPI() {
+  const nextScheduleEl = document.getElementById('reminderNextSchedule');
+  const messagePreviewEl = document.getElementById('reminderMessagePreview');
+  const triggerStatusEl = document.getElementById('reminderTriggerStatus');
+  const noLineMembersEl = document.getElementById('reminderNoLineMembers');
+  const resultEl = document.getElementById('reminderResult');
+
+  // ローディング表示
+  if (nextScheduleEl) nextScheduleEl.innerHTML = '<p class="text-slate-400 text-center py-2 text-sm">読み込み中...</p>';
+  if (messagePreviewEl) messagePreviewEl.textContent = '読み込み中...';
+  if (triggerStatusEl) triggerStatusEl.innerHTML = '<p class="text-slate-400 text-center py-2 text-sm">読み込み中...</p>';
+  if (noLineMembersEl) noLineMembersEl.innerHTML = '<p class="text-slate-400 text-center py-2 text-sm">読み込み中...</p>';
+  if (resultEl) resultEl.innerHTML = '';
+
+  google.script.run
+    .withSuccessHandler(data => {
+      if (!data.success) {
+        if (nextScheduleEl) nextScheduleEl.innerHTML = `<p class="text-red-500 text-center py-2 text-sm">${data.message || 'エラーが発生しました'}</p>`;
+        if (triggerStatusEl) triggerStatusEl.innerHTML = '<p class="text-red-500 text-center py-2 text-sm">取得失敗</p>';
+        if (noLineMembersEl) noLineMembersEl.innerHTML = '<p class="text-red-500 text-center py-2 text-sm">取得失敗</p>';
+        return;
+      }
+
+      reminderData = data;
+      const currentYear = new Date().getFullYear();
+
+      // 次回送信予定
+      if (data.nextTrigger && data.count > 0) {
+        nextScheduleEl.innerHTML = `
+          <div class="text-center">
+            <p class="text-lg font-bold text-blue-700">${data.nextTrigger.formatted}</p>
+            <p class="text-sm text-blue-600 mt-1">対象: 未回答者 <span class="font-semibold">${data.unrespondedCount}</span>名</p>
           </div>
-        </div>
-      `;
-    } else {
-      listEl.innerHTML = '<p class="text-emerald-600">全員回答済みです</p>';
-    }
+        `;
+      } else {
+        nextScheduleEl.innerHTML = `
+          <div class="text-center py-2">
+            <p class="text-slate-500 text-sm">自動送信が設定されていません</p>
+            <p class="text-xs text-slate-400 mt-1">下の「${currentYear}年設定」ボタンで有効にできます</p>
+          </div>
+        `;
+      }
+
+      // 自動送信設定状態
+      if (data.count > 0) {
+        triggerStatusEl.innerHTML = `
+          <div class="flex flex-col gap-3">
+            <div class="flex items-center justify-center">
+              <span class="inline-flex items-center gap-1 text-emerald-600 font-semibold text-sm">
+                <span class="material-icons text-base">check_circle</span>
+                有効
+              </span>
+              <span class="text-slate-600 text-sm ml-2">（${data.count}件登録済）</span>
+            </div>
+            <div class="flex flex-wrap gap-2 justify-center">
+              <button onclick="setupReminderTriggersForYear(${currentYear + 1})" class="px-3 py-1.5 bg-slate-600 hover:bg-slate-700 text-white text-xs font-medium rounded-lg transition flex items-center gap-1">
+                <span class="material-icons text-sm">calendar_month</span>
+                ${currentYear + 1}年設定
+              </button>
+            </div>
+          </div>
+        `;
+      } else {
+        triggerStatusEl.innerHTML = `
+          <div class="flex flex-col gap-3">
+            <div class="flex items-center justify-center">
+              <span class="inline-flex items-center gap-1 text-slate-500 text-sm">
+                <span class="material-icons text-base">cancel</span>
+                無効（トリガー未設定）
+              </span>
+            </div>
+            <div class="flex flex-wrap gap-2 justify-center">
+              <button onclick="setupReminderTriggersForYear(${currentYear})" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition flex items-center gap-1">
+                <span class="material-icons text-base">add</span>
+                ${currentYear}年設定
+              </button>
+            </div>
+          </div>
+        `;
+      }
+
+      // LINE未登録者
+      if (data.noLineIdCount > 0) {
+        noLineMembersEl.innerHTML = `
+          <p class="text-amber-700 text-sm mb-2">${data.noLineIdCount}名: ${data.noLineIdNames.join('、')}</p>
+          <p class="text-xs text-amber-600">※ これらの方には電話等で手動連絡が必要です</p>
+        `;
+      } else {
+        noLineMembersEl.innerHTML = '<p class="text-emerald-600 text-sm text-center">全員LINE登録済みです</p>';
+      }
+      // メッセージプレビューを表示（次回送信に対応する日付を使用）
+      if (data.nextTrigger) {
+        // eventInfoを保存（プレビュー更新用）
+        reminderData.eventInfo = {
+          eventDate: data.nextTrigger.eventDate || '未設定',
+          deadline: data.nextTrigger.deadline || '未設定'
+        };
+
+        // テンプレートを取得してプレビュー表示
+        google.script.run
+          .withSuccessHandler(templateData => {
+            if (templateData.success && messagePreviewEl) {
+              const message = templateData.template
+                .replace(/\{\{eventDate\}\}/g, data.nextTrigger.eventDate || '未設定')
+                .replace(/\{\{deadline\}\}/g, data.nextTrigger.deadline || '未設定');
+              messagePreviewEl.textContent = message;
+            } else if (messagePreviewEl) {
+              messagePreviewEl.textContent = 'テンプレートを取得できませんでした';
+            }
+          })
+          .withFailureHandler(err => {
+            if (messagePreviewEl) messagePreviewEl.textContent = 'テンプレートを取得できませんでした';
+          })
+          .getReminderMessageTemplate();
+      } else if (messagePreviewEl) {
+        messagePreviewEl.textContent = '次回送信予定がありません';
+      }
+    })
+    .withFailureHandler(err => {
+      console.error('loadReminderStatusFromAPI error:', err);
+      if (nextScheduleEl) nextScheduleEl.innerHTML = '<p class="text-red-500 text-center py-2 text-sm">データ取得に失敗しました</p>';
+      if (triggerStatusEl) triggerStatusEl.innerHTML = '<p class="text-red-500 text-center py-2 text-sm">取得失敗</p>';
+      if (noLineMembersEl) noLineMembersEl.innerHTML = '<p class="text-red-500 text-center py-2 text-sm">取得失敗</p>';
+    })
+    .getReminderTriggerStatus();
+}
+
+// デフォルトのリマインドメッセージを生成
+function generateDefaultReminderMessage(eventDate, deadline) {
+  return `【出欠回答のお願い】
+
+いつもお世話になっております。
+守成クラブ福岡飯塚 事務局です。
+
+※本メッセージと行き違いで
+　すでにご回答済みの場合は
+　何卒ご容赦ください。
+
+次回例会の出欠につきまして、
+まだご回答をいただいておりません。
+
+━━━━━━━━━━━━━━━━━━
+■ 例会日程
+　${eventDate || '未設定'}
+
+■ 回答期限
+　${deadline || '未設定'}
+
+■ ご注意
+　期限を過ぎますと
+　自動的に「出席」扱いとなります。
+
+　その後のキャンセルには
+　キャンセル料 4,000円が発生いたします。
+━━━━━━━━━━━━━━━━━━
+
+画面下部のリッチメニューより
+「例会出欠」ボタンを押して
+ご回答をお願いいたします。
+
+よろしくお願いいたします。`;
+}
+
+// トリガーを設定（指定年）
+function setupReminderTriggersForYear(year) {
+  if (!confirm(`${year}年の月末日に自動送信トリガーを設定します。\n\n既存のトリガーは削除されます。\n続行しますか？`)) {
+    return;
+  }
+
+  const resultEl = document.getElementById('reminderResult');
+  const triggerStatusEl = document.getElementById('reminderTriggerStatus');
+
+  resultEl.innerHTML = '<p class="text-slate-500 text-sm">トリガーを設定中...</p>';
+  triggerStatusEl.innerHTML = '<p class="text-slate-400 text-center py-2 text-sm">設定中...</p>';
+
+  google.script.run
+    .withSuccessHandler(data => {
+      if (data.success) {
+        resultEl.innerHTML = `
+          <div class="bg-emerald-50 border border-emerald-200 rounded-lg p-3 mt-2">
+            <p class="text-emerald-700 font-semibold text-sm flex items-center gap-1">
+              <span class="material-icons text-base">check_circle</span>
+              設定完了
+            </p>
+            <p class="text-xs text-emerald-600 mt-1">${data.message}</p>
+            ${data.dates && data.dates.length > 0 ? `<p class="text-xs text-slate-500 mt-1">作成日: ${data.dates.join(', ')}</p>` : ''}
+          </div>
+        `;
+        // 状態を再読み込み
+        setTimeout(() => loadReminderStatusFromAPI(), 500);
+      } else {
+        resultEl.innerHTML = `<p class="text-red-500 text-sm">エラー: ${data.message || '不明なエラー'}</p>`;
+        loadReminderStatusFromAPI();
+      }
+    })
+    .withFailureHandler(err => {
+      resultEl.innerHTML = `<p class="text-red-500 text-sm">エラー: ${err}</p>`;
+      loadReminderStatusFromAPI();
+    })
+    .setupReminderTriggers(year);
+}
+
+// トリガーを全削除
+function clearAllReminderTriggers() {
+  if (!confirm('自動送信トリガーをすべて削除します。\n\n削除後は手動で再設定が必要です。\n続行しますか？')) {
+    return;
+  }
+
+  const resultEl = document.getElementById('reminderResult');
+  const triggerStatusEl = document.getElementById('reminderTriggerStatus');
+
+  resultEl.innerHTML = '<p class="text-slate-500 text-sm">トリガーを削除中...</p>';
+  triggerStatusEl.innerHTML = '<p class="text-slate-400 text-center py-2 text-sm">削除中...</p>';
+
+  google.script.run
+    .withSuccessHandler(data => {
+      if (data.success) {
+        resultEl.innerHTML = `
+          <div class="bg-blue-50 border border-blue-200 rounded-lg p-3 mt-2">
+            <p class="text-blue-700 font-semibold text-sm flex items-center gap-1">
+              <span class="material-icons text-base">info</span>
+              削除完了
+            </p>
+            <p class="text-xs text-blue-600 mt-1">${data.message}</p>
+          </div>
+        `;
+        // 状態を再読み込み
+        setTimeout(() => loadReminderStatusFromAPI(), 500);
+      } else {
+        resultEl.innerHTML = `<p class="text-red-500 text-sm">エラー: ${data.message || '不明なエラー'}</p>`;
+        loadReminderStatusFromAPI();
+      }
+    })
+    .withFailureHandler(err => {
+      resultEl.innerHTML = `<p class="text-red-500 text-sm">エラー: ${err}</p>`;
+      loadReminderStatusFromAPI();
+    })
+    .clearReminderTriggers();
+}
+
+// メッセージ編集モード切り替え
+let isMessageEditMode = false;
+let currentMessageTemplate = '';
+
+function toggleMessageEdit() {
+  const previewContainer = document.getElementById('reminderMessagePreviewContainer');
+  const editContainer = document.getElementById('reminderMessageEditContainer');
+  const toggleBtn = document.getElementById('messageEditToggle');
+  const textarea = document.getElementById('reminderMessageTextarea');
+
+  isMessageEditMode = !isMessageEditMode;
+
+  if (isMessageEditMode) {
+    // 編集モードに切り替え
+    previewContainer.classList.add('hidden');
+    editContainer.classList.remove('hidden');
+    toggleBtn.innerHTML = '<span class="material-icons text-sm">visibility</span> プレビュー';
+
+    // テンプレートを取得してテキストエリアに設定
+    google.script.run
+      .withSuccessHandler(data => {
+        if (data.success) {
+          currentMessageTemplate = data.template;
+          textarea.value = data.template;
+        }
+      })
+      .getReminderMessageTemplate();
   } else {
-    listEl.innerHTML = '<p class="text-slate-400">データを読み込み中...</p>';
+    // プレビューモードに切り替え
+    previewContainer.classList.remove('hidden');
+    editContainer.classList.add('hidden');
+    toggleBtn.innerHTML = '<span class="material-icons text-sm">edit</span> 編集';
+  }
+}
+
+// メッセージを保存
+function saveReminderMessage() {
+  const textarea = document.getElementById('reminderMessageTextarea');
+  const template = textarea.value.trim();
+  const resultEl = document.getElementById('reminderResult');
+  const saveBtn = document.getElementById('saveMessageBtn');
+
+  if (!template) {
+    alert('メッセージを入力してください');
+    return;
+  }
+
+  saveBtn.disabled = true;
+  saveBtn.innerHTML = '<span class="material-icons text-sm animate-spin">sync</span> 保存中...';
+
+  google.script.run
+    .withSuccessHandler(data => {
+      saveBtn.disabled = false;
+      saveBtn.innerHTML = '<span class="material-icons text-sm">save</span> 保存';
+
+      if (data.success) {
+        resultEl.innerHTML = `
+          <div class="bg-emerald-50 border border-emerald-200 rounded-lg p-3 mt-2">
+            <p class="text-emerald-700 font-semibold text-sm flex items-center gap-1">
+              <span class="material-icons text-base">check_circle</span>
+              ${data.message}
+            </p>
+          </div>
+        `;
+        // 編集モードを終了してプレビューに戻す
+        isMessageEditMode = true; // toggleで反転されるのでtrueにしておく
+        toggleMessageEdit();
+        // 全データを再読み込みしてプレビューを更新
+        setTimeout(() => loadReminderStatusFromAPI(), 300);
+      } else {
+        resultEl.innerHTML = `<p class="text-red-500 text-sm">エラー: ${data.message || '不明なエラー'}</p>`;
+      }
+    })
+    .withFailureHandler(err => {
+      saveBtn.disabled = false;
+      saveBtn.innerHTML = '<span class="material-icons text-sm">save</span> 保存';
+      resultEl.innerHTML = `<p class="text-red-500 text-sm">エラー: ${err}</p>`;
+    })
+    .saveReminderMessageTemplate(template);
+}
+
+// メッセージをデフォルトにリセット
+function resetReminderMessageToDefault() {
+  if (!confirm('メッセージをデフォルトに戻しますか？\n\n編集した内容は失われます。')) {
+    return;
+  }
+
+  const textarea = document.getElementById('reminderMessageTextarea');
+  const resultEl = document.getElementById('reminderResult');
+
+  google.script.run
+    .withSuccessHandler(data => {
+      if (data.success) {
+        textarea.value = data.template;
+        currentMessageTemplate = data.template;
+        resultEl.innerHTML = `
+          <div class="bg-blue-50 border border-blue-200 rounded-lg p-3 mt-2">
+            <p class="text-blue-700 font-semibold text-sm flex items-center gap-1">
+              <span class="material-icons text-base">info</span>
+              ${data.message}
+            </p>
+          </div>
+        `;
+        // 編集モードを終了してプレビューに戻す
+        isMessageEditMode = true;
+        toggleMessageEdit();
+        // 全データを再読み込みしてプレビューを更新
+        setTimeout(() => loadReminderStatusFromAPI(), 300);
+      } else {
+        resultEl.innerHTML = `<p class="text-red-500 text-sm">エラー: ${data.message || '不明なエラー'}</p>`;
+      }
+    })
+    .withFailureHandler(err => {
+      resultEl.innerHTML = `<p class="text-red-500 text-sm">エラー: ${err}</p>`;
+    })
+    .resetReminderMessageTemplate();
+}
+
+// プレビューを更新（プレースホルダーを置換して表示）
+function updateMessagePreview(template) {
+  const previewEl = document.getElementById('reminderMessagePreview');
+  if (previewEl && reminderData && reminderData.eventInfo) {
+    const message = template
+      .replace(/\{\{eventDate\}\}/g, reminderData.eventInfo.eventDate || '未設定')
+      .replace(/\{\{deadline\}\}/g, reminderData.eventInfo.deadline || '未設定');
+    previewEl.textContent = message;
   }
 }
 
@@ -5833,16 +6302,16 @@ function initMemberTab() {
   </div>
 </div>
 
-<!-- ★出欠リマインド管理モーダル -->
+<!-- ★出欠リマインド管理モーダル（自動送信設定UI） -->
 <div id="reminderModal" class="hidden fixed inset-0 z-50 flex items-center justify-center">
   <!-- オーバーレイ -->
   <div class="absolute inset-0 bg-black bg-opacity-50" onclick="closeReminderModal()"></div>
-  <!-- モーダル本体 -->
-  <div class="relative bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-hidden mx-4">
+  <!-- モーダル本体（スマホ最適化） -->
+  <div class="relative bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-hidden mx-4">
     <!-- ヘッダー -->
-    <div class="bg-blue-600 text-white px-6 py-4 flex items-center justify-between">
-      <h3 class="text-lg font-semibold flex items-center gap-2">
-        <span class="material-icons">notifications</span>
+    <div class="bg-blue-600 text-white px-4 py-3 flex items-center justify-between">
+      <h3 class="text-base font-semibold flex items-center gap-2">
+        <span class="material-icons text-lg">schedule_send</span>
         出欠リマインド管理
       </h3>
       <button onclick="closeReminderModal()" class="text-white hover:bg-blue-700 rounded-full p-1 transition">
@@ -5851,45 +6320,85 @@ function initMemberTab() {
     </div>
 
     <!-- コンテンツ -->
-    <div class="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
-      <!-- リマインド設定セクション -->
-      <div class="mb-6">
-        <h4 class="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
-          <span class="material-icons text-blue-500 text-lg">schedule</span>
-          リマインド設定
+    <div class="p-4 overflow-y-auto max-h-[calc(90vh-110px)]">
+      <!-- 次回送信予定セクション -->
+      <div class="mb-5">
+        <h4 class="text-sm font-semibold text-slate-700 mb-2 flex items-center gap-2">
+          <span class="material-icons text-blue-500 text-base">event</span>
+          次回送信予定
         </h4>
-        <div class="bg-slate-50 rounded-lg p-4">
-          <p class="text-sm text-slate-500 text-center py-8">
-            ここにリマインド設定機能を実装予定
-          </p>
+        <div id="reminderNextSchedule" class="bg-blue-50 rounded-lg p-4">
+          <p class="text-slate-400 text-center py-2 text-sm">読み込み中...</p>
         </div>
       </div>
 
-      <!-- 未回答者リストセクション -->
-      <div class="mb-6">
-        <h4 class="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
-          <span class="material-icons text-orange-500 text-lg">person_off</span>
-          未回答者一覧
+      <!-- 配信メッセージ編集セクション -->
+      <div class="mb-5">
+        <h4 class="text-sm font-semibold text-slate-700 mb-2 flex items-center gap-2">
+          <span class="material-icons text-green-500 text-base">edit_note</span>
+          <span>配信メッセージ</span>
+          <button onclick="toggleMessageEdit()" id="messageEditToggle" class="ml-auto text-xs text-blue-500 hover:text-blue-700 flex items-center gap-1">
+            <span class="material-icons text-sm">edit</span>
+            編集
+          </button>
         </h4>
-        <div class="bg-slate-50 rounded-lg p-4">
-          <div id="reminderNoAnswerList" class="text-sm text-slate-500 text-center py-8">
-            ここに未回答者リストを表示予定
+        <div class="bg-slate-50 rounded-lg p-3">
+          <!-- プレビュー表示（デフォルト） -->
+          <div id="reminderMessagePreviewContainer">
+            <div id="reminderMessagePreview" class="text-xs text-slate-600 whitespace-pre-wrap max-h-48 overflow-y-auto border border-slate-200 rounded p-3 bg-white">
+              読み込み中...
+            </div>
           </div>
+          <!-- 編集モード（非表示） -->
+          <div id="reminderMessageEditContainer" class="hidden">
+            <textarea id="reminderMessageTextarea" class="w-full h-64 p-3 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-y font-mono" placeholder="メッセージテンプレートを入力..."></textarea>
+            <div class="flex flex-wrap gap-2 mt-2">
+              <button onclick="saveReminderMessage()" id="saveMessageBtn" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-lg transition flex items-center gap-1">
+                <span class="material-icons text-sm">save</span>
+                保存
+              </button>
+              <button onclick="resetReminderMessageToDefault()" class="px-3 py-1.5 bg-slate-500 hover:bg-slate-600 text-white text-xs font-medium rounded-lg transition flex items-center gap-1">
+                <span class="material-icons text-sm">refresh</span>
+                デフォルトに戻す
+              </button>
+              <button onclick="toggleMessageEdit()" class="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-medium rounded-lg transition">
+                キャンセル
+              </button>
+            </div>
+          </div>
+          <p class="text-xs text-slate-500 mt-2">※ <code class="bg-slate-200 px-1 rounded">{{eventDate}}</code> と <code class="bg-slate-200 px-1 rounded">{{deadline}}</code> は自動で置換されます</p>
         </div>
       </div>
 
-      <!-- アクションボタン -->
-      <div class="flex flex-wrap gap-3 justify-center">
-        <button id="sendReminderBtn" disabled class="px-4 py-2 bg-orange-500 text-white rounded-lg opacity-50 cursor-not-allowed flex items-center gap-2">
-          <span class="material-icons text-sm">send</span>
-          リマインド送信（未実装）
-        </button>
+      <!-- LINE未登録者セクション -->
+      <div class="mb-4">
+        <h4 class="text-sm font-semibold text-slate-700 mb-2 flex items-center gap-2">
+          <span class="material-icons text-amber-500 text-base">warning</span>
+          LINE未登録（手動連絡）
+        </h4>
+        <div id="reminderNoLineMembers" class="bg-amber-50 rounded-lg p-3">
+          <p class="text-slate-400 text-center py-2 text-sm">読み込み中...</p>
+        </div>
       </div>
+
+      <!-- 操作結果表示エリア -->
+      <div id="reminderResult" class="text-sm"></div>
+
+      <!-- 自動送信設定セクション（折りたたみ） -->
+      <details class="mt-4">
+        <summary class="text-sm font-semibold text-slate-500 cursor-pointer flex items-center gap-2 hover:text-slate-700">
+          <span class="material-icons text-base">settings</span>
+          自動送信設定
+        </summary>
+        <div id="reminderTriggerStatus" class="bg-orange-50 rounded-lg p-4 mt-2">
+          <p class="text-slate-400 text-center py-2 text-sm">読み込み中...</p>
+        </div>
+      </details>
     </div>
 
     <!-- フッター -->
-    <div class="bg-slate-50 px-6 py-3 flex justify-end">
-      <button onclick="closeReminderModal()" class="px-4 py-2 bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300 transition">
+    <div class="bg-slate-50 px-4 py-3 flex justify-end">
+      <button onclick="closeReminderModal()" class="px-4 py-2 bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300 transition text-sm">
         閉じる
       </button>
     </div>

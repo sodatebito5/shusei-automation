@@ -152,6 +152,24 @@ https://docs.google.com/forms/d/e/1FAIpQLScbjVLeSyfusz_b9ANvDL-5win-w8_G0TGxQ7TO
 
 ## ✅ 完了
 
+### 2026-01-31
+- [x] **出欠リマインド送信機能**
+  - ダッシュボード出欠管理タブに「出欠リマインド管理」ボタン追加済み
+  - GAS API: getUnrespondedMembersForReminder(), sendAttendanceReminder(), sendAttendanceReminderDryRun()
+  - 未回答者を会員名簿マスター×出欠状況から自動抽出
+  - LINE送信可能/未登録で分けて表示
+  - テスト実行（ドライラン）機能
+  - 本番送信（確認ダイアログ付き）
+  - 送信結果表示
+  - 設定シートJ2セル: 回答期限（オプション、未設定時は開催日前日）
+- [x] **連絡網グループ表示機能**
+  - GAS API: getContactGroups()
+  - 専用ページ contact.html（?page=contact でアクセス）
+  - 会員名簿マスター AB列（グループ）、AC列（リーダーフラグ）、AD列（連絡網順序）を使用
+  - グループ別にリーダー＋メンバー一覧表示
+  - 印刷対応（A4横向き、2カラムレイアウト）
+  - スマホ対応UI
+
 ### 2026-01-30
 - [x] **入会日フィールド表示バグ修正**
   - 編集モーダルの入会日が空白で表示される問題を修正

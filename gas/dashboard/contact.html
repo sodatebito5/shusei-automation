@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>連絡網グループ - 守成クラブ福岡飯塚</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', sans-serif;
+      background: #f1f5f9;
+      color: #1e293b;
+      padding: 1rem;
+      min-height: 100vh;
+    }
+    .header {
+      text-align: center;
+      margin-bottom: 1rem;
+      padding-bottom: 0.75rem;
+      border-bottom: 2px solid #2563eb;
+    }
+    .header h1 {
+      font-size: 1.25rem;
+      color: #1e40af;
+      margin-bottom: 0.25rem;
+    }
+    .header p {
+      font-size: 0.75rem;
+      color: #64748b;
+    }
+    .scroll-wrapper {
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+    .groups-container {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+    .group-section {
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      border-radius: 0.5rem;
+      padding: 0.75rem;
+      min-width: fit-content;
+    }
+    .group-header {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-weight: 600;
+      font-size: 0.9rem;
+      color: #1e293b;
+      margin-bottom: 0.5rem;
+    }
+    .group-badge {
+      width: 1.5rem;
+      height: 1.5rem;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: #2563eb;
+      color: #fff;
+      font-weight: 700;
+      font-size: 0.75rem;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .leader-name {
+      background: #fef3c7;
+      border: 1px solid #fbbf24;
+      border-radius: 0.25rem;
+      padding: 0.2rem 0.5rem;
+      font-weight: 600;
+      font-size: 0.8rem;
+    }
+    .member-row {
+      display: flex;
+      flex-wrap: nowrap;
+      align-items: center;
+      gap: 0;
+      margin-bottom: 0.4rem;
+    }
+    .member-row:last-child {
+      margin-bottom: 0;
+    }
+    .member-card {
+      background: #fff;
+      border: 1px solid #cbd5e1;
+      border-radius: 0.25rem;
+      padding: 0.25rem 0.5rem;
+      font-size: 0.8rem;
+      color: #1e293b;
+      white-space: nowrap;
+    }
+    .connector {
+      width: 0.75rem;
+      height: 2px;
+      background: #94a3b8;
+      flex-shrink: 0;
+    }
+    .loading {
+      text-align: center;
+      padding: 2rem;
+      color: #64748b;
+    }
+    .error {
+      text-align: center;
+      padding: 2rem;
+      color: #dc2626;
+    }
+
+    /* 印刷用スタイル（A4横向き） */
+    @page {
+      size: A4 landscape;
+      margin: 8mm;
+    }
+    @media print {
+      body {
+        background: #fff;
+        padding: 0;
+      }
+      .header {
+        margin-bottom: 5mm;
+        padding-bottom: 3mm;
+      }
+      .header h1 {
+        font-size: 14pt;
+      }
+      .groups-container {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 4mm;
+      }
+      .group-section {
+        break-inside: avoid;
+        padding: 3mm;
+        border: 1.5pt solid #666;
+      }
+      .group-header {
+        font-size: 11pt;
+        margin-bottom: 2mm;
+        padding-bottom: 1.5mm;
+        border-bottom: 1pt solid #ddd;
+      }
+      .group-badge {
+        width: 14pt;
+        height: 14pt;
+        font-size: 9pt;
+        background: #2563eb !important;
+        print-color-adjust: exact;
+        -webkit-print-color-adjust: exact;
+      }
+      .leader-name {
+        font-size: 10pt;
+        padding: 1mm 2mm;
+        background: #fef3c7 !important;
+        print-color-adjust: exact;
+        -webkit-print-color-adjust: exact;
+      }
+      .member-row {
+        margin-bottom: 1.5mm;
+      }
+      .member-card {
+        font-size: 9pt;
+        padding: 1mm 2mm;
+      }
+      .connector {
+        width: 3mm;
+        height: 1.5pt;
+      }
+    }
+
+    /* スマホ用 */
+    @media (max-width: 640px) {
+      body {
+        padding: 0.75rem;
+      }
+      .header h1 {
+        font-size: 1.1rem;
+      }
+      .group-section {
+        padding: 0.5rem;
+      }
+      .group-header {
+        font-size: 0.85rem;
+      }
+      .group-badge {
+        width: 1.25rem;
+        height: 1.25rem;
+        font-size: 0.7rem;
+      }
+      .leader-name {
+        font-size: 0.75rem;
+      }
+      .member-card {
+        font-size: 0.75rem;
+        padding: 0.2rem 0.4rem;
+      }
+      .connector {
+        width: 0.5rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>連絡網グループ一覧</h1>
+    <p>守成クラブ福岡飯塚</p>
+  </div>
+
+  <div class="scroll-wrapper">
+    <div id="groupsContainer" class="groups-container">
+      <div class="loading">読み込み中...</div>
+    </div>
+  </div>
+
+  <script>
+    function escapeHtml(str) {
+      if (str == null) return '';
+      return String(str).replace(/[&<>"']/g, function(s) {
+        var map = {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'};
+        return map[s] || s;
+      });
+    }
+
+    function loadContactGroups() {
+      var container = document.getElementById('groupsContainer');
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (!result.success) {
+            container.innerHTML = '<div class="error">エラー: ' + escapeHtml(result.error) + '</div>';
+            return;
+          }
+
+          if (!result.groups || result.groups.length === 0) {
+            container.innerHTML = '<div class="loading">連絡網データがありません</div>';
+            return;
+          }
+
+          var html = '';
+          result.groups.forEach(function(group) {
+            html += '<div class="group-section">';
+            html += '<div class="group-header">';
+            html += '<span class="group-badge">' + escapeHtml(group.name) + '</span>グループ　';
+            html += '<span class="leader-name">' + escapeHtml(group.leader || '未設定') + '</span>';
+            html += '</div>';
+
+            if (group.rows && group.rows.length > 0) {
+              group.rows.forEach(function(row) {
+                html += '<div class="member-row">';
+                row.forEach(function(name, idx) {
+                  html += '<div class="member-card">' + escapeHtml(name) + '</div>';
+                  if (idx < row.length - 1) {
+                    html += '<span class="connector"></span>';
+                  }
+                });
+                html += '</div>';
+              });
+            }
+
+            html += '</div>';
+          });
+
+          container.innerHTML = html;
+        })
+        .withFailureHandler(function(err) {
+          container.innerHTML = '<div class="error">読み込みエラー: ' + escapeHtml(err.message || err) + '</div>';
+        })
+        .getContactGroups();
+    }
+
+    document.addEventListener('DOMContentLoaded', loadContactGroups);
+  </script>
+</body>
+</html>

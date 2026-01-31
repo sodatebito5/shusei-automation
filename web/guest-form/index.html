@@ -191,13 +191,13 @@
     </div>
 
     <label>
-      1. どの例会
-      <span class="required-badge">必須</span>
+      1. 対象例会
     </label>
-    <select id="event-select">
-      <option value="">選択してください</option>
-    </select>
-    <div class="helper" id="event-helper"></div>
+    <div id="event-display" style="padding: 12px 14px; background: #f3f4f6; border-radius: 10px; font-size: 16px; font-weight: 600; color: #374151;">
+      ⏳ 読み込み中...
+    </div>
+    <input type="hidden" id="event-select" value="">
+    <div class="helper" id="event-helper">※ 自動で対象例会が設定されます</div>
 
     <label>
       2. ゲスト氏名
@@ -331,52 +331,36 @@
       });
     }
 
-    /* --- 例会日を計算（2月のみ第1水曜、それ以外は第2水曜） --- */
-function getMeetingWednesday(year, monthIndex) {
-  const first = new Date(year, monthIndex, 1);
-  const diff = (3 - first.getDay() + 7) % 7;
-  
-  // 2月（monthIndex = 1）は第1水曜日
-  if (monthIndex === 1) {
-    return new Date(year, monthIndex, 1 + diff);
-  }
-  
-  // それ以外は第2水曜日
-  return new Date(year, monthIndex, 1 + diff + 7);
-}
+    // ★ 出欠GASのURL（イベントキー取得用）
+    const ATTENDANCE_GAS_URL = 'https://script.google.com/macros/s/AKfycby-rXLMy1lKIhyl60ZaS_tCob20cAuCgrkzf9B0Ky738DyvTWNBh_7AuDb1iNrEhf7ElA/exec';
 
-    /* --- プルダウン設定 --- */
-    function setupEventSelect() {
-      const select = $('event-select');
-      const helper = $('event-helper');
+    /* --- イベントキーをバックエンドから取得 --- */
+    async function setupEventSelect() {
+      const display = $('event-display');
+      const hiddenInput = $('event-select');
 
-      const today = new Date();
-      let year = today.getFullYear();
-      let month = today.getMonth();
+      try {
+        const url = ATTENDANCE_GAS_URL + '?mode=getGuestEventKey';
+        const response = await fetch(url);
+        const data = await response.json();
 
-      let startOffset = 0;
-      if (getMeetingWednesday(year, month) < new Date(year, month, today.getDate())) {
-        startOffset = 1;
+        if (data.success && data.eventKey) {
+          // 表示を更新
+          display.textContent = data.eventKey;
+          display.style.color = '#16a34a';
+          // hidden inputに値をセット
+          hiddenInput.value = data.eventKey;
+          // バリデーション再実行
+          validateStep1();
+        } else {
+          display.textContent = '⚠️ 取得できませんでした';
+          display.style.color = '#dc2626';
+        }
+      } catch (e) {
+        console.error('イベントキー取得エラー:', e);
+        display.textContent = '⚠️ 通信エラー';
+        display.style.color = '#dc2626';
       }
-
-      for (let i = startOffset; i <= startOffset + 2; i++) {
-        const m = month + i;
-        const y = year + Math.floor(m / 12);
-        const mi = (m + 12) % 12;
-        const d = getMeetingWednesday(y, mi);
-
-        const labelMonth = mi + 1;
-        const dateStr = `${y}年${labelMonth}月${d.getDate()}日（水）`;
-        const label = `${dateStr} ${labelMonth}月例会`;
-        const value = `${y}年${labelMonth}月例会`;
-
-        const opt = document.createElement('option');
-        opt.value = value;
-        opt.textContent = label;
-        select.appendChild(opt);
-      }
-
-      helper.textContent = '※ 福岡飯塚会場（第2水曜日）／最大2ヶ月先まで選択可能';
     }
 
     /* --- 名刺（表面）変更時 --- */
@@ -542,7 +526,7 @@ async function onSubmit() {
       initLiff();
 
       [
-        'event-select',
+        // 'event-select' は hidden で自動設定されるため除外
         'guest-name',
         'guest-kana',
         'company',

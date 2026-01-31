@@ -117,6 +117,16 @@ npm run deploy    # 本番デプロイ
 ```
 
 テストURL: https://script.google.com/macros/s/AKfycbz5j-qZV2RW5nU2PoYEQYUQKooGSWtboHMPOgjSIQI/dev
+本番URL: https://script.google.com/macros/s/AKfycbzgVIzNjfW_UHihZS5bwrWM7xix0U4dnodZSlq7nPC8eGXGu_Fj6haCzivxiARVDPGL/exec
+
+> ⚠️ **デプロイ後の必須作業**
+>
+> GASの本番デプロイ後、Apps Script エディタで以下を確認すること：
+> 1. 「デプロイ」→「デプロイを管理」を開く
+> 2. 最新バージョンの「アクセスできるユーザー」が「全員」になっているか確認
+> 3. 「全員」以外の場合は「デプロイを編集」で変更する
+>
+> ※ clasp deploy では「次のユーザーとして実行: 自分」「アクセスできるユーザー: 全員」の設定が引き継がれない場合がある
 
 ### 自動配席アプリ（Cloudflare Pages）
 

@@ -22,6 +22,10 @@ const SALES_SHEET_NAME = 'sales';
 // 紹介記録シート名（追加）
 const REFERRAL_SHEET_NAME = '紹介記録';
 
+// LINE Messaging API 用
+const LINE_CHANNEL_ACCESS_TOKEN = 'h0EwnRvQt+stn4OpyTv12UdZCpYa+KOm736YQuULhuygATdHdXaGmXqwLben8m9TxPnT5UZ59Uzd3gchFemLEmbFXHuaF5TRo44nZV+Qvs36njrFWUxfqhf7zoQTxOCHfpOUofjisza9VwhN+ZzNoAdB04t89/1O/w1cDnyilFU=';
+const LINE_MESSAGE_LIMIT = 200;  // LINE無料枠（月200通）
+
 // 役割分担シート名
 const ROLE_ASSIGNMENT_SHEET_NAME = '役割分担';
 
@@ -782,6 +786,71 @@ function doGet(e) {
         .createTextOutput(JSON.stringify({ success: false, error: err.message }))
         .setMimeType(ContentService.MimeType.JSON);
     }
+  }
+
+  // ★出欠リマインド機能: 未回答者リスト取得
+  if (action === 'getUnrespondedMembersForReminder') {
+    try {
+      const result = getUnrespondedMembersForReminder();
+      return ContentService
+        .createTextOutput(JSON.stringify(result))
+        .setMimeType(ContentService.MimeType.JSON);
+    } catch (err) {
+      return ContentService
+        .createTextOutput(JSON.stringify({ success: false, error: err.message }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+
+  // ★出欠リマインド機能: ドライラン（テスト実行）
+  if (action === 'sendAttendanceReminderDryRun') {
+    try {
+      const result = sendAttendanceReminderDryRun();
+      return ContentService
+        .createTextOutput(JSON.stringify(result))
+        .setMimeType(ContentService.MimeType.JSON);
+    } catch (err) {
+      return ContentService
+        .createTextOutput(JSON.stringify({ success: false, error: err.message }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+
+  // ★出欠リマインド機能: トリガー状態取得
+  if (action === 'getReminderTriggerStatus') {
+    try {
+      const result = getReminderTriggerStatus();
+      return ContentService
+        .createTextOutput(JSON.stringify(result))
+        .setMimeType(ContentService.MimeType.JSON);
+    } catch (err) {
+      return ContentService
+        .createTextOutput(JSON.stringify({ success: false, error: err.message }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+
+  // ★連絡網グループ取得
+  if (action === 'getContactGroups') {
+    try {
+      const result = getContactGroups();
+      return ContentService
+        .createTextOutput(JSON.stringify(result))
+        .setMimeType(ContentService.MimeType.JSON);
+    } catch (err) {
+      return ContentService
+        .createTextOutput(JSON.stringify({ success: false, error: err.message }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+
+  // ★連絡網専用ページ（全会員向け）
+  const page = e.parameter.page || '';
+  if (page === 'contact') {
+    return HtmlService.createTemplateFromFile('contact')
+      .evaluate()
+      .setTitle('連絡網グループ - 守成クラブ福岡飯塚')
+      .addMetaTag('viewport', 'width=device-width, initial-scale=1');
   }
 
   const userId = e.parameter.userId;
@@ -3999,6 +4068,62 @@ function doPost(e) {
     }
   }
 
+  // ★出欠リマインド機能: リマインド送信（本番）
+  if (action === 'sendAttendanceReminder') {
+    try {
+      const jsonText = (e.postData && e.postData.contents) || '{}';
+      const payload = JSON.parse(jsonText);
+      const result = sendAttendanceReminder(payload.userIds || []);
+      return ContentService
+        .createTextOutput(JSON.stringify(result))
+        .setMimeType(ContentService.MimeType.JSON);
+    } catch (err) {
+      return ContentService
+        .createTextOutput(JSON.stringify({
+          success: false,
+          error: 'invalid JSON: ' + err.message
+        }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+
+  // ★出欠リマインド機能: トリガー設定
+  if (action === 'setupReminderTriggers') {
+    try {
+      const jsonText = (e.postData && e.postData.contents) || '{}';
+      const payload = JSON.parse(jsonText);
+      const year = payload.year || new Date().getFullYear();
+      const result = setupReminderTriggers(year);
+      return ContentService
+        .createTextOutput(JSON.stringify(result))
+        .setMimeType(ContentService.MimeType.JSON);
+    } catch (err) {
+      return ContentService
+        .createTextOutput(JSON.stringify({
+          success: false,
+          error: 'invalid JSON: ' + err.message
+        }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+
+  // ★出欠リマインド機能: トリガー削除
+  if (action === 'clearReminderTriggers') {
+    try {
+      const result = clearReminderTriggers();
+      return ContentService
+        .createTextOutput(JSON.stringify(result))
+        .setMimeType(ContentService.MimeType.JSON);
+    } catch (err) {
+      return ContentService
+        .createTextOutput(JSON.stringify({
+          success: false,
+          error: err.message
+        }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+
   // 未対応のaction
   return ContentService
     .createTextOutput(JSON.stringify({
@@ -5810,8 +5935,122 @@ const MEMBER_COL = {
   ROLE_X: 23,            // X: 役割分担
   ROLE_Y: 24,            // Y: 役割分担
   ROLE_Z: 25,            // Z: 役割分担
-  RETIRED: 26            // AA: 退会
+  RETIRED: 26,           // AA: 退会
+  GROUP: 27,             // AB: グループ（連絡網）
+  LEADER_FLAG: 28,       // AC: リーダーフラグ（〇）
+  CONTACT_ORDER: 29      // AD: 連絡網順序（例: A1-2）
 };
+
+/**
+ * 連絡網グループ情報を取得
+ * 会員名簿マスターのAB列（グループ）、AC列（リーダーフラグ）、AD列（連絡網順序）を使用
+ * AD列の形式: A1-2 = Aグループ、1行目、2番目
+ * 退会者（AA列）は除外
+ * @returns {Object} { success, groups: [{name, leader, rows: [[名前,...], [名前,...]]}, ...] }
+ */
+function getContactGroups() {
+  try {
+    const ss = SpreadsheetApp.openById(ATTEND_GUEST_SHEET_ID);
+    const sh = ss.getSheetByName(MEMBER_SHEET_NAME);
+
+    if (!sh) {
+      return { success: false, error: '会員名簿マスターが見つかりません', groups: [] };
+    }
+
+    const values = sh.getDataRange().getValues();
+    if (values.length < 3) {
+      return { success: true, groups: [] };
+    }
+
+    // グループごとにメンバーを集計
+    const groupMap = {};
+
+    // 3行目以降がデータ（1,2行目はヘッダー）
+    for (let i = 2; i < values.length; i++) {
+      const row = values[i];
+      const name = String(row[MEMBER_COL.NAME] || '').trim();
+      const retired = String(row[MEMBER_COL.RETIRED] || '').trim();
+      const group = String(row[MEMBER_COL.GROUP] || '').trim();
+      const leaderFlag = String(row[MEMBER_COL.LEADER_FLAG] || '').trim();
+      const contactOrder = String(row[MEMBER_COL.CONTACT_ORDER] || '').trim();
+
+      // 退会者は除外
+      if (retired) continue;
+      // 名前がない行は除外
+      if (!name) continue;
+      // グループが未設定の場合は除外
+      if (!group) continue;
+
+      // グループ初期化
+      if (!groupMap[group]) {
+        groupMap[group] = {
+          name: group,
+          leader: null,
+          membersWithOrder: []  // {name, row, pos} の配列
+        };
+      }
+
+      // リーダーフラグが「〇」ならリーダー
+      if (leaderFlag === '〇' || leaderFlag === '○') {
+        groupMap[group].leader = name;
+      } else {
+        // 連絡網順序をパース（例: A1-2 → row=1, pos=2）
+        let rowNum = 1;
+        let posNum = 999;
+        if (contactOrder) {
+          const match = contactOrder.match(/^[A-J](\d+)-(\d+)$/);
+          if (match) {
+            rowNum = parseInt(match[1], 10);
+            posNum = parseInt(match[2], 10);
+          }
+        }
+        groupMap[group].membersWithOrder.push({ name, rowNum, posNum });
+      }
+    }
+
+    // A〜Jの順にソートして配列化、メンバーを行ごとに整理
+    const sortedGroups = Object.keys(groupMap)
+      .sort()
+      .map(groupName => {
+        const g = groupMap[groupName];
+
+        // メンバーを行番号・位置番号でソート
+        g.membersWithOrder.sort((a, b) => {
+          if (a.rowNum !== b.rowNum) return a.rowNum - b.rowNum;
+          return a.posNum - b.posNum;
+        });
+
+        // 行ごとにグループ化
+        const rowsMap = {};
+        g.membersWithOrder.forEach(m => {
+          if (!rowsMap[m.rowNum]) {
+            rowsMap[m.rowNum] = [];
+          }
+          rowsMap[m.rowNum].push(m.name);
+        });
+
+        // 行番号順に配列化
+        const rows = Object.keys(rowsMap)
+          .sort((a, b) => parseInt(a) - parseInt(b))
+          .map(rowNum => rowsMap[rowNum]);
+
+        return {
+          name: g.name,
+          leader: g.leader,
+          rows: rows
+        };
+      });
+
+    return {
+      success: true,
+      groups: sortedGroups
+    };
+
+  } catch (e) {
+    Logger.log('getContactGroups error: ' + e.message);
+    return { success: false, error: e.message, groups: [] };
+  }
+}
 
 /**
  * 会員編集用パスワードを検証
@@ -6328,5 +6567,769 @@ function logMemberChange_(operationType, memberId, memberName, changes) {
   } catch (e) {
     Logger.log('logMemberChange_ error: ' + e.message);
     // 履歴記録のエラーは無視（メイン処理を止めない）
+  }
+}
+
+/** =========================================================
+ *  出欠リマインド送信機能
+ * ======================================================= */
+
+/**
+ * 未回答者リスト取得（リマインド送信用）
+ * 会員名簿マスターと出欠状況を突合して未回答者を抽出
+ * @returns {Object} { success, eventInfo, members: [{name, userId, team, hasLineId}, ...], noLineIdMembers: [...] }
+ */
+function getUnrespondedMembersForReminder() {
+  try {
+    // 1. 設定シートから次回例会情報を取得
+    const ss = SpreadsheetApp.openById(CONFIG_SHEET_ID);
+    const configSheet = ss.getSheetByName(CONFIG_SHEET_NAME);
+
+    if (!configSheet) {
+      return { success: false, message: '設定シートが見つかりません' };
+    }
+
+    // F2: 次回イベントキー、G2: 次回開催日、J2: 回答期限
+    const nextEventKey = String(configSheet.getRange('F2').getValue() || '').trim();
+    const nextEventDateRaw = configSheet.getRange('G2').getValue();
+    const deadlineRaw = configSheet.getRange('J2').getValue();
+
+    if (!nextEventKey) {
+      return { success: false, message: '次回イベントキーが設定されていません（設定シートF2）' };
+    }
+
+    const nextEventDate = nextEventDateRaw ? new Date(nextEventDateRaw) : null;
+
+    // 回答期限: J2が有効な日付なら使用、そうでなければ開催月の前月末日
+    let deadline = null;
+    if (deadlineRaw && deadlineRaw instanceof Date && !isNaN(deadlineRaw.getTime())) {
+      deadline = deadlineRaw;
+    } else if (nextEventDate) {
+      // new Date(year, month, 0) で前月末日を取得（2月例会→1/31）
+      deadline = new Date(nextEventDate.getFullYear(), nextEventDate.getMonth(), 0);
+    }
+
+    // イベントキーを日本語形式に変換（2026年2月例会）
+    const eventKeyJp = eventKeyToJapanese_(nextEventKey);
+
+    // 日付をフォーマット
+    const formatDate = (date) => {
+      if (!date) return '';
+      const weekdays = ['日', '月', '火', '水', '木', '金', '土'];
+      return Utilities.formatDate(date, 'Asia/Tokyo', 'M月d日') + '（' + weekdays[date.getDay()] + '）';
+    };
+
+    const eventInfo = {
+      eventKey: nextEventKey,
+      eventKeyJp: eventKeyJp,
+      eventDate: formatDate(nextEventDate),
+      deadline: formatDate(deadline)
+    };
+
+    // 2. 出欠状況シートから回答済みuserIdセットを作成
+    const attendSs = SpreadsheetApp.openById(ATTEND_GUEST_SHEET_ID);
+    const attendSheet = attendSs.getSheetByName(ATTEND_SHEET_NAME);
+
+    if (!attendSheet) {
+      return { success: false, message: '出欠状況シートが見つかりません' };
+    }
+
+    const attendData = attendSheet.getDataRange().getValues();
+    const answeredUserIds = new Set();
+
+    // ヘッダー行を確認（B列: eventKey, C列: userId）
+    for (let i = 3; i < attendData.length; i++) {
+      const rowEventKey = String(attendData[i][1] || '').trim(); // B列
+      const rowUserId = String(attendData[i][2] || '').trim();   // C列
+
+      // 対象イベントの回答のみ抽出
+      if (rowEventKey === eventKeyJp && rowUserId) {
+        answeredUserIds.add(rowUserId);
+      }
+    }
+
+    // 3. 会員名簿マスターから未回答者を抽出
+    const memberSheet = attendSs.getSheetByName(MEMBER_SHEET_NAME);
+    if (!memberSheet) {
+      return { success: false, message: '会員名簿マスターが見つかりません' };
+    }
+
+    const memberData = memberSheet.getDataRange().getValues();
+    const membersWithLineId = [];
+    const membersNoLineId = [];
+
+    // 列インデックス（0始まり）
+    const COL = {
+      BADGE: 1,       // B列: バッジ
+      NAME: 2,        // C列: 氏名
+      TEAM: 8,        // I列: チーム
+      LINE_USER_ID: 15, // P列: LINE_userId
+      RETIRED: 26     // AA列: 退会
+    };
+
+    for (let i = 2; i < memberData.length; i++) {
+      const row = memberData[i];
+      const name = String(row[COL.NAME] || '').trim();
+      const userId = String(row[COL.LINE_USER_ID] || '').trim();
+      const team = String(row[COL.TEAM] || '').trim();
+      const badge = String(row[COL.BADGE] || '').trim();
+      const retired = String(row[COL.RETIRED] || '').trim();
+
+      // 退会者はスキップ
+      if (retired) continue;
+      if (!name) continue;
+
+      // 回答済みはスキップ
+      if (userId && answeredUserIds.has(userId)) continue;
+
+      const member = { name, team, badge };
+
+      if (userId) {
+        member.userId = userId;
+        member.hasLineId = true;
+        membersWithLineId.push(member);
+      } else {
+        member.hasLineId = false;
+        membersNoLineId.push(member);
+      }
+    }
+
+    return {
+      success: true,
+      eventInfo: eventInfo,
+      members: membersWithLineId,
+      noLineIdMembers: membersNoLineId,
+      answeredCount: answeredUserIds.size
+    };
+
+  } catch (e) {
+    Logger.log('getUnrespondedMembersForReminder error: ' + e.message);
+    return { success: false, message: e.message };
+  }
+}
+
+/**
+ * イベントキーを日本語形式に変換
+ * @param {string} eventKey - イベントキー（例: 202602_01）
+ * @returns {string} 日本語形式（例: 2026年2月例会）
+ */
+function eventKeyToJapanese_(eventKey) {
+  if (!eventKey) return '';
+
+  // 既に日本語形式なら変換しない
+  if (eventKey.includes('年')) return eventKey;
+
+  // 202602_01 → 2026年2月例会
+  const match = eventKey.match(/^(\d{4})(\d{2})_\d{2}$/);
+  if (match) {
+    const year = match[1];
+    const month = parseInt(match[2], 10);
+    return year + '年' + month + '月例会';
+  }
+
+  return eventKey;
+}
+
+/**
+ * リマインドメッセージを生成
+ * 設定シートに保存されたテンプレートを使用（なければデフォルト）
+ * プレースホルダー: {{eventDate}}, {{deadline}}
+ * @param {string} eventDate - 例会日程（例: 2月13日（木））
+ * @param {string} deadline - 回答期限（例: 2月10日（月））
+ * @returns {string} メッセージテキスト
+ */
+function buildReminderMessage_(eventDate, deadline) {
+  // テンプレートを取得
+  const templateResult = getReminderMessageTemplate();
+  let template = templateResult.success ? templateResult.template : getDefaultReminderTemplate_();
+
+  // プレースホルダーを置換
+  const message = template
+    .replace(/\{\{eventDate\}\}/g, eventDate || '未設定')
+    .replace(/\{\{deadline\}\}/g, deadline || '未設定');
+
+  return message;
+}
+
+/**
+ * LINEメッセージ送信（単一ユーザー）
+ * @param {string} toUserId - 送信先のLINE userId
+ * @param {string} messageText - メッセージテキスト
+ * @returns {Object} { success, statusCode, response }
+ */
+function pushLineMessage_(toUserId, messageText) {
+  if (!LINE_CHANNEL_ACCESS_TOKEN) {
+    return { success: false, error: 'LINE_CHANNEL_ACCESS_TOKEN が設定されていません' };
+  }
+  if (!toUserId) {
+    return { success: false, error: 'toUserId が指定されていません' };
+  }
+
+  const url = 'https://api.line.me/v2/bot/message/push';
+
+  const payload = {
+    to: toUserId,
+    messages: [{ type: 'text', text: messageText }]
+  };
+
+  const params = {
+    method: 'post',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ' + LINE_CHANNEL_ACCESS_TOKEN
+    },
+    payload: JSON.stringify(payload),
+    muteHttpExceptions: true
+  };
+
+  try {
+    const res = UrlFetchApp.fetch(url, params);
+    const statusCode = res.getResponseCode();
+    const responseText = res.getContentText();
+
+    Logger.log('LINE push to ' + toUserId + ': status=' + statusCode);
+
+    return {
+      success: statusCode === 200,
+      statusCode: statusCode,
+      response: responseText
+    };
+  } catch (e) {
+    Logger.log('LINE push error: ' + e.message);
+    return { success: false, error: e.message };
+  }
+}
+
+/**
+ * リマインド送信（ドライラン/テスト実行）
+ * 実際には送信せず、対象者リストと件数を返す
+ * @returns {Object} { success, eventInfo, targetCount, targets, message }
+ */
+function sendAttendanceReminderDryRun() {
+  const result = getUnrespondedMembersForReminder();
+
+  if (!result.success) {
+    return result;
+  }
+
+  const targets = result.members.map(m => ({
+    name: m.name,
+    team: m.team,
+    badge: m.badge
+  }));
+
+  const messagePreview = buildReminderMessage_(
+    result.eventInfo.eventDate,
+    result.eventInfo.deadline
+  );
+
+  return {
+    success: true,
+    eventInfo: result.eventInfo,
+    targetCount: result.members.length,
+    targets: targets,
+    noLineIdCount: result.noLineIdMembers.length,
+    noLineIdMembers: result.noLineIdMembers,
+    messagePreview: messagePreview,
+    message: `テスト実行完了: ${result.members.length}名が送信対象です（LINE未登録: ${result.noLineIdMembers.length}名）`
+  };
+}
+
+/**
+ * リマインド送信（本番）
+ * @param {Array<string>} userIds - 送信対象のuserIdリスト（省略時は全未回答者）
+ * @param {string} customMessage - カスタムメッセージ（省略時はデフォルトメッセージ）
+ * @returns {Object} { success, sent, failed, errors, message }
+ */
+function sendAttendanceReminder(userIds, customMessage) {
+  try {
+    const result = getUnrespondedMembersForReminder();
+
+    if (!result.success) {
+      return result;
+    }
+
+    // 送信対象を決定
+    let targets = result.members;
+    if (userIds && userIds.length > 0) {
+      // 指定されたuserIdのみ送信
+      const targetSet = new Set(userIds);
+      targets = result.members.filter(m => targetSet.has(m.userId));
+    }
+
+    if (targets.length === 0) {
+      return { success: false, message: '送信対象者がいません' };
+    }
+
+    // メッセージ: カスタムメッセージがあればそれを使用、なければデフォルト
+    const message = customMessage || buildReminderMessage_(
+      result.eventInfo.eventDate,
+      result.eventInfo.deadline
+    );
+
+    // 送信実行
+    let sentCount = 0;
+    let failedCount = 0;
+    const errors = [];
+
+    for (let i = 0; i < targets.length; i++) {
+      const target = targets[i];
+
+      // API制限対策: 100ms間隔
+      if (i > 0) {
+        Utilities.sleep(100);
+      }
+
+      const sendResult = pushLineMessage_(target.userId, message);
+
+      if (sendResult.success) {
+        sentCount++;
+        Logger.log('送信成功: ' + target.name);
+      } else {
+        failedCount++;
+        errors.push({ name: target.name, error: sendResult.error || sendResult.response });
+        Logger.log('送信失敗: ' + target.name + ' - ' + (sendResult.error || sendResult.response));
+      }
+    }
+
+    return {
+      success: true,
+      sent: sentCount,
+      failed: failedCount,
+      errors: errors,
+      message: `送信完了: 成功 ${sentCount}件、失敗 ${failedCount}件`
+    };
+
+  } catch (e) {
+    Logger.log('sendAttendanceReminder error: ' + e.message);
+    return { success: false, message: e.message };
+  }
+}
+
+/** =========================================================
+ *  出欠リマインド自動送信トリガー管理
+ * ======================================================= */
+
+/**
+ * 指定年の月末日リストを取得
+ * @param {number} year - 年（例: 2026）
+ * @returns {Date[]} 月末日の配列（12個）
+ */
+function getLastDaysOfYear_(year) {
+  const lastDays = [];
+  for (let month = 1; month <= 12; month++) {
+    // new Date(year, month, 0) で月末日を取得
+    const lastDay = new Date(year, month, 0);
+    lastDays.push(lastDay);
+  }
+  return lastDays;
+}
+
+/**
+ * 自動送信用リマインド関数（トリガーから呼ばれる）
+ * 未回答者全員に自動でリマインドを送信
+ */
+function autoSendAttendanceReminder() {
+  try {
+    Logger.log('autoSendAttendanceReminder: 自動送信開始');
+
+    const result = getUnrespondedMembersForReminder();
+
+    if (!result.success) {
+      Logger.log('autoSendAttendanceReminder: データ取得失敗 - ' + result.message);
+      return { success: false, message: result.message };
+    }
+
+    if (!result.members || result.members.length === 0) {
+      Logger.log('autoSendAttendanceReminder: 未回答者なし');
+      return { success: true, sent: 0, message: '未回答者なし' };
+    }
+
+    // デフォルトメッセージを生成
+    const message = buildReminderMessage_(
+      result.eventInfo.eventDate,
+      result.eventInfo.deadline
+    );
+
+    // 送信実行
+    let sentCount = 0;
+    let failedCount = 0;
+    const errors = [];
+
+    for (let i = 0; i < result.members.length; i++) {
+      const target = result.members[i];
+
+      // API制限対策: 100ms間隔
+      if (i > 0) {
+        Utilities.sleep(100);
+      }
+
+      const sendResult = pushLineMessage_(target.userId, message);
+
+      if (sendResult.success) {
+        sentCount++;
+        Logger.log('自動送信成功: ' + target.name);
+      } else {
+        failedCount++;
+        errors.push({ name: target.name, error: sendResult.error || sendResult.response });
+        Logger.log('自動送信失敗: ' + target.name + ' - ' + (sendResult.error || sendResult.response));
+      }
+    }
+
+    const resultMessage = `自動送信完了: 成功 ${sentCount}件、失敗 ${failedCount}件`;
+    Logger.log('autoSendAttendanceReminder: ' + resultMessage);
+
+    return {
+      success: true,
+      sent: sentCount,
+      failed: failedCount,
+      errors: errors,
+      message: resultMessage
+    };
+
+  } catch (e) {
+    Logger.log('autoSendAttendanceReminder error: ' + e.message);
+    return { success: false, message: e.message };
+  }
+}
+
+/**
+ * 1年分のリマインドトリガーを一括作成
+ * 毎月末日の12:00にautoSendAttendanceReminderを実行
+ * @param {number} year - 対象年
+ * @returns {Object} { success, created, skipped, message }
+ */
+function setupReminderTriggers(year) {
+  try {
+    // まず既存のリマインドトリガーを削除
+    clearReminderTriggers();
+
+    const lastDays = getLastDaysOfYear_(year);
+    const now = new Date();
+    let createdCount = 0;
+    let skippedCount = 0;
+    const createdDates = [];
+
+    for (const lastDay of lastDays) {
+      // 過去の日付はスキップ
+      if (lastDay < now) {
+        skippedCount++;
+        continue;
+      }
+
+      // 12:00 JSTに設定
+      const triggerDate = new Date(lastDay.getFullYear(), lastDay.getMonth(), lastDay.getDate(), 12, 0, 0);
+
+      ScriptApp.newTrigger('autoSendAttendanceReminder')
+        .timeBased()
+        .at(triggerDate)
+        .create();
+
+      createdCount++;
+      createdDates.push(Utilities.formatDate(triggerDate, 'Asia/Tokyo', 'M/d'));
+    }
+
+    const message = `${year}年のトリガーを${createdCount}件作成しました（スキップ: ${skippedCount}件）`;
+    Logger.log('setupReminderTriggers: ' + message);
+
+    return {
+      success: true,
+      created: createdCount,
+      skipped: skippedCount,
+      dates: createdDates,
+      message: message
+    };
+
+  } catch (e) {
+    Logger.log('setupReminderTriggers error: ' + e.message);
+    return { success: false, message: e.message };
+  }
+}
+
+/**
+ * リマインドトリガーを全削除
+ * @returns {Object} { success, deleted, message }
+ */
+function clearReminderTriggers() {
+  try {
+    const triggers = ScriptApp.getProjectTriggers();
+    let deletedCount = 0;
+
+    for (const trigger of triggers) {
+      if (trigger.getHandlerFunction() === 'autoSendAttendanceReminder') {
+        ScriptApp.deleteTrigger(trigger);
+        deletedCount++;
+      }
+    }
+
+    const message = `${deletedCount}件のトリガーを削除しました`;
+    Logger.log('clearReminderTriggers: ' + message);
+
+    return {
+      success: true,
+      deleted: deletedCount,
+      message: message
+    };
+
+  } catch (e) {
+    Logger.log('clearReminderTriggers error: ' + e.message);
+    return { success: false, message: e.message };
+  }
+}
+
+/**
+ * リマインドトリガーの状態を取得
+ * @returns {Object} { success, count, nextTrigger, triggers }
+ */
+function getReminderTriggerStatus() {
+  try {
+    const triggers = ScriptApp.getProjectTriggers();
+    const reminderTriggers = [];
+    let nextTrigger = null;
+    const now = new Date();
+
+    for (const trigger of triggers) {
+      if (trigger.getHandlerFunction() === 'autoSendAttendanceReminder') {
+        const triggerSource = trigger.getTriggerSource();
+
+        // 時間ベースのトリガーの場合
+        if (triggerSource === ScriptApp.TriggerSource.CLOCK) {
+          // トリガーの詳細情報を取得（制限あり）
+          const triggerId = trigger.getUniqueId();
+
+          reminderTriggers.push({
+            id: triggerId,
+            type: 'time-based'
+          });
+        }
+      }
+    }
+
+    // 次回送信日を計算（現在日以降の最初の月末日）
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth();
+
+    // 今月末日
+    let nextLastDay = new Date(currentYear, currentMonth + 1, 0, 12, 0, 0);
+
+    // 今月末日が過去なら来月末日
+    if (nextLastDay <= now) {
+      nextLastDay = new Date(currentYear, currentMonth + 2, 0, 12, 0, 0);
+    }
+
+    // トリガーが存在する場合のみ次回送信日を返す
+    if (reminderTriggers.length > 0) {
+      const weekdays = ['日', '月', '火', '水', '木', '金', '土'];
+
+      // 次回送信日（月末日）に対応する例会情報を計算
+      // 2/28送信 → 3月例会、回答期限は2/28
+      const targetEventMonth = nextLastDay.getMonth() + 2; // 翌月（0始まりなので+2）
+      const targetEventYear = targetEventMonth > 12
+        ? nextLastDay.getFullYear() + 1
+        : nextLastDay.getFullYear();
+      const adjustedMonth = targetEventMonth > 12 ? targetEventMonth - 12 : targetEventMonth;
+
+      // 回答期限は送信日（月末日）
+      const deadlineFormatted = Utilities.formatDate(nextLastDay, 'Asia/Tokyo', 'M月d日') + '（' + weekdays[nextLastDay.getDay()] + '）';
+
+      // 例会日程は設定シートのD列から取得
+      // D列には各月の例会日程が入っている（D2から順に日付リスト）
+      let eventDateFormatted = `${adjustedMonth}月例会`;
+      try {
+        const ss = SpreadsheetApp.openById(CONFIG_SHEET_ID);
+        const configSheet = ss.getSheetByName(CONFIG_SHEET_NAME);
+        if (configSheet) {
+          // D列から日付を取得（D2:D13）
+          const schedules = configSheet.getRange('D2:D13').getValues();
+          for (let i = 0; i < schedules.length; i++) {
+            const dateVal = schedules[i][0];
+            if (dateVal && dateVal instanceof Date) {
+              const month = dateVal.getMonth() + 1; // 1-12
+              if (month === adjustedMonth) {
+                eventDateFormatted = Utilities.formatDate(dateVal, 'Asia/Tokyo', 'M月d日') + '（' + weekdays[dateVal.getDay()] + '）';
+                break;
+              }
+            }
+          }
+        }
+      } catch (e) {
+        Logger.log('getReminderTriggerStatus: 設定シート読み込みエラー - ' + e.message);
+      }
+
+      nextTrigger = {
+        date: Utilities.formatDate(nextLastDay, 'Asia/Tokyo', 'M月d日'),
+        weekday: weekdays[nextLastDay.getDay()],
+        time: '12:00',
+        formatted: Utilities.formatDate(nextLastDay, 'Asia/Tokyo', 'M月d日') + '（' + weekdays[nextLastDay.getDay()] + '）12:00',
+        // 配信メッセージ用の情報
+        eventDate: eventDateFormatted,
+        deadline: deadlineFormatted
+      };
+    }
+
+    // 未回答者数も取得
+    let unrespondedCount = 0;
+    let noLineIdCount = 0;
+    let noLineIdNames = [];
+    try {
+      const reminderData = getUnrespondedMembersForReminder();
+      if (reminderData.success) {
+        unrespondedCount = reminderData.members ? reminderData.members.length : 0;
+        noLineIdCount = reminderData.noLineIdMembers ? reminderData.noLineIdMembers.length : 0;
+        noLineIdNames = reminderData.noLineIdMembers ? reminderData.noLineIdMembers.map(m => m.name) : [];
+      }
+    } catch (e) {
+      Logger.log('getReminderTriggerStatus: 未回答者取得エラー - ' + e.message);
+    }
+
+    return {
+      success: true,
+      count: reminderTriggers.length,
+      nextTrigger: nextTrigger,
+      triggers: reminderTriggers,
+      unrespondedCount: unrespondedCount,
+      noLineIdCount: noLineIdCount,
+      noLineIdNames: noLineIdNames
+    };
+
+  } catch (e) {
+    Logger.log('getReminderTriggerStatus error: ' + e.message);
+    return { success: false, message: e.message };
+  }
+}
+
+/** =========================================================
+ *  リマインドメッセージテンプレート管理
+ *  「出欠リマインド管理」シートを使用
+ * ======================================================= */
+
+const REMINDER_SHEET_NAME = '出欠リマインド管理';
+
+/**
+ * 出欠リマインド管理シートを取得（なければ作成）
+ */
+function getReminderSheet_() {
+  const ss = SpreadsheetApp.openById(CONFIG_SHEET_ID);
+  let sheet = ss.getSheetByName(REMINDER_SHEET_NAME);
+
+  if (!sheet) {
+    // シートを作成
+    sheet = ss.insertSheet(REMINDER_SHEET_NAME);
+    // ヘッダー設定
+    sheet.getRange('A1').setValue('メッセージテンプレート');
+    sheet.getRange('A1').setFontWeight('bold');
+    sheet.setColumnWidth(1, 600);
+    Logger.log('getReminderSheet_: シートを作成しました');
+  }
+
+  return sheet;
+}
+
+/**
+ * デフォルトのリマインドメッセージテンプレートを取得
+ * プレースホルダー: {{eventDate}}, {{deadline}}
+ */
+function getDefaultReminderTemplate_() {
+  return `【出欠回答のお願い】
+
+いつもお世話になっております。
+守成クラブ福岡飯塚 事務局です。
+
+※本メッセージと行き違いで
+　すでにご回答済みの場合は
+　何卒ご容赦ください。
+
+次回例会の出欠につきまして、
+まだご回答をいただいておりません。
+
+━━━━━━━━━━━━━━━━━━
+■ 例会日程
+　{{eventDate}}
+
+■ 回答期限
+　{{deadline}}
+
+■ ご注意
+　期限を過ぎますと
+　自動的に「出席」扱いとなります。
+
+　その後のキャンセルには
+　キャンセル料 4,000円が発生いたします。
+━━━━━━━━━━━━━━━━━━
+
+画面下部のリッチメニューより
+「例会出欠」ボタンを押して
+ご回答をお願いいたします。
+
+よろしくお願いいたします。`;
+}
+
+/**
+ * リマインドメッセージテンプレートを取得
+ * @returns {Object} { success, template, isDefault }
+ */
+function getReminderMessageTemplate() {
+  try {
+    const sheet = getReminderSheet_();
+    const savedTemplate = String(sheet.getRange('A2').getValue() || '').trim();
+
+    if (savedTemplate) {
+      return {
+        success: true,
+        template: savedTemplate,
+        isDefault: false
+      };
+    } else {
+      return {
+        success: true,
+        template: getDefaultReminderTemplate_(),
+        isDefault: true
+      };
+    }
+  } catch (e) {
+    Logger.log('getReminderMessageTemplate error: ' + e.message);
+    return { success: false, message: e.message };
+  }
+}
+
+/**
+ * リマインドメッセージテンプレートを保存
+ * @param {string} template - メッセージテンプレート
+ * @returns {Object} { success, message }
+ */
+function saveReminderMessageTemplate(template) {
+  try {
+    const sheet = getReminderSheet_();
+    sheet.getRange('A2').setValue(template);
+
+    Logger.log('saveReminderMessageTemplate: テンプレートを保存しました');
+    return { success: true, message: 'メッセージを保存しました' };
+  } catch (e) {
+    Logger.log('saveReminderMessageTemplate error: ' + e.message);
+    return { success: false, message: e.message };
+  }
+}
+
+/**
+ * リマインドメッセージテンプレートをデフォルトにリセット
+ * @returns {Object} { success, template, message }
+ */
+function resetReminderMessageTemplate() {
+  try {
+    const sheet = getReminderSheet_();
+    // セルをクリア（デフォルトを使用する状態に）
+    sheet.getRange('A2').clearContent();
+
+    const defaultTemplate = getDefaultReminderTemplate_();
+    Logger.log('resetReminderMessageTemplate: デフォルトにリセットしました');
+
+    return {
+      success: true,
+      template: defaultTemplate,
+      message: 'デフォルトメッセージにリセットしました'
+    };
+  } catch (e) {
+    Logger.log('resetReminderMessageTemplate error: ' + e.message);
+    return { success: false, message: e.message };
   }
 }

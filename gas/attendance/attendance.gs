@@ -7,8 +7,11 @@ const SHEET_ID = '1IPyjDi3uD-pSxtkF9JK7Uc5isi4lNw6nQKpv9hWUvic';
 
 // 出欠用
 const ATTEND_SHEET_NAME    = '出欠状況（自動）';      // 出欠履歴を書き込むシート
-const ATTEND_EVENT_KEY_DEF = '2025年12月例会';        // 出欠用デフォルトeventKey
 const ROSTER_SHEET_NAME    = '福岡飯塚_参加者名簿';  // 名簿シート
+
+// ★ イベントキー自動切り替え用（ダッシュボードの設定シート）
+const CONFIG_SHEET_ID   = '1R4GR1GZg6mJP9zPX5MTE0IsYEAdVLNIM314o7vBqrg8';
+const CONFIG_SHEET_NAME = '設定';
 
 // ゲスト用
 const GUEST_SHEET_NAME     = 'ゲスト出欠状況（自動）'; // ゲスト申請シート名
@@ -17,6 +20,98 @@ const GUEST_SHEET_NAME     = 'ゲスト出欠状況（自動）'; // ゲスト�
 const CHANNEL_ACCESS_TOKEN = 'h0EwnRvQt+stn4OpyTv12UdZCpYa+KOm736YQuULhuygATdHdXaGmXqwLben8m9TxPnT5UZ59Uzd3gchFemLEmbFXHuaF5TRo44nZV+Qvs36njrFWUxfqhf7zoQTxOCHfpOUofjisza9VwhN+ZzNoAdB04t89/1O/w1cDnyilFU=';
 const OWNER_USER_ID = 'U9e236db4178e6dd6a11ec761b0612a73';
 
+
+// ===============================
+// ★ イベントキー自動切り替え
+// ===============================
+
+/**
+ * 設定シートからイベント情報を取得
+ */
+function getEventSettings_() {
+  const ss = SpreadsheetApp.openById(CONFIG_SHEET_ID);
+  const sh = ss.getSheetByName(CONFIG_SHEET_NAME);
+
+  if (!sh) {
+    return { currentEventKey: '', currentEventDate: null, nextEventKey: '', nextEventDate: null };
+  }
+
+  const currentEventKey = String(sh.getRange('A2').getValue() || '').trim();
+  const currentEventDateRaw = sh.getRange('D2').getValue();
+  const nextEventKey = String(sh.getRange('F2').getValue() || '').trim();
+  const nextEventDateRaw = sh.getRange('G2').getValue();
+
+  return {
+    currentEventKey: currentEventKey,
+    currentEventDate: currentEventDateRaw ? new Date(currentEventDateRaw) : null,
+    nextEventKey: nextEventKey,
+    nextEventDate: nextEventDateRaw ? new Date(nextEventDateRaw) : null
+  };
+}
+
+/**
+ * 指定時刻を過ぎたかチェック
+ */
+function isPastSwitchTime_(eventDate, hour, dayOffset) {
+  if (!eventDate) return false;
+
+  const now = new Date();
+  const switchTime = new Date(eventDate);
+  switchTime.setDate(switchTime.getDate() + (dayOffset || 0));
+  switchTime.setHours(hour, 0, 0, 0);
+
+  return now >= switchTime;
+}
+
+/**
+ * 出欠アプリ用イベントキー取得
+ * H2に値があればそれを使用、なければ自動切り替えロジック
+ * @returns {string} イベントキー（日本語形式: 2026年1月例会）
+ */
+function getAttendanceEventKey_() {
+  const ss = SpreadsheetApp.openById(CONFIG_SHEET_ID);
+  const sh = ss.getSheetByName(CONFIG_SHEET_NAME);
+
+  if (sh) {
+    // ★ H2（出欠専用イベントキー）を優先
+    const attendanceEventKey = String(sh.getRange('H2').getValue() || '').trim();
+    if (attendanceEventKey) {
+      return eventKeyToJapanese_(attendanceEventKey);
+    }
+  }
+
+  // H2が空の場合は自動切り替えロジック
+  const settings = getEventSettings_();
+  if (!settings.currentEventDate) {
+    return eventKeyToJapanese_(settings.currentEventKey);
+  }
+
+  if (isPastSwitchTime_(settings.currentEventDate, 12, 0)) {
+    return eventKeyToJapanese_(settings.nextEventKey || settings.currentEventKey);
+  }
+  return eventKeyToJapanese_(settings.currentEventKey);
+}
+
+/**
+ * ゲスト申請用イベントキー取得
+ * 切り替え: 例会開催日 12:00（出欠と同じ）
+ */
+function getGuestEventKey_() {
+  return getAttendanceEventKey_();
+}
+
+/**
+ * イベントキーを日本語形式に変換
+ * 例: 202601_01 → 2026年1月例会
+ */
+function eventKeyToJapanese_(eventKey) {
+  if (!eventKey) return '';
+  const match = String(eventKey).match(/^(\d{4})(\d{2})_\d+$/);
+  if (!match) return eventKey;  // 既に日本語形式の場合はそのまま返す
+  const year = match[1];
+  const month = parseInt(match[2], 10);
+  return `${year}年${month}月例会`;
+}
 
 
 // ===============================
@@ -44,13 +139,31 @@ function doGet(e) {
   if (mode === 'seatParticipants') {
     return handleSeatGetParticipants_();
   }
-  
+
   if (mode === 'getTitle') {
     return handleGetTitle_();
   }
-  
+
   if (mode === 'getAttendanceStatus') {
     return getAttendanceStatus(e.parameter.userId);
+  }
+
+  // ★ 現在のイベントキー取得（出欠アプリ用）
+  if (mode === 'getCurrentEventKey') {
+    const eventKey = getAttendanceEventKey_();
+    return _out({
+      success: true,
+      eventKey: eventKey
+    });
+  }
+
+  // ★ ゲスト申請用イベントキー取得
+  if (mode === 'getGuestEventKey') {
+    const eventKey = getGuestEventKey_();
+    return _out({
+      success: true,
+      eventKey: eventKey
+    });
   }
 
   return _out({ success: false, error: 'invalid mode' });
@@ -78,27 +191,34 @@ function handleAttendPost(data) {
     return _out({ success:false, error:'出欠シートが見つかりません: ' + ATTEND_SHEET_NAME });
   }
 
+  // ★ イベントキーを先に取得（検索に使うため）
+  const eventKey = String(data.eventKey || getAttendanceEventKey_());
+
   const lastRow = sh.getLastRow();
   let targetRow = -1;
-  
+
+  // ★ userId と eventKey の両方が一致する行を検索
   if (lastRow >= 3) {
-    for (let row = 3; row <= lastRow; row++) {
-      const cellUserId = String(sh.getRange(row, 3).getValue() || '').trim();
-      if (cellUserId === userId) {
-        targetRow = row;
+    const values = sh.getRange(3, 2, lastRow - 2, 2).getValues(); // B列(eventKey), C列(userId)
+    for (let i = 0; i < values.length; i++) {
+      const rowEventKey = String(values[i][0] || '').trim(); // B列
+      const rowUserId = String(values[i][1] || '').trim();   // C列
+      if (rowUserId === userId && rowEventKey === eventKey) {
+        targetRow = i + 3; // 3行目始まり
         break;
       }
     }
   }
 
-  const eventKey = String(data.eventKey || ATTEND_EVENT_KEY_DEF);
   const rowData = [new Date(), eventKey, userId, name, status, boothMark];
 
   let action;
   if (targetRow > 0) {
+    // 同じユーザー＆同じイベントキー → 上書き
     sh.getRange(targetRow, 1, 1, 6).setValues([rowData]);
     action = 'updated';
   } else {
+    // 新しいイベントキー or 新規ユーザー → 追加
     sh.appendRow(rowData);
     action = 'inserted';
   }
@@ -109,17 +229,18 @@ function handleAttendPost(data) {
     Logger.log('sync error: ' + err);
   }
 
-  try {
-    const msg = 
-      `【出欠登録を受付けました】\n` +
-      `例会: ${eventKey}\n` +
-      `出欠: ${status}\n` +
-      `ブース出店: ${boothMark}`;
-    
-    pushLineMessage(userId, msg);
-  } catch (err) {
-    Logger.log('LINE push error: ' + err);
-  }
+  // ★ LINEメッセージ送信を無効化（不要なため）
+  // try {
+  //   const msg =
+  //     `【出欠登録を受付けました】\n` +
+  //     `例会: ${eventKey}\n` +
+  //     `出欠: ${status}\n` +
+  //     `ブース出店: ${boothMark}`;
+  //
+  //   pushLineMessage(userId, msg);
+  // } catch (err) {
+  //   Logger.log('LINE push error: ' + err);
+  // }
 
   return _out({ success:true, mode:'attend', action, targetRow });
 }
@@ -130,28 +251,44 @@ function handleAttendPost(data) {
 // ■ 出欠確認：状態取得
 // ===============================
 function getAttendanceStatus(userId) {
+  // ★ 現在の対象イベントキーを取得
+  const currentEventKey = getAttendanceEventKey_();
+
   if (!userId) {
     return _out({ success: false, error: 'userId is required' });
   }
-  
+
   const sh = SpreadsheetApp.openById(SHEET_ID).getSheetByName(ATTEND_SHEET_NAME);
   if (!sh) {
     return _out({ success: false, error: '出欠シートが見つかりません' });
   }
-  
+
   const data = sh.getDataRange().getValues();
-  
-  // 3行目から検索
+
+  // 3行目から検索（現在のイベントキーに一致する回答を探す）
   for (let i = 2; i < data.length; i++) {
-    const rowUserId = String(data[i][2] || '').trim(); // C列
-    if (rowUserId === userId) {
-      const status = String(data[i][4] || '').trim(); // E列
-      return _out({ success: true, status: status });
+    const rowUserId = String(data[i][2] || '').trim();   // C列: userId
+    const rowEventKey = String(data[i][1] || '').trim(); // B列: eventKey
+
+    if (rowUserId === userId && rowEventKey === currentEventKey) {
+      const status = String(data[i][4] || '').trim();    // E列: status
+      const booth = String(data[i][5] || '').trim();     // F列: booth
+      return _out({
+        success: true,
+        eventKey: currentEventKey,
+        status: status,
+        booth: booth
+      });
     }
   }
-  
+
   // 未登録
-  return _out({ success: true, status: '未回答' });
+  return _out({
+    success: true,
+    eventKey: currentEventKey,
+    status: '未回答',
+    booth: ''
+  });
 }
 
 
