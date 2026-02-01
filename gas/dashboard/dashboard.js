@@ -7911,17 +7911,17 @@ function autoRegisterAttendance() {
     const ss = SpreadsheetApp.openById(ATTEND_GUEST_SHEET_ID);
     const configSs = SpreadsheetApp.openById(CONFIG_SHEET_ID);
 
-    // 1. 次回イベントキー取得（F2: 次月イベントキー）
+    // 1. 出欠専用イベントキー取得（H2: 出欠LIFFと同じ）
     const configSheet = configSs.getSheetByName(CONFIG_SHEET_NAME);
     if (!configSheet) {
       Logger.log('autoRegisterAttendance: 設定シートが見つかりません');
       return { success: false, error: '設定シートが見つかりません' };
     }
 
-    const eventKey = String(configSheet.getRange('F2').getValue() || '').trim();
+    const eventKey = String(configSheet.getRange('H2').getValue() || '').trim();
     if (!eventKey) {
-      Logger.log('autoRegisterAttendance: 次回イベントキー（F2）が空です');
-      return { success: false, error: '次回イベントキー（F2）が空です' };
+      Logger.log('autoRegisterAttendance: 出欠イベントキー（H2）が空です');
+      return { success: false, error: '出欠イベントキー（H2）が空です' };
     }
 
     // イベントキーを日本語形式に変換（例: 202603_01 → 2026年3月例会）
