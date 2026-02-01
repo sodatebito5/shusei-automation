@@ -140,6 +140,10 @@ https://docs.google.com/forms/d/e/1FAIpQLScbjVLeSyfusz_b9ANvDL-5win-w8_G0TGxQ7TO
 ## ✅ 完了
 
 ### 2026-02-01
+- [x] **ダッシュボードキャッシュ複数セル分割対応**
+  - 50000文字制限を回避するため、JSONを40000文字ごとに分割保存
+  - A2: 分割数、B2: 更新日時、C2以降: JSONチャンク
+  - 読み込み時は結合してパース、フォールバック機構維持
 - [x] **毎月1日 未回答者自動出席登録機能**
   - GAS: autoRegisterAttendance() - 未回答者を自動で出席登録
   - GAS: syncAttendanceToRoster_() - 氏名ベース対応の名簿同期
@@ -147,6 +151,7 @@ https://docs.google.com/forms/d/e/1FAIpQLScbjVLeSyfusz_b9ANvDL-5win-w8_G0TGxQ7TO
   - attendance.gs: handleAttendPost() 修正 - G列「登録元」対応
   - 出欠状況シートG列に「自動」→「自動→LIFF」の履歴記録
   - LINE未登録者も氏名で同期対応
+  - イベントキー参照をH2（出欠専用）に修正
 - [x] **同席希望情報の自動配席アプリ表示**
   - GAS: getJoinNextSeatMap_() 関数追加（売上報告シートG列から同席希望取得）
   - GAS: getSeatingParticipants() に joinNextSeat フィールド追加
