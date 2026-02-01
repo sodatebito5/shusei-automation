@@ -111,49 +111,76 @@ function createSeatingArchiveSheet() {
 /**
  * ダッシュボードデータを集計してシートに保存
  * ★トリガーで5分おきに実行
+ * JSONを40000文字ごとに分割して複数セルに保存（50000文字制限対策）
  */
 function updateDashboardCache() {
   const data = getDashboardData();
   const json = JSON.stringify(data);
   const now = new Date();
-  
+
   const ss = SpreadsheetApp.openById(CONFIG_SHEET_ID);
   let sh = ss.getSheetByName(DASHBOARD_CACHE_SHEET_NAME);
-  
+
   if (!sh) {
     createDashboardCacheSheet();
     sh = ss.getSheetByName(DASHBOARD_CACHE_SHEET_NAME);
   }
-  
-  sh.getRange('A2').setValue(json);
+
+  // JSONを40000文字ごとに分割
+  const CHUNK_SIZE = 40000;
+  const chunks = [];
+  for (let i = 0; i < json.length; i += CHUNK_SIZE) {
+    chunks.push(json.substring(i, i + CHUNK_SIZE));
+  }
+
+  // 既存のデータをクリア（A2〜Z2）
+  sh.getRange('A2:Z2').clearContent();
+
+  // 分割数をA2に保存
+  sh.getRange('A2').setValue(chunks.length);
+
+  // 更新日時をB2に保存
   sh.getRange('B2').setValue(now);
-  
-  Logger.log('集計完了: ' + now);
+
+  // JSONチャンクをC2以降に保存
+  for (let i = 0; i < chunks.length; i++) {
+    const col = 3 + i; // C列から開始（1=A, 2=B, 3=C）
+    sh.getRange(2, col).setValue(chunks[i]);
+  }
+
+  Logger.log('集計完了: ' + now + ' (' + chunks.length + '分割, ' + json.length + '文字)');
 }
 
 /**
  * 集計シートからデータを読み込む（高速版）
  * ★フロントから呼ぶのはこっち
+ * 複数セルに分割保存されたJSONを結合して返す
  */
 function getDashboardDataFast() {
   const ss = SpreadsheetApp.openById(CONFIG_SHEET_ID);
   const sh = ss.getSheetByName(DASHBOARD_CACHE_SHEET_NAME);
-  
+
   if (!sh) {
-    // 集計シートがない場合はフォールバック
     Logger.log('集計シートなし、従来版で取得');
     return getDashboardDataSafe();
   }
-  
-  const json = sh.getRange('A2').getValue();
-  
-  if (!json) {
-    // データがない場合はフォールバック
+
+  const chunkCount = sh.getRange('A2').getValue();
+
+  if (!chunkCount || chunkCount < 1) {
     Logger.log('集計データなし、従来版で取得');
     return getDashboardDataSafe();
   }
-  
+
   try {
+    // C2以降からJSONチャンクを読み込んで結合
+    let json = '';
+    for (let i = 0; i < chunkCount; i++) {
+      const col = 3 + i; // C列から開始
+      const chunk = sh.getRange(2, col).getValue();
+      json += chunk;
+    }
+
     return JSON.parse(json);
   } catch (e) {
     Logger.log('JSONパースエラー: ' + e);
