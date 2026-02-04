@@ -530,7 +530,7 @@ function isPastSwitchTime(eventDate, hour, dayOffset) {
 
 /**
  * ダッシュボード用イベントキー
- * 切り替え: 例会開催日 11:00
+ * 切り替え: 例会開催日 19:00
  */
 function getDashboardEventKey() {
   const settings = getEventSettings();
@@ -538,7 +538,7 @@ function getDashboardEventKey() {
     return settings.currentEventKey;
   }
 
-  if (isPastSwitchTime(settings.currentEventDate, 11, 0)) {
+  if (isPastSwitchTime(settings.currentEventDate, 19, 0)) {
     return settings.nextEventKey || settings.currentEventKey;
   }
   return settings.currentEventKey;
@@ -546,7 +546,7 @@ function getDashboardEventKey() {
 
 /**
  * ダッシュボード用開催日
- * 切り替え: 例会開催日 11:00
+ * 切り替え: 例会開催日 19:00
  */
 function getDashboardEventDate() {
   const settings = getEventSettings();
@@ -554,7 +554,7 @@ function getDashboardEventDate() {
     return settings.currentEventDate;
   }
 
-  if (isPastSwitchTime(settings.currentEventDate, 11, 0)) {
+  if (isPastSwitchTime(settings.currentEventDate, 19, 0)) {
     return settings.nextEventDate || settings.currentEventDate;
   }
   return settings.currentEventDate;
@@ -5281,11 +5281,36 @@ function getParticipantHistory(eventKey) {
         members: 0,
         guests: 0,
         others: 0,
+        cancelled: 0,
+        attended: 0,
         participants: []
       };
     }
 
-    // 全データ取得（ヘッダー除く）
+    // チェックインシートから出欠情報を取得
+    const checkinSheet = ss.getSheetByName(CHECKIN_SHEET_NAME);
+    const checkinMap = {};  // 名前 → { checkedIn, cancelled }
+
+    if (checkinSheet) {
+      const checkinLastRow = checkinSheet.getLastRow();
+      if (checkinLastRow >= 2) {
+        const checkinData = checkinSheet.getRange(2, 1, checkinLastRow - 1, 11).getValues();
+        checkinData.forEach(row => {
+          const rowEventKey = String(row[0] || '').trim();  // A列: 例会キー
+          if (rowEventKey !== eventKey) return;
+
+          const name = String(row[1] || '').trim();         // B列: 氏名
+          const checkedIn = String(row[5] || '').trim() === '○';  // F列: チェックイン
+          const cancelled = String(row[10] || '').trim() === '○'; // K列: キャンセル
+
+          if (name) {
+            checkinMap[name] = { checkedIn, cancelled };
+          }
+        });
+      }
+    }
+
+    // 配席アーカイブから全データ取得（ヘッダー除く）
     const data = sh.getRange(2, 1, lastRow - 1, 9).getValues();
 
     // 例会キーでフィルタ
@@ -5294,13 +5319,25 @@ function getParticipantHistory(eventKey) {
       const rowEventKey = String(row[0] || '').trim();
       if (rowEventKey !== eventKey) return;
 
+      const name = String(row[3] || '').trim();
+      const checkinInfo = checkinMap[name] || {};
+
+      // 出欠状態を判定
+      let attendance = '-';  // 未記録
+      if (checkinInfo.cancelled) {
+        attendance = '欠席';
+      } else if (checkinInfo.checkedIn) {
+        attendance = '出席';
+      }
+
       participants.push({
-        name: String(row[3] || '').trim(),      // D列: 氏名
+        name: name,                              // D列: 氏名
         category: String(row[4] || '').trim(),  // E列: 区分
         affiliation: String(row[5] || '').trim(), // F列: 所属
         role: String(row[6] || '').trim(),      // G列: 役割
         team: String(row[7] || '').trim(),      // H列: チーム
-        table: String(row[8] || '').trim()      // I列: テーブル
+        table: String(row[8] || '').trim(),     // I列: テーブル
+        attendance: attendance                   // 出欠状態
       });
     });
 
@@ -5316,6 +5353,8 @@ function getParticipantHistory(eventKey) {
     const members = participants.filter(p => p.category === '会員').length;
     const guests = participants.filter(p => p.category === 'ゲスト').length;
     const others = participants.filter(p => p.category === '他会場').length;
+    const cancelled = participants.filter(p => p.attendance === '欠席').length;
+    const attended = participants.filter(p => p.attendance === '出席').length;
 
     return {
       success: true,
@@ -5324,6 +5363,8 @@ function getParticipantHistory(eventKey) {
       members,
       guests,
       others,
+      cancelled,
+      attended,
       participants
     };
   } catch (e) {
@@ -6282,6 +6323,7 @@ function getCheckinStatus() {
       summary: {
         total: 0,
         checkedIn: 0,
+        cancelled: 0,
         badgeLent: 0,
         badgeNotReturned: 0
       }
@@ -6336,6 +6378,7 @@ function getCheckinStatus() {
 
       result.summary.total++;
       if (checkedIn) result.summary.checkedIn++;
+      if (cancelled) result.summary.cancelled++;
     }
 
     return { success: true, data: result };

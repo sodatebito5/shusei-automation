@@ -885,10 +885,14 @@
       </div>
 
       <!-- サマリー -->
-      <div id="checkinSummary" class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+      <div id="checkinSummary" class="grid grid-cols-3 md:grid-cols-5 gap-2 mb-4">
         <div class="mini-stat-card">
           <div class="mini-stat-label">到着</div>
           <div id="checkinArrived" class="mini-stat-value" style="color: #059669;">-/-</div>
+        </div>
+        <div class="mini-stat-card" style="background: #faf5ff;">
+          <div class="mini-stat-label">キャンセル</div>
+          <div id="checkinCancelled" class="mini-stat-value" style="color: #9333ea;">-</div>
         </div>
         <div class="mini-stat-card" style="background: #eff6ff;">
           <div class="mini-stat-label">バッジ貸出中</div>
@@ -1318,7 +1322,7 @@
       </div>
 
       <!-- サマリー -->
-      <div id="historySummary" class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+      <div id="historySummary" class="grid grid-cols-3 md:grid-cols-6 gap-2 mb-4">
         <div class="mini-stat-card">
           <div class="mini-stat-label">参加者数</div>
           <div id="historyTotal" class="mini-stat-value" style="color: var(--color-text-primary);">-</div>
@@ -1335,6 +1339,14 @@
           <div class="mini-stat-label">他会場</div>
           <div id="historyOthers" class="mini-stat-value" style="color: #ea580c;">-</div>
         </div>
+        <div class="mini-stat-card" style="background: #f0fdf4;">
+          <div class="mini-stat-label">出席</div>
+          <div id="historyAttended" class="mini-stat-value" style="color: #16a34a;">-</div>
+        </div>
+        <div class="mini-stat-card" style="background: #faf5ff;">
+          <div class="mini-stat-label">欠席</div>
+          <div id="historyCancelled" class="mini-stat-value" style="color: #9333ea;">-</div>
+        </div>
       </div>
 
       <!-- フィルタボタン -->
@@ -1343,6 +1355,9 @@
         <button onclick="filterHistory('会員')" class="history-filter-btn px-3 py-1.5 text-xs rounded-lg border border-slate-200 hover:bg-slate-50 font-medium transition-all" data-filter="会員">会員</button>
         <button onclick="filterHistory('ゲスト')" class="history-filter-btn px-3 py-1.5 text-xs rounded-lg border border-slate-200 hover:bg-slate-50 font-medium transition-all" data-filter="ゲスト">ゲスト</button>
         <button onclick="filterHistory('他会場')" class="history-filter-btn px-3 py-1.5 text-xs rounded-lg border border-slate-200 hover:bg-slate-50 font-medium transition-all" data-filter="他会場">他会場</button>
+        <span class="border-l border-slate-300 mx-1"></span>
+        <button onclick="filterHistory('出席')" class="history-filter-btn px-3 py-1.5 text-xs rounded-lg border border-slate-200 hover:bg-slate-50 font-medium transition-all" data-filter="出席">出席</button>
+        <button onclick="filterHistory('欠席')" class="history-filter-btn px-3 py-1.5 text-xs rounded-lg border border-purple-200 hover:bg-purple-50 text-purple-600 font-medium transition-all" data-filter="欠席">欠席</button>
       </div>
 
       <!-- 参加者一覧テーブル -->
@@ -1355,10 +1370,11 @@
               <th class="text-center w-16">区分</th>
               <th>所属</th>
               <th class="text-center w-16">テーブル</th>
+              <th class="text-center w-16">出欠</th>
             </tr>
           </thead>
           <tbody id="historyTableBody">
-            <tr><td colspan="5" class="py-8 text-center text-slate-400">例会を選択してください</td></tr>
+            <tr><td colspan="6" class="py-8 text-center text-slate-400">例会を選択してください</td></tr>
           </tbody>
         </table>
       </div>
@@ -1883,20 +1899,80 @@ function showPrepPreview(kind) {
 
   container.innerHTML = '';
 
-  // フォントサイズ調整関数
-  function getFontSize(text, type) {
-    const len = (text || '').length;
-    if (type === 'business') {
-      if (len > 50) return '7px';
-      if (len > 30) return '8px';
-      return '9px';
-    }
-    return '9px';
+  // 共通スタイル（行高36px）
+  const cellStyle18 = 'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:18px;vertical-align:middle;height:36px;line-height:36px;';
+  const cellStyle14 = 'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:14px;vertical-align:middle;height:36px;line-height:36px;';
+  const cellStyle12 = 'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:12px;vertical-align:middle;height:36px;line-height:36px;';
+  const cellStyle10 = 'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:10px;vertical-align:middle;height:36px;line-height:36px;';
+  const centerCell9 = 'text-align:center;padding:2px;white-space:nowrap;font-size:9px;vertical-align:middle;height:36px;line-height:36px;';
+
+  // 追加スタイル
+  const cellStyle15 = 'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:15px;vertical-align:middle;height:36px;line-height:36px;';
+  const cellStyle13 = 'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:13px;vertical-align:middle;height:36px;line-height:36px;';
+  const cellStyle11 = 'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:11px;vertical-align:middle;height:36px;line-height:36px;';
+  const cellStyle9 = 'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:9px;vertical-align:middle;height:36px;line-height:36px;';
+  const cellStyle8 = 'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:8px;vertical-align:middle;height:36px;line-height:36px;';
+  const cellStyle7 = 'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:7px;vertical-align:middle;height:36px;line-height:36px;';
+  const cellStyle6 = 'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:6px;vertical-align:middle;height:36px;line-height:36px;';
+  const cellStyle5 = 'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:5px;vertical-align:middle;height:36px;line-height:36px;';
+
+  // 氏名用：基本18px、6文字以上→15px（スペース除く）
+  function getNameStyle(text) {
+    const len = (text || '').replace(/\s/g, '').length;
+    if (len >= 6) return cellStyle15;
+    return cellStyle18;
   }
 
-  // 共通スタイル
-  const cellStyle = 'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:9px;vertical-align:middle;height:20px;line-height:20px;';
-  const centerCell = 'text-align:center;padding:2px;white-space:nowrap;font-size:9px;vertical-align:middle;height:20px;line-height:20px;';
+  // フリガナ用：基本11px、9文字以上→9px（スペース除く）
+  function getFuriganaStyle(text) {
+    const len = (text || '').replace(/\s/g, '').length;
+    if (len >= 9) return cellStyle9;
+    return cellStyle11;
+  }
+
+  // 役割用：12px固定（最長5文字）
+  function getRoleStyle(text) {
+    return cellStyle12;
+  }
+
+  // 会社名用：1px刻み（210px幅、スペース除く、半角カタカナ考慮）
+  function getCompanyStyle(text) {
+    const str = (text || '').replace(/\s/g, '');
+    const halfWidthKana = (str.match(/[\uff61-\uff9f]/g) || []).length;
+    const len = str.length - Math.floor(halfWidthKana / 2); // 半角2つで1文字分
+    if (len >= 24) return cellStyle7;
+    if (len >= 21) return cellStyle8;
+    if (len >= 19) return cellStyle9;
+    if (len >= 17) return cellStyle10;
+    if (len >= 15) return cellStyle11;
+    if (len >= 13) return cellStyle12;
+    if (len >= 12) return cellStyle13;
+    return cellStyle14;
+  }
+
+  // 役職用：5文字以下→12px、10文字以下→10px、11文字以上→7px（スペース除く）
+  function getPositionStyle(text) {
+    const len = (text || '').replace(/\s/g, '').length;
+    if (len >= 11) return cellStyle7;
+    if (len >= 6) return cellStyle10;
+    return cellStyle12;
+  }
+
+  // 紹介者用：12px固定（最長5文字）
+  function getIntroducerStyle(text) {
+    return cellStyle12;
+  }
+
+  // 営業内容用：1px刻み（281px幅、スペース除く）
+  function getBusinessStyle(text) {
+    const len = (text || '').replace(/\s/g, '').length;
+    if (len >= 36) return cellStyle7;
+    if (len >= 32) return cellStyle8;
+    if (len >= 29) return cellStyle9;
+    if (len >= 26) return cellStyle10;
+    if (len >= 24) return cellStyle11;
+    return cellStyle12;
+  }
 
   // バッジクラス取得関数（背景色付きバッジ列用）
   function getBadgeClass(badge) {
@@ -1909,7 +1985,57 @@ function showPrepPreview(kind) {
   }
 
   // バッジセルのベーススタイル
-  const badgeCellStyle = 'text-align:center;font-weight:600;padding:2px;white-space:nowrap;font-size:9px;vertical-align:middle;height:20px;line-height:20px;';
+  const badgeCellStyle = 'text-align:center;font-weight:600;padding:2px;white-space:nowrap;font-size:9px;vertical-align:middle;height:36px;line-height:36px;';
+
+  // 他会場・ゲスト用スタイル（行高20px）
+  const otherCellStyle9 = 'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:9px;vertical-align:middle;height:20px;line-height:20px;';
+  const otherCellStyle8 = 'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:8px;vertical-align:middle;height:20px;line-height:20px;';
+  const otherCellStyle7 = 'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:7px;vertical-align:middle;height:20px;line-height:20px;';
+  const otherCellStyle6 = 'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:6px;vertical-align:middle;height:20px;line-height:20px;';
+
+  // 他会場用会社名（175px幅、半角カタカナ考慮）
+  function getOtherCompanyStyle(text) {
+    const str = (text || '').replace(/\s/g, '');
+    const halfWidthKana = (str.match(/[\uff61-\uff9f]/g) || []).length;
+    const len = str.length - Math.floor(halfWidthKana / 2);
+    if (len >= 22) return otherCellStyle6;
+    if (len >= 19) return otherCellStyle7;
+    if (len >= 17) return otherCellStyle8;
+    return otherCellStyle9;
+  }
+
+  // 他会場用営業内容（auto幅、半角カタカナ考慮）
+  function getOtherBusinessStyle(text) {
+    const str = (text || '').replace(/\s/g, '');
+    const halfWidthKana = (str.match(/[\uff61-\uff9f]/g) || []).length;
+    const len = str.length - Math.floor(halfWidthKana / 2);
+    if (len >= 35) return otherCellStyle6;
+    if (len >= 30) return otherCellStyle7;
+    if (len >= 25) return otherCellStyle8;
+    return otherCellStyle9;
+  }
+
+  // ゲスト参加者名簿用会社名（310px幅、半角カタカナ考慮）
+  function getGuestCompanyStyle2(text) {
+    const str = (text || '').replace(/\s/g, '');
+    const halfWidthKana = (str.match(/[\uff61-\uff9f]/g) || []).length;
+    const len = str.length - Math.floor(halfWidthKana / 2);
+    if (len >= 30) return cellStyle10;
+    if (len >= 25) return cellStyle12;
+    if (len >= 21) return cellStyle14;
+    return cellStyle18;
+  }
+
+  // ゲスト参加者名簿用役職（180px幅、半角カタカナ考慮）
+  function getGuestPositionStyle(text) {
+    const str = (text || '').replace(/\s/g, '');
+    const halfWidthKana = (str.match(/[\uff61-\uff9f]/g) || []).length;
+    const len = str.length - Math.floor(halfWidthKana / 2);
+    if (len >= 17) return cellStyle10;
+    if (len >= 14) return cellStyle12;
+    if (len >= 11) return cellStyle14;
+    return cellStyle18;
+  }
 
   // ========================================
   // local（福岡飯塚会場）の場合
@@ -1924,22 +2050,22 @@ function showPrepPreview(kind) {
       return;
     }
 
-    const perPage   = 25;
+    const perPage   = 16;
     const totalPage = Math.ceil(list.length / perPage);
 
     const colgroupHtml = `
-  <col style="width:22px">
-  <col style="width:22px">
-  <col style="width:22px">
-  <col style="width:22px">
-  <col style="width:25px">
+  <col style="width:18px">
+  <col style="width:18px">
+  <col style="width:20px">
+  <col style="width:18px">
+  <col style="width:23px">
+  <col style="width:115px">
+  <col style="width:105px">
   <col style="width:70px">
-  <col style="width:100px">
-  <col style="width:56px">
-  <col style="width:180px">
-  <col style="width:155px">
+  <col style="width:210px">
+  <col style="width:115px">
   <col style="width:70px">
-  <col style="width:auto">
+  <col style="width:281px">
 `;
 
     for (let p = 0; p < totalPage; p++) {
@@ -1970,18 +2096,18 @@ function showPrepPreview(kind) {
   <colgroup>${colgroupHtml}</colgroup>
   <thead>
     <tr>
-      <th style="padding:8px 2px;font-size:8px;line-height:1.1;">受<br>賞</th>
-<th style="padding:8px 2px;font-size:8px;line-height:1.1;">紹<br>介<br>数</th>
-<th style="padding:8px 2px;font-size:8px;line-height:1.1;">バ<br>ッ<br>ジ</th>
-<th style="padding:8px 2px;font-size:8px;line-height:1.1;">出<br>欠</th>
-<th style="padding:8px 2px;font-size:8px;line-height:1.1;">ブ<br>|<br>ス</th>
-      <th style="font-size:9px;">氏名</th>
-            <th style="font-size:8px;">フリガナ</th>
-            <th style="font-size:9px;">役割</th>
-            <th style="font-size:9px;">会社名</th>
-            <th style="font-size:8px;">役職</th>
-            <th style="font-size:9px;">紹介者</th>
-            <th style="font-size:9px;">営業内容</th>
+      <th style="padding:8px 2px;font-size:10px;line-height:1.1;">受<br>賞</th>
+<th style="padding:8px 2px;font-size:10px;line-height:1.1;">紹<br>介<br>数</th>
+<th style="padding:8px 2px;font-size:10px;line-height:1.1;">バ<br>ッ<br>ジ</th>
+<th style="padding:8px 2px;font-size:10px;line-height:1.1;">出<br>欠</th>
+<th style="padding:8px 2px;font-size:10px;line-height:1.1;">ブ<br>|<br>ス</th>
+      <th style="font-size:12px;">氏名</th>
+            <th style="font-size:10px;">フリガナ</th>
+            <th style="font-size:12px;">役割</th>
+            <th style="font-size:12px;">会社名</th>
+            <th style="font-size:10px;">役職</th>
+            <th style="font-size:12px;">紹介者</th>
+            <th style="font-size:10px;">営業内容</th>
           </tr>
         </thead>
         <tbody></tbody>
@@ -1996,24 +2122,21 @@ function showPrepPreview(kind) {
         let boothDisplay = row.booth || '';
         if (boothDisplay === '×' || boothDisplay === 'x') boothDisplay = '';
 
-        const businessFs = getFontSize(row.business, 'business');
-        const businessStyle = `white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:${businessFs};vertical-align:middle;height:20px;line-height:20px;`;
-
         const tr = document.createElement('tr');
-        tr.style.height = '20px';
+        tr.style.height = '36px';
         tr.innerHTML = `
-          <td style="${centerCell}">${row.award || ''}</td>
-          <td style="${centerCell}">${row.referralCnt != null ? row.referralCnt : ''}</td>
+          <td style="${centerCell9}">${row.award || ''}</td>
+          <td style="${centerCell9}">${row.referralCnt != null ? row.referralCnt : ''}</td>
           <td class="${badgeClass}" style="${badgeCellStyle}">${badge}</td>
-          <td style="${centerCell}">${row.attendStatus || ''}</td>
-          <td style="${centerCell}">${boothDisplay}</td>
-          <td style="${cellStyle}">${row.name || ''}</td>
-          <td style="${cellStyle}">${row.furigana || ''}</td>
-          <td style="${cellStyle}">${row.role || ''}</td>
-          <td style="${cellStyle}">${row.company || ''}</td>
-          <td style="${cellStyle}">${row.position || ''}</td>
-          <td style="${cellStyle}">${row.introducer || ''}</td>
-          <td style="${businessStyle}">${row.business || ''}</td>
+          <td style="${centerCell9}">${row.attendStatus || ''}</td>
+          <td style="${centerCell9}">${boothDisplay}</td>
+          <td style="${getNameStyle(row.name)}">${row.name || ''}</td>
+          <td style="${getFuriganaStyle(row.furigana)}">${row.furigana || ''}</td>
+          <td style="${getRoleStyle(row.role)}">${row.role || ''}</td>
+          <td style="${getCompanyStyle(row.company)}">${row.company || ''}</td>
+          <td style="${getPositionStyle(row.position)}">${row.position || ''}</td>
+          <td style="${getIntroducerStyle(row.introducer)}">${row.introducer || ''}</td>
+          <td style="${getBusinessStyle(row.business)}">${row.business || ''}</td>
         `;
         tbody.appendChild(tr);
       });
@@ -2022,7 +2145,7 @@ function showPrepPreview(kind) {
       if (p < totalPage - 1) {
         for (let i = rows.length; i < perPage; i++) {
           const blankTr = document.createElement('tr');
-          blankTr.style.height = '20px';
+          blankTr.style.height = '36px';
           blankTr.innerHTML = '<td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td>';
           tbody.appendChild(blankTr);
         }
@@ -2080,13 +2203,13 @@ function showPrepPreview(kind) {
     const otherColgroup = `
       <col style="width:22px">
       <col style="width:22px">
-      <col style="width:72px">
-      <col style="width:95px">
-      <col style="width:120px">
+      <col style="width:105px">
+      <col style="width:115px">
+      <col style="width:150px">
       <col style="width:35px">
-      <col style="width:175px">
-      <col style="width:70px">
-      <col style="width:60px">
+      <col style="width:220px">
+      <col style="width:90px">
+      <col style="width:75px">
       <col style="width:auto">
     `;
 
@@ -2116,21 +2239,19 @@ function showPrepPreview(kind) {
       let boothDisplay = row.booth || '';
       if (boothDisplay === '×' || boothDisplay === 'x') boothDisplay = '';
       const badgeClass = getBadgeClass(badge);
-      const businessFs = getFontSize(row.business, 'business');
-      const businessStyle = `white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:${businessFs};vertical-align:middle;height:20px;line-height:20px;`;
 
       contentHtml += `
-        <tr style="height:20px;">
+        <tr style="height:36px;">
           <td class="${badgeClass}" style="${badgeCellStyle}">${badge}</td>
-          <td style="${centerCell}">${boothDisplay}</td>
-          <td style="${cellStyle}">${row.name || ''}</td>
-          <td style="${cellStyle}">${row.furigana || ''}</td>
-          <td style="${cellStyle}">${row.venue || ''}</td>
-          <td style="${cellStyle}">${row.role || ''}</td>
-          <td style="${cellStyle}">${row.company || ''}</td>
-          <td style="${cellStyle}">${row.position || ''}</td>
-          <td style="${cellStyle}">${row.introducer || ''}</td>
-          <td style="${businessStyle}">${row.business || ''}</td>
+          <td style="${centerCell9}">${boothDisplay}</td>
+          <td style="${getNameStyle(row.name)}">${row.name || ''}</td>
+          <td style="${getFuriganaStyle(row.furigana)}">${row.furigana || ''}</td>
+          <td style="${cellStyle12}">${row.venue || ''}</td>
+          <td style="${getRoleStyle(row.role)}">${row.role || ''}</td>
+          <td style="${getCompanyStyle(row.company)}">${row.company || ''}</td>
+          <td style="${getPositionStyle(row.position)}">${row.position || ''}</td>
+          <td style="${getIntroducerStyle(row.introducer)}">${row.introducer || ''}</td>
+          <td style="${getBusinessStyle(row.business)}">${row.business || ''}</td>
         </tr>
       `;
     });
@@ -2149,11 +2270,11 @@ function showPrepPreview(kind) {
 
     // ゲストテーブル列幅（A4横最適化・折り返し不可）
     const guestColgroup = `
-      <col style="width:70px">
-      <col style="width:70px">
-      <col style="width:85px">
-      <col style="width:230px">
-      <col style="width:180px">
+      <col style="width:75px">
+      <col style="width:105px">
+      <col style="width:115px">
+      <col style="width:300px">
+      <col style="width:200px">
       <col style="width:auto">
     `;
 
@@ -2175,17 +2296,14 @@ function showPrepPreview(kind) {
     `;
 
     guestList.forEach(row => {
-      const businessFs = getFontSize(row.business, 'business');
-      const businessStyle = `white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:${businessFs};vertical-align:middle;height:20px;line-height:20px;`;
-
       contentHtml += `
-        <tr style="height:20px;">
-          <td style="${cellStyle}">${row.introducer || ''}</td>
-          <td style="${cellStyle}">${row.name || ''}</td>
-          <td style="${cellStyle}">${row.furigana || ''}</td>
-          <td style="${cellStyle}">${row.company || ''}</td>
-          <td style="${cellStyle}">${row.position || ''}</td>
-          <td style="${businessStyle}">${row.business || ''}</td>
+        <tr style="height:36px;">
+          <td style="${getIntroducerStyle(row.introducer)}">${row.introducer || ''}</td>
+          <td style="${getNameStyle(row.name)}">${row.name || ''}</td>
+          <td style="${getFuriganaStyle(row.furigana)}">${row.furigana || ''}</td>
+          <td style="${getGuestCompanyStyle2(row.company)}">${row.company || ''}</td>
+          <td style="${getGuestPositionStyle(row.position)}">${row.position || ''}</td>
+          <td style="${getBusinessStyle(row.business)}">${row.business || ''}</td>
         </tr>
       `;
     });
@@ -3337,11 +3455,80 @@ function showReceptionPreview(kind) {
   
   container.innerHTML = '';
   
-  // 共通スタイル
-  const cellStyle = 'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:10px;vertical-align:middle;height:22px;line-height:22px;padding:2px 4px;';
-  const centerCell = 'text-align:center;padding:2px 4px;white-space:nowrap;font-size:10px;vertical-align:middle;height:22px;line-height:22px;';
-  const inputCell = 'text-align:center;padding:2px 4px;white-space:nowrap;font-size:10px;vertical-align:middle;height:22px;line-height:22px;min-width:60px;';
-  
+  // 共通スタイル（フォントサイズ24px、行高40px）
+  const cellStyle = 'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:24px;vertical-align:middle;height:40px;line-height:40px;padding:2px 4px;';
+  const centerCell = 'text-align:center;padding:2px 4px;white-space:nowrap;font-size:24px;vertical-align:middle;height:40px;line-height:40px;';
+  const inputCell = 'text-align:center;padding:2px 4px;white-space:nowrap;font-size:24px;vertical-align:middle;height:40px;line-height:40px;min-width:70px;';
+
+  // 受付名簿用スタイル（行高40px）
+  const recCellStyle24 = 'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:24px;vertical-align:middle;height:40px;line-height:40px;padding:2px 4px;';
+  const recCellStyle20 = 'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:20px;vertical-align:middle;height:40px;line-height:40px;padding:2px 4px;';
+  const recCellStyle18 = 'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:18px;vertical-align:middle;height:40px;line-height:40px;padding:2px 4px;';
+  const recCellStyle16 = 'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:16px;vertical-align:middle;height:40px;line-height:40px;padding:2px 4px;';
+  const recCellStyle14 = 'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:14px;vertical-align:middle;height:40px;line-height:40px;padding:2px 4px;';
+
+  // 受付名簿用氏名（160px幅、半角カタカナ考慮）
+  function getRecNameStyle(text) {
+    const str = (text || '').replace(/\s/g, '');
+    const halfWidthKana = (str.match(/[\uff61-\uff9f]/g) || []).length;
+    const len = str.length - Math.floor(halfWidthKana / 2);
+    if (len >= 9) return recCellStyle16;
+    if (len >= 7) return recCellStyle20;
+    return recCellStyle24;
+  }
+
+  // 受付名簿用フリガナ（180px幅、半角カタカナ考慮）
+  function getRecFuriganaStyle(text) {
+    const str = (text || '').replace(/\s/g, '');
+    const halfWidthKana = (str.match(/[\uff61-\uff9f]/g) || []).length;
+    const len = str.length - Math.floor(halfWidthKana / 2);
+    if (len >= 11) return recCellStyle14;
+    if (len >= 9) return recCellStyle16;
+    if (len >= 8) return recCellStyle20;
+    return recCellStyle24;
+  }
+
+  // 受付名簿用営業内容（auto幅約308px、半角カタカナ考慮）
+  function getRecBusinessStyle(text) {
+    const str = (text || '').replace(/\s/g, '');
+    const halfWidthKana = (str.match(/[\uff61-\uff9f]/g) || []).length;
+    const len = str.length - Math.floor(halfWidthKana / 2);
+    if (len >= 19) return recCellStyle14;
+    if (len >= 16) return recCellStyle16;
+    if (len >= 14) return recCellStyle18;
+    return recCellStyle20;
+  }
+
+  // 他会場・ゲスト受付名簿用スタイル（行高22px）
+  const recOtherCellStyle10 = 'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:10px;vertical-align:middle;height:22px;line-height:22px;padding:2px;';
+  const recOtherCellStyle9 = 'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:9px;vertical-align:middle;height:22px;line-height:22px;padding:2px;';
+  const recOtherCellStyle8 = 'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:8px;vertical-align:middle;height:22px;line-height:22px;padding:2px;';
+  const recOtherCellStyle7 = 'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:7px;vertical-align:middle;height:22px;line-height:22px;padding:2px;';
+  const recOtherCenterCell = 'text-align:center;padding:2px;white-space:nowrap;font-size:10px;vertical-align:middle;height:22px;line-height:22px;';
+  const recOtherInputCell = 'text-align:center;padding:2px;white-space:nowrap;font-size:10px;vertical-align:middle;height:22px;line-height:22px;';
+
+  // 他会場受付名簿用所属（auto幅、半角カタカナ考慮）
+  function getRecOtherVenueStyle(text) {
+    const str = (text || '').replace(/\s/g, '');
+    const halfWidthKana = (str.match(/[\uff61-\uff9f]/g) || []).length;
+    const len = str.length - Math.floor(halfWidthKana / 2);
+    if (len >= 20) return recOtherCellStyle7;
+    if (len >= 16) return recOtherCellStyle8;
+    if (len >= 12) return recOtherCellStyle9;
+    return recOtherCellStyle10;
+  }
+
+  // ゲスト受付名簿用会社名（auto幅、半角カタカナ考慮）
+  function getRecGuestCompanyStyle(text) {
+    const str = (text || '').replace(/\s/g, '');
+    const halfWidthKana = (str.match(/[\uff61-\uff9f]/g) || []).length;
+    const len = str.length - Math.floor(halfWidthKana / 2);
+    if (len >= 25) return recOtherCellStyle7;
+    if (len >= 20) return recOtherCellStyle8;
+    if (len >= 15) return recOtherCellStyle9;
+    return recOtherCellStyle10;
+  }
+
   // ========================================
   // 福岡飯塚_受付名簿（ページ分割対応）
   // ========================================
@@ -3356,36 +3543,36 @@ function showReceptionPreview(kind) {
     }
 
     const colgroupHtml = `
-      <col style="width:30px">
-      <col style="width:40px">
+      <col style="width:45px">
       <col style="width:60px">
-      <col style="width:90px">
-      <col style="width:130px">
+      <col style="width:80px">
+      <col style="width:160px">
+      <col style="width:180px">
       <col style="width:auto">
-      <col style="width:50px">
-      <col style="width:50px">
       <col style="width:70px">
+      <col style="width:70px">
+      <col style="width:90px">
     `;
 
     const theadHtml = `
       <thead>
         <tr>
-          <th style="font-size:9px;">No</th>
-          <th style="font-size:9px;">座席</th>
-          <th style="font-size:8px;">領収書<br>番号</th>
-          <th style="font-size:9px;">氏名</th>
-          <th style="font-size:9px;">フリガナ</th>
-          <th style="font-size:9px;">営業内容</th>
-          <th style="font-size:8px;">バッジ<br>貸出</th>
-          <th style="font-size:8px;">バッジ<br>返却</th>
-          <th style="font-size:8px;">キャンセル料</th>
+          <th style="font-size:14px;">No</th>
+          <th style="font-size:14px;">座席</th>
+          <th style="font-size:12px;">領収書<br>番号</th>
+          <th style="font-size:14px;">氏名</th>
+          <th style="font-size:14px;">フリガナ</th>
+          <th style="font-size:14px;">営業内容</th>
+          <th style="font-size:12px;">バッジ<br>貸出</th>
+          <th style="font-size:12px;">バッジ<br>返却</th>
+          <th style="font-size:12px;">キャンセル料</th>
         </tr>
       </thead>
     `;
 
-    // ページ分割の設定
-    const ROWS_PER_FIRST_PAGE = 24;  // 1ページ目（ヘッダー大きい）
-    const ROWS_PER_PAGE = 26;         // 2ページ目以降
+    // ページ分割の設定（行高40pxに対応）
+    const ROWS_PER_FIRST_PAGE = 15;  // 1ページ目
+    const ROWS_PER_PAGE = 15;         // 2ページ目以降も同じ
 
     const totalPages = Math.ceil((list.length - ROWS_PER_FIRST_PAGE) / ROWS_PER_PAGE) + 1;
     const actualTotalPages = list.length <= ROWS_PER_FIRST_PAGE ? 1 : totalPages;
@@ -3428,15 +3615,15 @@ function showReceptionPreview(kind) {
 
       pageData.forEach((row, idx) => {
         const tr = document.createElement('tr');
-        tr.style.height = '22px';
+        tr.style.height = '40px';
         const globalNo = currentIndex + idx + 1;
         tr.innerHTML = `
           <td style="${centerCell}">${globalNo}</td>
           <td style="${centerCell}">${row.seat || ''}</td>
           <td style="${inputCell}"></td>
-          <td style="${cellStyle}">${row.name || ''}</td>
-          <td style="${cellStyle}">${row.furigana || ''}</td>
-          <td style="${cellStyle}">${row.business || ''}</td>
+          <td style="${getRecNameStyle(row.name)}">${row.name || ''}</td>
+          <td style="${getRecFuriganaStyle(row.furigana)}">${row.furigana || ''}</td>
+          <td style="${getRecBusinessStyle(row.business)}">${row.business || ''}</td>
           <td style="${inputCell}"></td>
           <td style="${inputCell}"></td>
           <td style="${inputCell}"></td>
@@ -3482,8 +3669,8 @@ function showReceptionPreview(kind) {
       <col style="width:30px">
       <col style="width:40px">
       <col style="width:60px">
-      <col style="width:90px">
-      <col style="width:130px">
+      <col style="width:150px">
+      <col style="width:200px">
       <col style="width:auto">
       <col style="width:50px">
       <col style="width:50px">
@@ -3494,8 +3681,8 @@ function showReceptionPreview(kind) {
       <col style="width:30px">
       <col style="width:40px">
       <col style="width:60px">
-      <col style="width:90px">
-      <col style="width:130px">
+      <col style="width:150px">
+      <col style="width:200px">
       <col style="width:auto">
       <col style="width:100px">
     `;
@@ -3635,13 +3822,13 @@ function showReceptionPreview(kind) {
         // 行を追加
         if (currentType === 'other') {
           contentHtml += `
-            <tr style="height:22px;">
+            <tr style="height:40px;">
               <td style="${centerCell}">${row.no}</td>
               <td style="${centerCell}">${row.seat}</td>
               <td style="${inputCell}"></td>
-              <td style="${cellStyle}">${row.name}</td>
-              <td style="${cellStyle}">${row.furigana}</td>
-              <td style="${cellStyle}">${row.col5}</td>
+              <td style="${getRecNameStyle(row.name)}">${row.name}</td>
+              <td style="${recCellStyle20}">${row.furigana}</td>
+              <td style="${getRecBusinessStyle(row.col5)}">${row.col5}</td>
               <td style="${inputCell}"></td>
               <td style="${inputCell}"></td>
               <td style="${inputCell}"></td>
@@ -3649,13 +3836,13 @@ function showReceptionPreview(kind) {
           `;
         } else {
           contentHtml += `
-            <tr style="height:22px;">
+            <tr style="height:40px;">
               <td style="${centerCell}">${row.no}</td>
               <td style="${centerCell}">${row.seat}</td>
               <td style="${inputCell}"></td>
-              <td style="${cellStyle}">${row.name}</td>
-              <td style="${cellStyle}">${row.furigana}</td>
-              <td style="${cellStyle}">${row.col5}</td>
+              <td style="${getRecNameStyle(row.name)}">${row.name}</td>
+              <td style="${recCellStyle20}">${row.furigana}</td>
+              <td style="${getRecBusinessStyle(row.col5)}">${row.col5}</td>
               <td style="${inputCell}"></td>
             </tr>
           `;
@@ -4075,6 +4262,13 @@ async function generateShikidaiPDF() {
 
     // 3. ID衝突対策：clone配下の全IDを削除
     clone.querySelectorAll('[id]').forEach(el => el.removeAttribute('id'));
+
+    // 3.5. 担当者セルに折り返し禁止スタイルを直接適用（html2canvas対策）
+    clone.querySelectorAll('.tt-person').forEach(el => {
+      el.style.whiteSpace = 'nowrap';
+      el.style.width = '200px';
+      el.style.minWidth = '200px';
+    });
 
     // 4. クローンのスタイル設定（画面外配置）
     clone.style.cssText = `
@@ -5084,11 +5278,11 @@ function loadParticipantHistory() {
         renderHistorySummary(result);
         renderHistoryTable(result.participants);
       } else {
-        tbody.innerHTML = `<tr><td colspan="5" class="py-8 text-center text-red-500">${result.message || 'エラー'}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="6" class="py-8 text-center text-red-500">${result.message || 'エラー'}</td></tr>`;
       }
     })
     .withFailureHandler(err => {
-      tbody.innerHTML = `<tr><td colspan="5" class="py-8 text-center text-red-500">エラー: ${err}</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="6" class="py-8 text-center text-red-500">エラー: ${err}</td></tr>`;
       console.error('getParticipantHistory error:', err);
     })
     .getParticipantHistory(eventKey);
@@ -5100,6 +5294,8 @@ function renderHistorySummary(data) {
   document.getElementById('historyMembers').textContent = data.members + '名';
   document.getElementById('historyGuests').textContent = data.guests + '名';
   document.getElementById('historyOthers').textContent = data.others + '名';
+  document.getElementById('historyAttended').textContent = (data.attended || 0) + '名';
+  document.getElementById('historyCancelled').textContent = (data.cancelled || 0) + '名';
 }
 
 // テーブル表示
@@ -5109,11 +5305,21 @@ function renderHistoryTable(participants) {
   // フィルタ適用
   let filtered = participants;
   if (historyFilter !== 'all') {
-    filtered = participants.filter(p => p.category === historyFilter);
+    // 区分フィルタ（会員/ゲスト/他会場）
+    if (['会員', 'ゲスト', '他会場'].includes(historyFilter)) {
+      filtered = participants.filter(p => p.category === historyFilter);
+    }
+    // 出欠フィルタ
+    else if (historyFilter === '出席') {
+      filtered = participants.filter(p => p.attendance === '出席');
+    }
+    else if (historyFilter === '欠席') {
+      filtered = participants.filter(p => p.attendance === '欠席');
+    }
   }
 
   if (filtered.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="5" class="py-8 text-center text-slate-400">該当なし</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6" class="py-8 text-center text-slate-400">該当なし</td></tr>';
     return;
   }
 
@@ -5122,6 +5328,15 @@ function renderHistoryTable(participants) {
     const bgClass = idx % 2 === 0 ? 'bg-white' : 'bg-slate-50';
     const categoryClass = p.category === '会員' ? 'text-blue-600' :
                           p.category === 'ゲスト' ? 'text-green-600' : 'text-orange-600';
+
+    // 出欠表示
+    let attendanceHtml = '-';
+    if (p.attendance === '出席') {
+      attendanceHtml = '<span class="text-green-600 font-medium">✓</span>';
+    } else if (p.attendance === '欠席') {
+      attendanceHtml = '<span class="text-purple-600 font-medium">✗</span>';
+    }
+
     html += `
       <tr class="${bgClass}">
         <td class="py-2 px-2 border border-slate-200 text-center text-slate-400">${idx + 1}</td>
@@ -5129,6 +5344,7 @@ function renderHistoryTable(participants) {
         <td class="py-2 px-2 border border-slate-200 text-center ${categoryClass}">${p.category}</td>
         <td class="py-2 px-2 border border-slate-200">${p.affiliation || '-'}</td>
         <td class="py-2 px-2 border border-slate-200 text-center">${p.table || '-'}</td>
+        <td class="py-2 px-2 border border-slate-200 text-center">${attendanceHtml}</td>
       </tr>
     `;
   });
@@ -5484,6 +5700,7 @@ function renderCheckinStatus() {
   // サマリー更新
   const summary = checkinData.summary || {};
   document.getElementById('checkinArrived').textContent = `${summary.checkedIn || 0}/${summary.total || 0}`;
+  document.getElementById('checkinCancelled').textContent = summary.cancelled || 0;
   document.getElementById('checkinBadgeLent').textContent = summary.badgeLent || 0;
   document.getElementById('checkinBadgeNotReturned').textContent = summary.badgeNotReturned || 0;
   document.getElementById('checkinLastUpdate').textContent = new Date().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
@@ -5537,94 +5754,106 @@ function filterCheckinList(list) {
   }
 }
 
-// チェックインカード生成
+// チェックインカード生成（スマホ最適化版）
 function renderCheckinCard(person, showBadge) {
   const checkedIn = person.checkedIn;
-  const bgColor = checkedIn ? 'bg-emerald-50 border-emerald-200' : 'bg-white border-slate-200';
-  const badgeLentChecked = person.badgeLent ? 'checked' : '';
-  const badgeReturnedChecked = person.badgeReturned ? 'checked' : '';
-  const badgeLentDisabled = !checkedIn ? 'disabled' : '';
-  const badgeReturnedDisabled = !person.badgeLent ? 'disabled' : '';
-
-  const seatBadge = person.seat
-    ? `<span class="text-xs px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded">${person.seat}</span>`
-    : '';
-
-  const affiliationText = person.affiliation
-    ? `<span class="text-xs text-slate-500">(${person.affiliation})</span>`
-    : '';
-
-  const checkinTimeText = person.checkinTime
-    ? `<span class="text-xs text-slate-400 ml-2">${person.checkinTime}</span>`
-    : '';
-
-  // バッジ欄（会員・他会場のみ）
-  const badgeSection = showBadge ? `
-    <div class="flex items-center gap-3 mt-1">
-      <label class="flex items-center gap-1 text-xs ${badgeLentDisabled ? 'text-slate-300' : 'text-slate-600'}">
-        <input type="checkbox" ${badgeLentChecked} ${badgeLentDisabled}
-          onchange="updateCheckinField(${person.rowIndex}, 'badgeLent', this.checked)"
-          class="w-4 h-4 rounded border-slate-300" />
-        バッジ貸出
-      </label>
-      <label class="flex items-center gap-1 text-xs ${badgeReturnedDisabled ? 'text-slate-300' : 'text-slate-600'}">
-        <input type="checkbox" ${badgeReturnedChecked} ${badgeReturnedDisabled}
-          onchange="updateCheckinField(${person.rowIndex}, 'badgeReturned', this.checked)"
-          class="w-4 h-4 rounded border-slate-300" />
-        返却
-      </label>
-    </div>
-  ` : '';
-
-  // キャンセル状態の判定
   const isCancelled = person.cancelled === true;
 
-  // カード背景色（キャンセル済みは薄紫）
-  const cardBgColor = isCancelled ? 'bg-purple-50 border-purple-200' : bgColor;
-  const nameTextColor = isCancelled ? 'text-purple-600' : (checkedIn ? 'text-emerald-800' : 'text-slate-700');
+  // 状態別の背景色
+  let cardBgColor = 'bg-white border-slate-200';
+  let nameTextColor = 'text-slate-700';
+  let statusIcon = '';
 
-  // チェックインボタン + キャンセルボタン
-  const actionButtons = isCancelled ? `
-    <button onclick="undoCancelCheckin(${person.rowIndex})"
-      class="text-xs px-2 py-1 bg-slate-400 text-white rounded hover:bg-slate-500 transition-colors">
-      取消解除
-    </button>
-  ` : (checkedIn ? `
-    <button onclick="cancelManualCheckin(${person.rowIndex})"
-      class="text-xs px-2 py-1 bg-purple-500 text-white rounded hover:bg-purple-600 transition-colors">
-      キャンセル
-    </button>
-  ` : `
-    <button onclick="manualCheckin(${person.rowIndex})"
-      class="text-xs px-2 py-1 bg-amber-500 text-white rounded hover:bg-amber-600 transition-colors">
-      チェックイン
-    </button>
-    <button onclick="markAsCancelled(${person.rowIndex})"
-      class="text-xs px-2 py-1 bg-purple-500 text-white rounded hover:bg-purple-600 transition-colors">
-      キャンセル
-    </button>
-  `);
+  if (isCancelled) {
+    cardBgColor = 'bg-purple-50 border-purple-200';
+    nameTextColor = 'text-purple-600 line-through';
+    statusIcon = '<span class="text-purple-500">✗</span>';
+  } else if (checkedIn) {
+    cardBgColor = 'bg-emerald-50 border-emerald-200';
+    nameTextColor = 'text-emerald-800';
+    statusIcon = '<span class="text-emerald-500">✓</span>';
+  }
 
-  // キャンセル済みバッジ
-  const cancelledBadge = isCancelled ? `
-    <span class="text-xs px-1.5 py-0.5 rounded bg-purple-200 text-purple-700 font-medium">欠席</span>
-  ` : '';
+  // 席バッジ
+  const seatBadge = person.seat
+    ? `<span class="text-xs px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded font-medium">${person.seat}</span>`
+    : '';
+
+  // チェックイン時刻
+  const timeText = person.checkinTime
+    ? `<span class="text-xs text-slate-400">${person.checkinTime}</span>`
+    : '';
+
+  // ボタン（状態別）
+  let actionButton = '';
+  if (isCancelled) {
+    actionButton = `
+      <button onclick="undoCancelCheckin(${person.rowIndex})"
+        class="text-xs px-3 py-1.5 bg-slate-400 text-white rounded-lg font-medium">
+        解除
+      </button>`;
+  } else if (checkedIn) {
+    actionButton = `
+      <button onclick="cancelManualCheckin(${person.rowIndex})"
+        class="text-xs px-3 py-1.5 bg-slate-200 text-slate-600 rounded-lg font-medium">
+        取消
+      </button>`;
+  } else {
+    actionButton = `
+      <button onclick="manualCheckin(${person.rowIndex})"
+        class="text-xs px-4 py-1.5 bg-emerald-500 text-white rounded-lg font-medium shadow-sm">
+        到着
+      </button>
+      <button onclick="markAsCancelled(${person.rowIndex})"
+        class="text-xs px-3 py-1.5 bg-purple-100 text-purple-600 rounded-lg font-medium">
+        欠席
+      </button>`;
+  }
+
+  // バッジ欄（到着済みの会員・他会場のみ表示）
+  let badgeSection = '';
+  if (showBadge && checkedIn && !isCancelled) {
+    const badgeLentChecked = person.badgeLent ? 'checked' : '';
+    const badgeReturnedChecked = person.badgeReturned ? 'checked' : '';
+    const badgeReturnedDisabled = !person.badgeLent ? 'disabled' : '';
+
+    badgeSection = `
+      <div class="flex items-center gap-4 mt-2 pt-2 border-t border-slate-100">
+        <label class="flex items-center gap-1.5 text-xs text-slate-600">
+          <input type="checkbox" ${badgeLentChecked}
+            onchange="updateCheckinField(${person.rowIndex}, 'badgeLent', this.checked)"
+            class="w-4 h-4 rounded border-slate-300 accent-blue-500" />
+          バッジ貸出
+        </label>
+        <label class="flex items-center gap-1.5 text-xs ${person.badgeLent ? 'text-slate-600' : 'text-slate-300'}">
+          <input type="checkbox" ${badgeReturnedChecked} ${badgeReturnedDisabled}
+            onchange="updateCheckinField(${person.rowIndex}, 'badgeReturned', this.checked)"
+            class="w-4 h-4 rounded border-slate-300 accent-emerald-500" />
+          返却済
+        </label>
+        <input type="text" placeholder="領収書No" value="${person.receiptNo || ''}"
+          onchange="updateCheckinField(${person.rowIndex}, 'receiptNo', this.value)"
+          class="flex-1 max-w-[80px] text-xs px-2 py-1 border border-slate-200 rounded" />
+      </div>`;
+  }
+
+  // 所属（長い場合は省略）
+  const affiliationText = person.affiliation && person.affiliation !== '福岡飯塚'
+    ? `<span class="text-xs text-slate-400 truncate max-w-[100px]">${person.affiliation}</span>`
+    : '';
 
   return `
-    <div class="checkin-card p-2 rounded-lg border ${cardBgColor}" data-checked="${checkedIn}" data-cancelled="${isCancelled}" data-row="${person.rowIndex}">
-      <div class="flex items-center justify-between">
-        <div class="flex items-center gap-2">
-          <span class="text-sm font-medium ${nameTextColor}">${person.name}</span>
-          ${affiliationText}
+    <div class="checkin-card p-2.5 rounded-xl border ${cardBgColor} mb-1.5" data-checked="${checkedIn}" data-cancelled="${isCancelled}" data-row="${person.rowIndex}">
+      <div class="flex items-center justify-between gap-2">
+        <div class="flex items-center gap-2 min-w-0 flex-1">
+          ${statusIcon}
           ${seatBadge}
-          ${cancelledBadge}
-          ${checkinTimeText}
+          <span class="text-sm font-medium ${nameTextColor} truncate">${person.name}</span>
+          ${affiliationText}
+          ${timeText}
         </div>
-        <div class="flex items-center gap-2">
-          ${actionButtons}
-          <input type="text" placeholder="領収書No" value="${person.receiptNo || ''}"
-            onchange="updateCheckinField(${person.rowIndex}, 'receiptNo', this.value)"
-            class="w-20 text-xs px-2 py-1 border border-slate-200 rounded" />
+        <div class="flex items-center gap-1.5 flex-shrink-0">
+          ${actionButton}
         </div>
       </div>
       ${badgeSection}
