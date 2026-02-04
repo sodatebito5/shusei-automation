@@ -32,6 +32,17 @@
   - [x] 設定シートD2（現在開催日）の21時にトリガー設定
   - [x] 送信完了後、次回開催日（G2）のトリガーを自動設定
   - [ ] setupSurveyTrigger() を1回実行（初回設定）
+- [x] Phase 4: ダッシュボードから手動送信機能
+  - [x] getSurveyParticipants(): 配席アーカイブから送信対象者取得API
+  - [x] sendSurveyManual(): 選択送信API（ドライラン/本番）
+  - [x] doPost にアクション追加（getSurveyParticipants, sendSurveyManual）
+  - [x] 例会当日タブに「アンケート送信管理」ボタン追加
+  - [x] アンケート送信管理モーダルUI
+    - 送信対象者チェックボックス選択
+    - メッセージ編集機能
+    - テスト実行（ドライラン）
+    - 本番送信（確認ダイアログ付き）
+  - [ ] デプロイ・動作確認
 
 ---
 
@@ -122,6 +133,19 @@ https://docs.google.com/forms/d/e/1FAIpQLScbjVLeSyfusz_b9ANvDL-5win-w8_G0TGxQ7TO
 
 ---
 
+### 当日ドタ参加の対応
+
+#### 概要
+事前に出欠連絡していない人が当日参加した場合の対応フロー
+
+#### 検討事項
+- [ ] 受付での登録方法（ダッシュボードから追加？専用フォーム？）
+- [ ] 配席への反映方法（空席に案内？）
+- [ ] アンケート送信対象への追加方法
+- [ ] チェックイン管理との連携
+
+---
+
 ### 役割分担編集ページ（追加機能）
 
 #### 残りタスク
@@ -167,6 +191,14 @@ https://docs.google.com/forms/d/e/1FAIpQLScbjVLeSyfusz_b9ANvDL-5win-w8_G0TGxQ7TO
 ## ✅ 完了
 
 ### 2026-02-04
+- [x] **アンケート結果表示機能（概要タブ）**
+  - GAS: getSurveyResultsForDashboard() - アンケート結果集計API追加
+  - doGet: action=getSurveyResults エンドポイント追加
+  - HTML: 概要タブにアンケート結果カード追加
+    - 回答率プログレスバー（送信数/回答数）
+    - 例会満足度・福岡飯塚満足度（5段階平均＋絵文字表示）
+    - 良かった点・改善リクエストのコメント一覧（最大5件表示）
+  - JS: loadSurveyResults(), renderSurveyResults() 実装
 - [x] **ダッシュボードイベントキー切り替え時刻変更**
   - 11:00 → 19:00に変更（例会終了後まで当日イベントキーを維持）
   - getDashboardEventKey(), getDashboardEventDate() 修正

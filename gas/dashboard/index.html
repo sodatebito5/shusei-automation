@@ -28,6 +28,9 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;600&display=swap" rel="stylesheet">
 
+<!-- Google Material Icons -->
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+
 <!-- GASから埋め込まれた式次第データ -->
 <script>
   const EMBEDDED_SHIKIDAI_DATA = <?!= shikidaiData ?>;
@@ -241,6 +244,97 @@
     </div>
   </div>
   -->
+</section>
+
+<!-- アンケート結果 -->
+<section class="mt-5">
+  <div class="modern-card" id="surveyResultsCard">
+    <div class="modern-card-header">
+      <h2 class="modern-card-title">
+        <span class="modern-card-title-icon">📋</span>
+        アンケート結果
+      </h2>
+      <span id="surveyEventLabel" class="text-xs text-slate-400"></span>
+    </div>
+
+    <!-- 回答率 -->
+    <div class="mb-4">
+      <div class="flex items-center justify-between mb-2">
+        <span class="text-sm text-slate-600">回答率</span>
+        <span class="text-sm font-semibold">
+          <span id="surveyResponseRate" class="text-teal-600">-</span>%
+          <span class="text-slate-400 font-normal ml-1">(<span id="surveyResponseCount">-</span>/<span id="surveySentCount">-</span>名)</span>
+        </span>
+      </div>
+      <div class="w-full bg-slate-200 rounded-full h-2.5">
+        <div id="surveyProgressBar" class="bg-teal-500 h-2.5 rounded-full transition-all duration-500" style="width: 0%"></div>
+      </div>
+    </div>
+
+    <!-- 満足度（Google口コミ風 横棒グラフ） -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+      <!-- 例会満足度 -->
+      <div class="bg-blue-50 rounded-xl p-3">
+        <div class="flex items-center gap-2 mb-2">
+          <span class="text-xs text-blue-600 font-medium">例会満足度</span>
+          <span id="surveyMeetingScore" class="text-lg font-bold text-blue-700">-</span>
+          <span id="surveyMeetingEmoji" class="text-lg">-</span>
+        </div>
+        <div id="surveyMeetingDistribution" class="space-y-1">
+          <!-- JS で棒グラフを生成 -->
+        </div>
+      </div>
+      <!-- 福岡飯塚満足度 -->
+      <div class="bg-purple-50 rounded-xl p-3">
+        <div class="flex items-center gap-2 mb-2">
+          <span class="text-xs text-purple-600 font-medium">福岡飯塚満足度</span>
+          <span id="surveyClubScore" class="text-lg font-bold text-purple-700">-</span>
+          <span id="surveyClubEmoji" class="text-lg">-</span>
+        </div>
+        <div id="surveyClubDistribution" class="space-y-1">
+          <!-- JS で棒グラフを生成 -->
+        </div>
+      </div>
+    </div>
+
+    <!-- コメントセクション -->
+    <div class="space-y-3">
+      <!-- 良かった点 -->
+      <div id="surveyGoodSection" class="hidden">
+        <div class="flex items-center gap-2 mb-2">
+          <span class="text-emerald-600">👍</span>
+          <span class="text-sm font-semibold text-slate-700">良かった点</span>
+          <span id="surveyGoodCount" class="text-xs text-slate-400">(-件)</span>
+        </div>
+        <div id="surveyGoodComments" class="space-y-1.5 pl-6"></div>
+      </div>
+
+      <!-- 改善リクエスト -->
+      <div id="surveyImproveSection" class="hidden">
+        <div class="flex items-center gap-2 mb-2">
+          <span class="text-amber-600">📝</span>
+          <span class="text-sm font-semibold text-slate-700">改善リクエスト</span>
+          <span id="surveyImproveCount" class="text-xs text-slate-400">(-件)</span>
+        </div>
+        <div id="surveyImproveComments" class="space-y-1.5 pl-6"></div>
+      </div>
+
+      <!-- コメントなし時のメッセージ -->
+      <div id="surveyNoComments" class="text-center text-slate-400 text-sm py-2 hidden">
+        コメントはまだありません
+      </div>
+    </div>
+
+    <!-- ローディング状態 -->
+    <div id="surveyLoading" class="text-center text-slate-400 py-4">
+      データ取得中...
+    </div>
+
+    <!-- データなし状態 -->
+    <div id="surveyNoData" class="text-center text-slate-400 py-4 hidden">
+      アンケートデータがありません
+    </div>
+  </div>
 </section>
       </div>
 
@@ -867,6 +961,13 @@
           class="prep-menu-btn px-4 py-2.5 text-xs md:text-sm rounded-lg border border-amber-200 bg-white hover:bg-amber-50 hover:border-amber-300 transition-all shadow-sm text-amber-700"
         >
           チェックイン管理
+        </button>
+        <button
+          id="btnSurveyManage"
+          onclick="openSurveyModal()"
+          class="prep-menu-btn px-4 py-2.5 text-xs md:text-sm rounded-lg border border-purple-200 bg-white hover:bg-purple-50 hover:border-purple-300 transition-all shadow-sm text-purple-700"
+        >
+          アンケート送信管理
         </button>
       </div>
     </section>
@@ -2956,6 +3057,11 @@ if (guestDetailBody) {
       if (totalSalesEl) totalSalesEl.textContent = totals.salesAmount ? totals.salesAmount.toLocaleString() + '円' : '-';
     }
   }
+
+  // ------------------------------
+  // 12. アンケート結果読み込み
+  // ------------------------------
+  loadSurveyResults();
 }
 
 // ★ 月別推移グラフ描画（renderDashboard の外に出す）
@@ -3058,6 +3164,271 @@ function renderMonthlyChart(monthlySummary) {
       },
     },
   });
+}
+
+// =============================================
+// アンケート結果表示
+// =============================================
+
+/**
+ * 前月のイベントキーを計算
+ * アンケートは例会当日に送信されるため、次の開催日までは前回例会のキーを使用
+ * @param {string} eventKey - 現在のイベントキー（例: 202602_01）
+ * @returns {string} 前月のイベントキー（例: 202601_01）
+ */
+function getPreviousEventKey(eventKey) {
+  if (!eventKey) return '';
+  const match = eventKey.match(/^(\d{4})(\d{2})_(\d+)$/);
+  if (!match) return eventKey;
+
+  let year = parseInt(match[1], 10);
+  let month = parseInt(match[2], 10);
+  const num = match[3];
+
+  month--;
+  if (month < 1) {
+    month = 12;
+    year--;
+  }
+
+  return `${year}${String(month).padStart(2, '0')}_${num}`;
+}
+
+/**
+ * イベントキーを日本語形式に変換
+ * @param {string} eventKey - イベントキー（例: 202601_01）
+ * @returns {string} 日本語形式（例: 2026年1月例会）
+ */
+function eventKeyToJapaneseForSurvey(eventKey) {
+  if (!eventKey) return '';
+  const match = eventKey.match(/^(\d{4})(\d{2})_\d+$/);
+  if (!match) return eventKey;
+  const year = match[1];
+  const month = parseInt(match[2], 10);
+  return `${year}年${month}月例会`;
+}
+
+/**
+ * アンケート結果を読み込み
+ */
+function loadSurveyResults() {
+  if (!dashboardData || !dashboardData.eventKey) {
+    hideSurveyLoading();
+    showSurveyNoData();
+    return;
+  }
+
+  // 次の開催日までは前回例会のアンケート結果を表示
+  const eventKey = getPreviousEventKey(dashboardData.eventKey);
+
+  // アンケート用のイベント名を保存
+  window.surveyEventName = eventKeyToJapaneseForSurvey(eventKey);
+
+  google.script.run
+    .withSuccessHandler(renderSurveyResults)
+    .withFailureHandler(function(err) {
+      console.error('アンケート結果取得エラー:', err);
+      hideSurveyLoading();
+      showSurveyNoData();
+    })
+    .getSurveyResultsForDashboard(eventKey);
+}
+
+/**
+ * アンケート結果を描画
+ */
+function renderSurveyResults(data) {
+  hideSurveyLoading();
+
+  if (!data || !data.success) {
+    showSurveyNoData();
+    return;
+  }
+
+  const { stats, scores, comments } = data;
+
+  // イベント名ラベル（前回例会名を表示）
+  const eventLabel = document.getElementById('surveyEventLabel');
+  if (eventLabel && window.surveyEventName) {
+    eventLabel.textContent = `（${window.surveyEventName}）`;
+  }
+
+  // 回答率
+  const responseRateEl = document.getElementById('surveyResponseRate');
+  const responseCountEl = document.getElementById('surveyResponseCount');
+  const sentCountEl = document.getElementById('surveySentCount');
+  const progressBar = document.getElementById('surveyProgressBar');
+
+  if (responseRateEl) responseRateEl.textContent = stats.responseRate || 0;
+  if (responseCountEl) responseCountEl.textContent = stats.responseCount || 0;
+  if (sentCountEl) sentCountEl.textContent = stats.sentCount || 0;
+  if (progressBar) progressBar.style.width = `${Math.min(stats.responseRate || 0, 100)}%`;
+
+  // 満足度スコア
+  const meetingScore = scores.meeting.avg || 0;
+  const clubScore = scores.club.avg || 0;
+  const meetingDist = scores.meeting.distribution || [0, 0, 0, 0, 0];
+  const clubDist = scores.club.distribution || [0, 0, 0, 0, 0];
+
+  const meetingScoreEl = document.getElementById('surveyMeetingScore');
+  const meetingEmojiEl = document.getElementById('surveyMeetingEmoji');
+  const clubScoreEl = document.getElementById('surveyClubScore');
+  const clubEmojiEl = document.getElementById('surveyClubEmoji');
+
+  if (meetingScoreEl) meetingScoreEl.textContent = meetingScore > 0 ? meetingScore.toFixed(1) : '-';
+  if (meetingEmojiEl) meetingEmojiEl.textContent = getScoreEmoji(meetingScore);
+  if (clubScoreEl) clubScoreEl.textContent = clubScore > 0 ? clubScore.toFixed(1) : '-';
+  if (clubEmojiEl) clubEmojiEl.textContent = getScoreEmoji(clubScore);
+
+  // 満足度分布（横棒グラフ）
+  renderDistributionChart('surveyMeetingDistribution', meetingDist, 'blue');
+  renderDistributionChart('surveyClubDistribution', clubDist, 'purple');
+
+  // コメント
+  const allGoodComments = [
+    ...comments.meetingGood.map(c => ({ type: '例会', text: c })),
+    ...comments.clubGood.map(c => ({ type: '福岡飯塚', text: c }))
+  ];
+  const allImproveComments = [
+    ...comments.meetingImprove.map(c => ({ type: '例会', text: c })),
+    ...comments.clubImprove.map(c => ({ type: '福岡飯塚', text: c }))
+  ];
+
+  const goodSection = document.getElementById('surveyGoodSection');
+  const improveSection = document.getElementById('surveyImproveSection');
+  const noComments = document.getElementById('surveyNoComments');
+  const goodCountEl = document.getElementById('surveyGoodCount');
+  const improveCountEl = document.getElementById('surveyImproveCount');
+  const goodContainer = document.getElementById('surveyGoodComments');
+  const improveContainer = document.getElementById('surveyImproveComments');
+
+  if (allGoodComments.length > 0) {
+    if (goodSection) goodSection.classList.remove('hidden');
+    if (goodCountEl) goodCountEl.textContent = `(${allGoodComments.length}件)`;
+    if (goodContainer) {
+      goodContainer.innerHTML = allGoodComments.slice(0, 5).map(c => `
+        <div class="text-xs bg-emerald-50 text-emerald-800 rounded-lg px-3 py-2">
+          <span class="text-emerald-500 mr-1">[${escapeHtml(c.type)}]</span>
+          ${escapeHtml(c.text)}
+        </div>
+      `).join('');
+      if (allGoodComments.length > 5) {
+        goodContainer.innerHTML += `<div class="text-xs text-slate-400 pl-1">…他 ${allGoodComments.length - 5}件</div>`;
+      }
+    }
+  } else {
+    if (goodSection) goodSection.classList.add('hidden');
+  }
+
+  if (allImproveComments.length > 0) {
+    if (improveSection) improveSection.classList.remove('hidden');
+    if (improveCountEl) improveCountEl.textContent = `(${allImproveComments.length}件)`;
+    if (improveContainer) {
+      improveContainer.innerHTML = allImproveComments.slice(0, 5).map(c => `
+        <div class="text-xs bg-amber-50 text-amber-800 rounded-lg px-3 py-2">
+          <span class="text-amber-500 mr-1">[${escapeHtml(c.type)}]</span>
+          ${escapeHtml(c.text)}
+        </div>
+      `).join('');
+      if (allImproveComments.length > 5) {
+        improveContainer.innerHTML += `<div class="text-xs text-slate-400 pl-1">…他 ${allImproveComments.length - 5}件</div>`;
+      }
+    }
+  } else {
+    if (improveSection) improveSection.classList.add('hidden');
+  }
+
+  // コメントなし
+  if (allGoodComments.length === 0 && allImproveComments.length === 0) {
+    if (noComments) noComments.classList.remove('hidden');
+  } else {
+    if (noComments) noComments.classList.add('hidden');
+  }
+
+  // データなし表示を隠す
+  const noDataEl = document.getElementById('surveyNoData');
+  if (noDataEl) noDataEl.classList.add('hidden');
+}
+
+/**
+ * スコアに応じた絵文字を返す
+ */
+function getScoreEmoji(score) {
+  if (score >= 4.5) return '😄';
+  if (score >= 4.0) return '🙂';
+  if (score >= 3.0) return '😐';
+  if (score >= 2.0) return '😕';
+  if (score > 0) return '😞';
+  return '-';
+}
+
+/**
+ * 満足度分布の横棒グラフを描画（Google口コミ風）
+ * @param {string} containerId - コンテナ要素のID
+ * @param {Array<number>} distribution - 1〜5点の分布配列 [1点の数, 2点の数, ..., 5点の数]
+ * @param {string} color - カラーテーマ ('blue' or 'purple')
+ */
+function renderDistributionChart(containerId, distribution, color) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+
+  const total = distribution.reduce((a, b) => a + b, 0);
+  const maxCount = Math.max(...distribution, 1);
+
+  // カラー設定
+  const barColors = {
+    blue: 'bg-blue-500',
+    purple: 'bg-purple-500'
+  };
+  const barBgColors = {
+    blue: 'bg-blue-200',
+    purple: 'bg-purple-200'
+  };
+  const textColors = {
+    blue: 'text-blue-700',
+    purple: 'text-purple-700'
+  };
+
+  const barColor = barColors[color] || 'bg-blue-500';
+  const barBgColor = barBgColors[color] || 'bg-blue-200';
+  const textColor = textColors[color] || 'text-blue-700';
+
+  // 5点から1点の順に表示
+  let html = '';
+  for (let i = 4; i >= 0; i--) {
+    const score = i + 1;
+    const count = distribution[i];
+    const percentage = total > 0 ? Math.round((count / total) * 100) : 0;
+    const barWidth = maxCount > 0 ? Math.round((count / maxCount) * 100) : 0;
+
+    html += `
+      <div class="flex items-center gap-2 text-xs">
+        <span class="${textColor} w-3 text-right font-medium">${score}</span>
+        <div class="flex-1 ${barBgColor} rounded-full h-2 overflow-hidden">
+          <div class="${barColor} h-2 rounded-full transition-all duration-500" style="width: ${barWidth}%"></div>
+        </div>
+        <span class="text-slate-500 w-6 text-right">${count}</span>
+      </div>
+    `;
+  }
+
+  container.innerHTML = html;
+}
+
+/**
+ * ローディング表示を非表示
+ */
+function hideSurveyLoading() {
+  const loading = document.getElementById('surveyLoading');
+  if (loading) loading.classList.add('hidden');
+}
+
+/**
+ * データなし表示を表示
+ */
+function showSurveyNoData() {
+  const noData = document.getElementById('surveyNoData');
+  if (noData) noData.classList.remove('hidden');
 }
 
 // =============================================
@@ -4663,6 +5034,326 @@ function openIndividualSalesModal() {
 
 function closeSalesPasswordModal() {
   document.getElementById('salesPasswordModal').classList.add('hidden');
+}
+
+// ★例会アンケート送信管理モーダル
+let surveyData = null;
+let surveyCustomMessage = '';
+
+function openSurveyModal() {
+  document.getElementById('surveyModal').classList.remove('hidden');
+  loadSurveyParticipants();
+}
+
+function closeSurveyModal() {
+  document.getElementById('surveyModal').classList.add('hidden');
+  surveyData = null;
+  surveyCustomMessage = '';
+}
+
+// アンケート送信対象者を読み込む
+function loadSurveyParticipants() {
+  const eventInfoEl = document.getElementById('surveyEventInfo');
+  const participantsListEl = document.getElementById('surveyParticipantsList');
+  const noLineMembersEl = document.getElementById('surveyNoLineMembers');
+  const messagePreviewEl = document.getElementById('surveyMessagePreview');
+  const resultEl = document.getElementById('surveyResult');
+  const targetCountEl = document.getElementById('surveyTargetCount');
+
+  // ローディング表示
+  if (eventInfoEl) eventInfoEl.innerHTML = '<p class="text-slate-400 text-center py-2 text-sm">読み込み中...</p>';
+  if (participantsListEl) participantsListEl.innerHTML = '<p class="text-slate-400 text-center py-2 text-sm">読み込み中...</p>';
+  if (noLineMembersEl) noLineMembersEl.innerHTML = '<p class="text-slate-400 text-center py-2 text-sm">読み込み中...</p>';
+  if (messagePreviewEl) messagePreviewEl.textContent = '読み込み中...';
+  if (resultEl) resultEl.innerHTML = '';
+
+  // 現在のeventKeyを取得（dashboardDataから）
+  const eventKey = getCurrentEventKeyForSurvey();
+
+  // GAS APIを呼び出し
+  google.script.run
+    .withSuccessHandler(data => {
+    if (!data.success) {
+      if (eventInfoEl) eventInfoEl.innerHTML = `<p class="text-red-500 text-center py-2 text-sm">${data.message || 'エラーが発生しました'}</p>`;
+      if (participantsListEl) participantsListEl.innerHTML = '<p class="text-red-500 text-center py-2 text-sm">取得失敗</p>';
+      if (noLineMembersEl) noLineMembersEl.innerHTML = '<p class="text-red-500 text-center py-2 text-sm">取得失敗</p>';
+      return;
+    }
+
+    surveyData = data;
+
+    // イベント情報
+    if (eventInfoEl) {
+      eventInfoEl.innerHTML = `
+        <div class="text-center">
+          <p class="text-lg font-bold text-purple-700">${data.eventInfo.eventKeyJp}</p>
+          <p class="text-sm text-purple-600 mt-1">
+            参加総数: <span class="font-semibold">${data.eventInfo.totalParticipants}</span>名
+            (自会場会員: <span class="font-semibold">${data.eventInfo.memberCount}</span>名)
+          </p>
+        </div>
+      `;
+    }
+
+    // 参加者リスト（チェックボックス付き）
+    if (participantsListEl && data.participants) {
+      if (data.participants.length === 0) {
+        participantsListEl.innerHTML = '<p class="text-slate-500 text-center py-2 text-sm">送信対象者がいません</p>';
+      } else {
+        participantsListEl.innerHTML = data.participants.map((p, idx) => `
+          <label class="flex items-center gap-2 py-1 px-2 hover:bg-slate-100 rounded cursor-pointer">
+            <input type="checkbox" name="surveyParticipant" value="${p.userId}" data-name="${p.name}" class="w-4 h-4 text-purple-600 rounded focus:ring-purple-500" onchange="updateSurveySelectedCount()">
+            <span class="text-sm text-slate-700">${p.name}</span>
+            <span class="text-xs text-slate-400 ml-auto">${p.team || ''}</span>
+          </label>
+        `).join('');
+      }
+      if (targetCountEl) targetCountEl.textContent = `(${data.participants.length}名)`;
+    }
+
+    // 全員選択チェックボックスを初期化
+    document.getElementById('surveySelectAll').checked = false;
+    updateSurveySelectedCount();
+
+    // LINE未登録者
+    if (noLineMembersEl && data.noLineIdMembers) {
+      if (data.noLineIdMembers.length === 0) {
+        noLineMembersEl.innerHTML = '<p class="text-emerald-600 text-center py-2 text-sm">全員がLINE連携済みです</p>';
+      } else {
+        noLineMembersEl.innerHTML = `
+          <p class="text-sm text-amber-700 mb-2">${data.noLineIdMembers.length}名がLINE未登録です（手動連絡が必要）:</p>
+          <div class="flex flex-wrap gap-1">
+            ${data.noLineIdMembers.map(m => `<span class="text-xs bg-amber-100 text-amber-700 px-2 py-1 rounded">${m.name}</span>`).join('')}
+          </div>
+        `;
+      }
+    }
+
+    // デフォルトメッセージをプレビューに表示
+    const defaultMessage = buildSurveyDefaultMessage(data.eventInfo.eventKeyJp);
+    if (messagePreviewEl) messagePreviewEl.textContent = defaultMessage;
+    surveyCustomMessage = '';
+    document.getElementById('surveyMessageTextarea').value = defaultMessage;
+  })
+  .withFailureHandler(err => {
+    console.error('loadSurveyParticipants error:', err);
+    if (eventInfoEl) eventInfoEl.innerHTML = '<p class="text-red-500 text-center py-2 text-sm">通信エラーが発生しました</p>';
+  })
+  .getSurveyParticipants(eventKey);
+}
+
+// 現在のeventKeyを取得
+function getCurrentEventKeyForSurvey() {
+  // dashboardDataがあればそこから取得
+  if (window.dashboardData && window.dashboardData.eventKey) {
+    return window.dashboardData.eventKey;
+  }
+  // なければ設定シートの現在イベントキーを使用（フォールバック）
+  return '';
+}
+
+// デフォルトメッセージを生成
+function buildSurveyDefaultMessage(eventKeyJp) {
+  const encodedKey = encodeURIComponent(eventKeyJp);
+  const surveyUrl = 'https://shusei-survey.pages.dev/?key=' + encodedKey;
+
+  return '【例会アンケートのお願い】\n\n' +
+    '本日は例会にご参加いただき、ありがとうございました。\n\n' +
+    '今後のより良い運営のため、簡単なアンケートにご協力をお願いいたします。\n' +
+    '（所要時間：約1分）\n\n' +
+    '▼ アンケートはこちら\n' +
+    surveyUrl + '\n\n' +
+    '※ 回答は匿名で収集されます\n\n' +
+    '守成クラブ福岡飯塚';
+}
+
+// 全員選択トグル
+function toggleSurveySelectAll() {
+  const selectAll = document.getElementById('surveySelectAll').checked;
+  const checkboxes = document.querySelectorAll('input[name="surveyParticipant"]');
+  checkboxes.forEach(cb => cb.checked = selectAll);
+  updateSurveySelectedCount();
+}
+
+// 選択人数を更新
+function updateSurveySelectedCount() {
+  const checkboxes = document.querySelectorAll('input[name="surveyParticipant"]:checked');
+  document.getElementById('surveySelectedCount').textContent = `選択: ${checkboxes.length}名`;
+
+  // 全選択チェックボックスの状態を更新
+  const allCheckboxes = document.querySelectorAll('input[name="surveyParticipant"]');
+  const selectAllCb = document.getElementById('surveySelectAll');
+  if (allCheckboxes.length > 0 && checkboxes.length === allCheckboxes.length) {
+    selectAllCb.checked = true;
+    selectAllCb.indeterminate = false;
+  } else if (checkboxes.length > 0) {
+    selectAllCb.checked = false;
+    selectAllCb.indeterminate = true;
+  } else {
+    selectAllCb.checked = false;
+    selectAllCb.indeterminate = false;
+  }
+}
+
+// メッセージ編集トグル
+function toggleSurveyMessageEdit() {
+  const previewContainer = document.getElementById('surveyMessagePreviewContainer');
+  const editContainer = document.getElementById('surveyMessageEditContainer');
+  const toggleBtn = document.getElementById('surveyMessageEditToggle');
+
+  if (editContainer.classList.contains('hidden')) {
+    // 編集モードに切り替え
+    editContainer.classList.remove('hidden');
+    previewContainer.classList.add('hidden');
+    toggleBtn.innerHTML = '<span class="material-icons text-sm">visibility</span> プレビュー';
+  } else {
+    // プレビューモードに切り替え
+    editContainer.classList.add('hidden');
+    previewContainer.classList.remove('hidden');
+    toggleBtn.innerHTML = '<span class="material-icons text-sm">edit</span> 編集';
+  }
+}
+
+// メッセージを適用
+function applySurveyMessage() {
+  const textarea = document.getElementById('surveyMessageTextarea');
+  const previewEl = document.getElementById('surveyMessagePreview');
+
+  surveyCustomMessage = textarea.value;
+
+  // {SURVEY_URL}を実際のURLに置換してプレビュー
+  if (surveyData && surveyData.eventInfo) {
+    const encodedKey = encodeURIComponent(surveyData.eventInfo.eventKeyJp);
+    const surveyUrl = 'https://shusei-survey.pages.dev/?key=' + encodedKey;
+    const previewText = surveyCustomMessage.replace(/\{SURVEY_URL\}/g, surveyUrl);
+    previewEl.textContent = previewText;
+  } else {
+    previewEl.textContent = surveyCustomMessage;
+  }
+
+  // プレビューモードに戻る
+  toggleSurveyMessageEdit();
+}
+
+// デフォルトメッセージに戻す
+function resetSurveyMessageToDefault() {
+  if (!surveyData || !surveyData.eventInfo) {
+    alert('イベント情報が読み込まれていません');
+    return;
+  }
+
+  const defaultMessage = buildSurveyDefaultMessage(surveyData.eventInfo.eventKeyJp);
+  document.getElementById('surveyMessageTextarea').value = defaultMessage;
+  document.getElementById('surveyMessagePreview').textContent = defaultMessage;
+  surveyCustomMessage = '';
+}
+
+// テスト実行（ドライラン）
+function executeSurveyDryRun() {
+  const selectedUserIds = getSelectedSurveyUserIds();
+  const resultEl = document.getElementById('surveyResult');
+
+  if (selectedUserIds.length === 0) {
+    resultEl.innerHTML = '<div class="bg-amber-50 border border-amber-200 rounded-lg p-3 text-amber-700 text-sm">送信対象者を選択してください</div>';
+    return;
+  }
+
+  resultEl.innerHTML = '<div class="text-slate-400 text-center py-2 text-sm">テスト実行中...</div>';
+
+  const eventKey = getCurrentEventKeyForSurvey();
+
+  google.script.run
+    .withSuccessHandler(data => {
+      if (!data.success) {
+        resultEl.innerHTML = `<div class="bg-red-50 border border-red-200 rounded-lg p-3 text-red-700 text-sm">${data.message || 'エラーが発生しました'}</div>`;
+        return;
+      }
+
+      // テスト結果を表示
+      const targetNames = data.targets ? data.targets.map(t => t.name).join('、') : '';
+      resultEl.innerHTML = `
+        <div class="bg-blue-50 border border-blue-200 rounded-lg p-3">
+          <p class="text-blue-700 font-semibold text-sm mb-2">テスト実行結果</p>
+          <p class="text-blue-600 text-sm">送信対象: <span class="font-bold">${data.targetCount}</span>名</p>
+          <p class="text-xs text-blue-500 mt-1">${targetNames}</p>
+          ${data.noLineIdCount > 0 ? `<p class="text-amber-600 text-xs mt-2">※ LINE未登録: ${data.noLineIdCount}名</p>` : ''}
+        </div>
+      `;
+    })
+    .withFailureHandler(err => {
+      console.error('executeSurveyDryRun error:', err);
+      resultEl.innerHTML = '<div class="bg-red-50 border border-red-200 rounded-lg p-3 text-red-700 text-sm">通信エラーが発生しました</div>';
+    })
+    .sendSurveyManual(eventKey, selectedUserIds, surveyCustomMessage, true);
+}
+
+// 本番送信
+function executeSurveySend() {
+  const selectedUserIds = getSelectedSurveyUserIds();
+  const resultEl = document.getElementById('surveyResult');
+
+  if (selectedUserIds.length === 0) {
+    resultEl.innerHTML = '<div class="bg-amber-50 border border-amber-200 rounded-lg p-3 text-amber-700 text-sm">送信対象者を選択してください</div>';
+    return;
+  }
+
+  // 確認ダイアログ
+  const selectedNames = getSelectedSurveyNames();
+  if (!confirm(`以下の ${selectedUserIds.length}名 にアンケートを送信します。\n\n${selectedNames.join('、')}\n\n送信してよろしいですか？`)) {
+    return;
+  }
+
+  resultEl.innerHTML = '<div class="text-slate-400 text-center py-2 text-sm">送信中...</div>';
+
+  const eventKey = getCurrentEventKeyForSurvey();
+
+  google.script.run
+    .withSuccessHandler(data => {
+      if (!data.success) {
+        resultEl.innerHTML = `<div class="bg-red-50 border border-red-200 rounded-lg p-3 text-red-700 text-sm">${data.message || 'エラーが発生しました'}</div>`;
+        return;
+      }
+
+      // 送信結果を表示
+      let resultHtml = `
+        <div class="bg-emerald-50 border border-emerald-200 rounded-lg p-3">
+          <p class="text-emerald-700 font-semibold text-sm mb-2">送信完了</p>
+          <p class="text-emerald-600 text-sm">成功: <span class="font-bold">${data.sent}</span>件</p>
+      `;
+
+      if (data.failed > 0) {
+        resultHtml += `
+          <p class="text-red-600 text-sm">失敗: <span class="font-bold">${data.failed}</span>件</p>
+          <p class="text-xs text-red-500 mt-1">${data.errors ? data.errors.map(e => e.name).join('、') : ''}</p>
+        `;
+      }
+
+      resultHtml += '</div>';
+      resultEl.innerHTML = resultHtml;
+
+      // チェックボックスをリセット
+      const checkboxes = document.querySelectorAll('input[name="surveyParticipant"]');
+      checkboxes.forEach(cb => cb.checked = false);
+      document.getElementById('surveySelectAll').checked = false;
+      updateSurveySelectedCount();
+    })
+    .withFailureHandler(err => {
+      console.error('executeSurveySend error:', err);
+      resultEl.innerHTML = '<div class="bg-red-50 border border-red-200 rounded-lg p-3 text-red-700 text-sm">通信エラーが発生しました</div>';
+    })
+    .sendSurveyManual(eventKey, selectedUserIds, surveyCustomMessage, false);
+}
+
+// 選択されたuserIdを取得
+function getSelectedSurveyUserIds() {
+  const checkboxes = document.querySelectorAll('input[name="surveyParticipant"]:checked');
+  return Array.from(checkboxes).map(cb => cb.value);
+}
+
+// 選択された名前を取得
+function getSelectedSurveyNames() {
+  const checkboxes = document.querySelectorAll('input[name="surveyParticipant"]:checked');
+  return Array.from(checkboxes).map(cb => cb.dataset.name);
 }
 
 // ★出欠リマインド管理モーダル（自動送信設定UI）
@@ -6567,6 +7258,129 @@ function initMemberTab() {
         class="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
       >
         確認
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ★例会アンケート送信管理モーダル -->
+<div id="surveyModal" class="hidden fixed inset-0 z-50 flex items-center justify-center">
+  <!-- オーバーレイ -->
+  <div class="absolute inset-0 bg-black bg-opacity-50" onclick="closeSurveyModal()"></div>
+  <!-- モーダル本体（スマホ最適化） -->
+  <div class="relative bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-hidden mx-4">
+    <!-- ヘッダー -->
+    <div class="bg-purple-600 text-white px-4 py-3 flex items-center justify-between">
+      <h3 class="text-base font-semibold flex items-center gap-2">
+        <span class="material-icons text-lg">assignment</span>
+        例会アンケート送信
+      </h3>
+      <button onclick="closeSurveyModal()" class="text-white hover:bg-purple-700 rounded-full p-1 transition">
+        <span class="material-icons">close</span>
+      </button>
+    </div>
+
+    <!-- コンテンツ -->
+    <div class="p-4 overflow-y-auto max-h-[calc(90vh-110px)]">
+      <!-- イベント情報 -->
+      <div class="mb-4">
+        <h4 class="text-sm font-semibold text-slate-700 mb-2 flex items-center gap-2">
+          <span class="material-icons text-purple-500 text-base">event</span>
+          対象例会
+        </h4>
+        <div id="surveyEventInfo" class="bg-purple-50 rounded-lg p-3">
+          <p class="text-slate-400 text-center py-2 text-sm">読み込み中...</p>
+        </div>
+      </div>
+
+      <!-- 送信対象者セクション -->
+      <div class="mb-4">
+        <h4 class="text-sm font-semibold text-slate-700 mb-2 flex items-center gap-2">
+          <span class="material-icons text-green-500 text-base">people</span>
+          送信対象者
+          <span id="surveyTargetCount" class="text-xs text-slate-400 font-normal ml-auto">(-名)</span>
+        </h4>
+        <div class="bg-slate-50 rounded-lg p-3">
+          <!-- 全員選択 -->
+          <div class="flex items-center gap-2 mb-3 pb-2 border-b border-slate-200">
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" id="surveySelectAll" onchange="toggleSurveySelectAll()" class="w-4 h-4 text-purple-600 rounded focus:ring-purple-500">
+              <span class="text-sm font-medium text-slate-700">全員選択</span>
+            </label>
+            <span id="surveySelectedCount" class="text-xs text-slate-400 ml-auto">選択: 0名</span>
+          </div>
+          <!-- 参加者リスト -->
+          <div id="surveyParticipantsList" class="max-h-48 overflow-y-auto space-y-1">
+            <p class="text-slate-400 text-center py-2 text-sm">読み込み中...</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- LINE未登録者セクション -->
+      <div class="mb-4">
+        <h4 class="text-sm font-semibold text-slate-700 mb-2 flex items-center gap-2">
+          <span class="material-icons text-amber-500 text-base">warning</span>
+          LINE未登録（手動連絡）
+        </h4>
+        <div id="surveyNoLineMembers" class="bg-amber-50 rounded-lg p-3">
+          <p class="text-slate-400 text-center py-2 text-sm">読み込み中...</p>
+        </div>
+      </div>
+
+      <!-- メッセージ編集セクション -->
+      <div class="mb-4">
+        <h4 class="text-sm font-semibold text-slate-700 mb-2 flex items-center gap-2">
+          <span class="material-icons text-blue-500 text-base">edit_note</span>
+          <span>送信メッセージ</span>
+          <button onclick="toggleSurveyMessageEdit()" id="surveyMessageEditToggle" class="ml-auto text-xs text-blue-500 hover:text-blue-700 flex items-center gap-1">
+            <span class="material-icons text-sm">edit</span>
+            編集
+          </button>
+        </h4>
+        <div class="bg-slate-50 rounded-lg p-3">
+          <!-- プレビュー表示（デフォルト） -->
+          <div id="surveyMessagePreviewContainer">
+            <div id="surveyMessagePreview" class="text-xs text-slate-600 whitespace-pre-wrap max-h-48 overflow-y-auto border border-slate-200 rounded p-3 bg-white">
+              読み込み中...
+            </div>
+          </div>
+          <!-- 編集モード（非表示） -->
+          <div id="surveyMessageEditContainer" class="hidden">
+            <textarea id="surveyMessageTextarea" class="w-full h-48 p-3 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 resize-y font-mono" placeholder="メッセージを入力..."></textarea>
+            <div class="flex flex-wrap gap-2 mt-2">
+              <button onclick="applySurveyMessage()" class="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-xs font-medium rounded-lg transition flex items-center gap-1">
+                <span class="material-icons text-sm">check</span>
+                適用
+              </button>
+              <button onclick="resetSurveyMessageToDefault()" class="px-3 py-1.5 bg-slate-500 hover:bg-slate-600 text-white text-xs font-medium rounded-lg transition flex items-center gap-1">
+                <span class="material-icons text-sm">refresh</span>
+                デフォルトに戻す
+              </button>
+              <button onclick="toggleSurveyMessageEdit()" class="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-medium rounded-lg transition">
+                キャンセル
+              </button>
+            </div>
+          </div>
+          <p class="text-xs text-slate-500 mt-2">※ <code class="bg-slate-200 px-1 rounded">{SURVEY_URL}</code> はアンケートURLに自動置換されます</p>
+        </div>
+      </div>
+
+      <!-- 操作結果表示エリア -->
+      <div id="surveyResult" class="text-sm"></div>
+    </div>
+
+    <!-- フッター -->
+    <div class="bg-slate-50 px-4 py-3 flex flex-wrap gap-2 justify-end">
+      <button onclick="executeSurveyDryRun()" id="surveyDryRunBtn" class="px-4 py-2 bg-slate-600 text-white rounded-lg hover:bg-slate-700 transition text-sm flex items-center gap-1">
+        <span class="material-icons text-sm">preview</span>
+        テスト実行
+      </button>
+      <button onclick="executeSurveySend()" id="surveySendBtn" class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition text-sm flex items-center gap-1">
+        <span class="material-icons text-sm">send</span>
+        送信する
+      </button>
+      <button onclick="closeSurveyModal()" class="px-4 py-2 bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300 transition text-sm">
+        閉じる
       </button>
     </div>
   </div>

@@ -891,6 +891,21 @@ function doGet(e) {
     }
   }
 
+  // ★ダッシュボード用API: アンケート結果取得
+  if (action === 'getSurveyResults') {
+    try {
+      const eventKey = e.parameter.eventKey || '';
+      const result = getSurveyResultsForDashboard(eventKey);
+      return ContentService
+        .createTextOutput(JSON.stringify(result))
+        .setMimeType(ContentService.MimeType.JSON);
+    } catch (err) {
+      return ContentService
+        .createTextOutput(JSON.stringify({ success: false, error: err.message }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+
   // ★ダッシュボード用API: イベントキー一覧取得
   if (action === 'getEventKeyList') {
     try {
@@ -4714,6 +4729,49 @@ function doPost(e) {
     }
   }
 
+  // ★例会アンケート機能: 送信対象者取得
+  if (action === 'getSurveyParticipants') {
+    try {
+      const jsonText = (e.postData && e.postData.contents) || '{}';
+      const payload = JSON.parse(jsonText);
+      const result = getSurveyParticipants(payload.eventKey);
+      return ContentService
+        .createTextOutput(JSON.stringify(result))
+        .setMimeType(ContentService.MimeType.JSON);
+    } catch (err) {
+      return ContentService
+        .createTextOutput(JSON.stringify({
+          success: false,
+          error: 'invalid JSON: ' + err.message
+        }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+
+  // ★例会アンケート機能: アンケート送信（手動）
+  if (action === 'sendSurveyManual') {
+    try {
+      const jsonText = (e.postData && e.postData.contents) || '{}';
+      const payload = JSON.parse(jsonText);
+      const result = sendSurveyManual(
+        payload.eventKey,
+        payload.userIds || [],
+        payload.customMessage || '',
+        payload.dryRun || false
+      );
+      return ContentService
+        .createTextOutput(JSON.stringify(result))
+        .setMimeType(ContentService.MimeType.JSON);
+    } catch (err) {
+      return ContentService
+        .createTextOutput(JSON.stringify({
+          success: false,
+          error: 'invalid JSON: ' + err.message
+        }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+
   // 未対応のaction
   return ContentService
     .createTextOutput(JSON.stringify({
@@ -8220,4 +8278,467 @@ function setupAutoAttendanceTrigger() {
 
   Logger.log('setupAutoAttendanceTrigger: 毎月1日 AM 9:00 のトリガーを作成しました');
   return { success: true, message: '毎月1日 AM 9:00 のトリガーを作成しました' };
+}
+
+/** =========================================================
+ *  例会アンケート送信機能
+ * ======================================================= */
+
+// アンケートURL
+const SURVEY_URL = 'https://shusei-survey.pages.dev/';
+
+/**
+ * アンケート送信対象者を取得（配席アーカイブから自会場会員のみ）
+ * @param {string} eventKey - イベントキー（例: 202602_01）
+ * @returns {Object} { success, eventInfo, participants, noLineIdMembers }
+ */
+function getSurveyParticipants(eventKey) {
+  try {
+    // eventKeyが空の場合は例会当日イベントキー（I2）を使用
+    if (!eventKey) {
+      eventKey = getEventDayEventKey();
+      Logger.log('getSurveyParticipants: eventKey未指定のため例会当日キーを使用: ' + eventKey);
+    }
+
+    if (!eventKey) {
+      return { success: false, message: 'eventKeyが指定されていません（例会当日キーも未設定）' };
+    }
+
+    // 1. 配席アーカイブから参加者を取得
+    const archiveResult = getSeatingArchive(eventKey);
+    if (!archiveResult.success) {
+      return { success: false, message: '配席アーカイブの取得に失敗: ' + (archiveResult.error || '') };
+    }
+
+    // 2. 自会場会員を取得（配席アーカイブ or 出欠状況シートからフォールバック）
+    let memberNames = [];
+    let dataSource = 'archive';
+
+    if (archiveResult.assignments && archiveResult.assignments.length > 0) {
+      // 配席アーカイブから取得（区分=「会員」のみ）
+      memberNames = archiveResult.assignments
+        .filter(a => a.category === '会員')
+        .map(a => ({
+          name: a.name,
+          team: a.team || ''
+        }));
+      dataSource = 'archive';
+    }
+
+    // 配席データがない場合は出欠状況シートから「出席」会員を取得
+    if (memberNames.length === 0) {
+      Logger.log('getSurveyParticipants: 配席データなし、出欠状況シートから取得');
+      const eventKeyJp = eventKeyToJapanese_(eventKey);
+      const ss = SpreadsheetApp.openById(ATTEND_GUEST_SHEET_ID);
+      const attendSheet = ss.getSheetByName(ATTEND_SHEET_NAME);
+
+      if (attendSheet) {
+        const attendData = attendSheet.getDataRange().getValues();
+        const attendingNames = new Set();
+
+        // B列: eventKey, D列: 氏名, E列: 出欠
+        for (let i = 3; i < attendData.length; i++) {
+          const rowEventKey = String(attendData[i][1] || '').trim();
+          const name = String(attendData[i][3] || '').trim();
+          const attendance = String(attendData[i][4] || '').trim();
+
+          if (rowEventKey === eventKeyJp && attendance === '出席' && name) {
+            attendingNames.add(name);
+          }
+        }
+
+        memberNames = Array.from(attendingNames).map(name => ({
+          name: name,
+          team: ''
+        }));
+        dataSource = 'attendance';
+        Logger.log('getSurveyParticipants: 出欠状況から ' + memberNames.length + '名取得');
+      }
+    }
+
+    if (memberNames.length === 0) {
+      return { success: false, message: '自会場会員が見つかりません' };
+    }
+
+    // 3. 会員名簿マスターからLINE_userIdを取得
+    const ss = SpreadsheetApp.openById(ATTEND_GUEST_SHEET_ID);
+    const memberSheet = ss.getSheetByName(MEMBER_SHEET_NAME);
+
+    if (!memberSheet) {
+      return { success: false, message: '会員名簿マスターが見つかりません' };
+    }
+
+    const memberData = memberSheet.getDataRange().getValues();
+
+    // 列インデックス（0始まり）
+    const COL = {
+      BADGE: 1,         // B列: バッジ
+      NAME: 2,          // C列: 氏名
+      TEAM: 8,          // I列: チーム
+      LINE_USER_ID: 15, // P列: LINE_userId
+      RETIRED: 26       // AA列: 退会
+    };
+
+    // 氏名→LINE_userIdのマップを作成
+    const nameToUserId = new Map();
+    for (let i = 2; i < memberData.length; i++) {
+      const row = memberData[i];
+      const name = String(row[COL.NAME] || '').trim();
+      const userId = String(row[COL.LINE_USER_ID] || '').trim();
+      const retired = String(row[COL.RETIRED] || '').trim();
+
+      // 退会者はスキップ
+      if (retired) continue;
+      if (!name) continue;
+
+      if (userId) {
+        nameToUserId.set(name, userId);
+      }
+    }
+
+    // 4. 参加者リストにLINE_userIdを付与
+    const participantsWithLineId = [];
+    const noLineIdMembers = [];
+
+    for (const member of memberNames) {
+      const userId = nameToUserId.get(member.name);
+      if (userId) {
+        participantsWithLineId.push({
+          name: member.name,
+          team: member.team,
+          userId: userId,
+          hasLineId: true
+        });
+      } else {
+        noLineIdMembers.push({
+          name: member.name,
+          team: member.team,
+          hasLineId: false
+        });
+      }
+    }
+
+    // 5. イベント情報を整形
+    const eventKeyJpFinal = eventKeyToJapanese_(eventKey);
+    const eventInfo = {
+      eventKey: eventKey,
+      eventKeyJp: eventKeyJpFinal,
+      eventDate: archiveResult.eventDate || '',
+      totalParticipants: dataSource === 'archive' ? archiveResult.assignments.length : memberNames.length,
+      memberCount: memberNames.length,
+      dataSource: dataSource
+    };
+
+    return {
+      success: true,
+      eventInfo: eventInfo,
+      participants: participantsWithLineId,
+      noLineIdMembers: noLineIdMembers
+    };
+
+  } catch (e) {
+    Logger.log('getSurveyParticipants error: ' + e.message);
+    return { success: false, message: e.message };
+  }
+}
+
+/**
+ * アンケートメッセージを生成
+ * @param {string} eventKeyJp - 日本語形式のイベントキー（例: 2026年2月例会）
+ * @returns {string} メッセージテキスト
+ */
+function buildSurveyMessage_(eventKeyJp) {
+  // URLにイベントキーを含める
+  const encodedKey = encodeURIComponent(eventKeyJp);
+  const surveyUrl = SURVEY_URL + '?key=' + encodedKey;
+
+  const message =
+    '【例会アンケートのお願い】\n\n' +
+    '本日は例会にご参加いただき、ありがとうございました。\n\n' +
+    '今後のより良い運営のため、簡単なアンケートにご協力をお願いいたします。\n' +
+    '（所要時間：約1分）\n\n' +
+    '▼ アンケートはこちら\n' +
+    surveyUrl + '\n\n' +
+    '※ 回答は匿名で収集されます\n\n' +
+    '守成クラブ福岡飯塚';
+
+  return message;
+}
+
+/**
+ * アンケート送信（手動・選択送信用）
+ * @param {string} eventKey - イベントキー
+ * @param {Array<string>} userIds - 送信対象のuserIdリスト
+ * @param {string} customMessage - カスタムメッセージ（省略時はデフォルトメッセージ）
+ * @param {boolean} dryRun - true: テスト実行（送信しない）
+ * @returns {Object} { success, sent, failed, errors, message, targets }
+ */
+function sendSurveyManual(eventKey, userIds, customMessage, dryRun) {
+  try {
+    // 参加者リストを取得
+    const participantsResult = getSurveyParticipants(eventKey);
+    if (!participantsResult.success) {
+      return participantsResult;
+    }
+
+    // 送信対象を決定
+    let targets = participantsResult.participants;
+    if (userIds && userIds.length > 0) {
+      // 指定されたuserIdのみ送信
+      const targetSet = new Set(userIds);
+      targets = targets.filter(p => targetSet.has(p.userId));
+    }
+
+    if (targets.length === 0) {
+      return { success: false, message: '送信対象者がいません' };
+    }
+
+    // メッセージ: カスタムメッセージがあればそれを使用、なければデフォルト
+    const eventKeyJp = participantsResult.eventInfo.eventKeyJp;
+    let message = customMessage;
+    if (!message || message.trim() === '') {
+      message = buildSurveyMessage_(eventKeyJp);
+    } else {
+      // カスタムメッセージ内の{SURVEY_URL}を置換
+      const encodedKey = encodeURIComponent(eventKeyJp);
+      const surveyUrl = SURVEY_URL + '?key=' + encodedKey;
+      message = message.replace(/\{SURVEY_URL\}/g, surveyUrl);
+    }
+
+    // ドライラン: 送信せずに結果プレビュー
+    if (dryRun) {
+      return {
+        success: true,
+        eventInfo: participantsResult.eventInfo,
+        targetCount: targets.length,
+        targets: targets.map(t => ({ name: t.name, team: t.team })),
+        noLineIdCount: participantsResult.noLineIdMembers.length,
+        noLineIdMembers: participantsResult.noLineIdMembers,
+        messagePreview: message,
+        message: `テスト実行完了: ${targets.length}名が送信対象です（LINE未登録: ${participantsResult.noLineIdMembers.length}名）`
+      };
+    }
+
+    // 本番送信
+    let sentCount = 0;
+    let failedCount = 0;
+    const errors = [];
+
+    for (let i = 0; i < targets.length; i++) {
+      const target = targets[i];
+
+      // API制限対策: 100ms間隔
+      if (i > 0) {
+        Utilities.sleep(100);
+      }
+
+      const sendResult = pushLineMessage_(target.userId, message);
+
+      if (sendResult.success) {
+        sentCount++;
+        Logger.log('アンケート送信成功: ' + target.name);
+      } else {
+        failedCount++;
+        errors.push({ name: target.name, error: sendResult.error || sendResult.response });
+        Logger.log('アンケート送信失敗: ' + target.name + ' - ' + (sendResult.error || sendResult.response));
+      }
+    }
+
+    return {
+      success: true,
+      sent: sentCount,
+      failed: failedCount,
+      errors: errors,
+      message: `送信完了: 成功 ${sentCount}件、失敗 ${failedCount}件`
+    };
+
+  } catch (e) {
+    Logger.log('sendSurveyManual error: ' + e.message);
+    return { success: false, message: e.message };
+  }
+}
+
+/**
+ * デフォルトのアンケートメッセージテンプレートを取得
+ * @returns {string} テンプレート文字列
+ */
+function getDefaultSurveyMessageTemplate() {
+  return '【例会アンケートのお願い】\n\n' +
+    '本日は例会にご参加いただき、ありがとうございました。\n\n' +
+    '今後のより良い運営のため、簡単なアンケートにご協力をお願いいたします。\n' +
+    '（所要時間：約1分）\n\n' +
+    '▼ アンケートはこちら\n' +
+    '{SURVEY_URL}\n\n' +
+    '※ 回答は匿名で収集されます\n\n' +
+    '守成クラブ福岡飯塚';
+}
+
+/** =========================================================
+ *  アンケート結果取得（ダッシュボード用）
+ * ======================================================= */
+
+const SURVEY_SHEET_NAME = 'アンケート回答';
+
+/**
+ * ダッシュボード用アンケート結果を取得
+ * @param {string} eventKey - イベントキー（例: 202602_01）
+ * @returns {Object} アンケート結果
+ */
+function getSurveyResultsForDashboard(eventKey) {
+  try {
+    const ss = SpreadsheetApp.openById(ATTEND_GUEST_SHEET_ID);
+    const surveySheet = ss.getSheetByName(SURVEY_SHEET_NAME);
+
+    // 送信数を取得（配席アーカイブの自会場会員数）
+    // アンケートは配席アーカイブに記録された自会場会員に送信されるため
+    const archiveSheet = ss.getSheetByName(SEATING_ARCHIVE_SHEET_NAME);
+    let sentCount = 0;
+    if (archiveSheet) {
+      const archiveData = archiveSheet.getDataRange().getValues();
+      // 列: A:例会キー, B:例会日, C:参加者ID, D:氏名, E:区分
+      for (let i = 1; i < archiveData.length; i++) {
+        const rowEventKey = String(archiveData[i][0] || '').trim();
+        const category = String(archiveData[i][4] || '').trim();
+        // 例会キーでマッチ、「会員」のみカウント
+        if (rowEventKey === eventKey && category === '会員') {
+          sentCount++;
+        }
+      }
+    }
+
+    // アンケート回答シートが無い場合
+    if (!surveySheet) {
+      return {
+        success: true,
+        eventKey: eventKey,
+        stats: {
+          sentCount: sentCount,
+          responseCount: 0,
+          responseRate: 0
+        },
+        scores: {
+          meeting: { avg: 0, distribution: [0, 0, 0, 0, 0] },
+          club: { avg: 0, distribution: [0, 0, 0, 0, 0] }
+        },
+        comments: {
+          meetingGood: [],
+          meetingImprove: [],
+          clubGood: [],
+          clubImprove: []
+        }
+      };
+    }
+
+    const data = surveySheet.getDataRange().getValues();
+    if (data.length < 2) {
+      return {
+        success: true,
+        eventKey: eventKey,
+        stats: {
+          sentCount: sentCount,
+          responseCount: 0,
+          responseRate: 0
+        },
+        scores: {
+          meeting: { avg: 0, distribution: [0, 0, 0, 0, 0] },
+          club: { avg: 0, distribution: [0, 0, 0, 0, 0] }
+        },
+        comments: {
+          meetingGood: [],
+          meetingImprove: [],
+          clubGood: [],
+          clubImprove: []
+        }
+      };
+    }
+
+    // イベント名に変換（日本語形式でマッチング）
+    const eventName = eventKeyToJapanese(eventKey);
+
+    // 該当する回答をフィルタリング
+    // 列構造: A:タイムスタンプ, B:例会キー, C:例会満足度, D:例会_良かった点, E:例会_改善点,
+    //         F:出欠システム, G:出欠コメント, H:売上システム, I:売上コメント, J:その他システム,
+    //         K:福岡飯塚満足度, L:福岡飯塚_良かった点, M:福岡飯塚_改善点, N:その他コメント
+    const responses = [];
+    for (let i = 1; i < data.length; i++) {
+      const row = data[i];
+      const rowEventKey = String(row[1] || '').trim();
+
+      // 例会キーでマッチ（日本語形式または数字形式）
+      if (rowEventKey === eventKey || rowEventKey === eventName || rowEventKey.includes(eventName.replace('例会', ''))) {
+        responses.push({
+          meetingSatisfaction: Number(row[2]) || 0,   // C列
+          meetingGoodPoints: String(row[3] || '').trim(),   // D列
+          meetingImprovements: String(row[4] || '').trim(), // E列
+          clubSatisfaction: Number(row[10]) || 0,    // K列
+          clubGoodPoints: String(row[11] || '').trim(),     // L列
+          clubImprovements: String(row[12] || '').trim()    // M列
+        });
+      }
+    }
+
+    const responseCount = responses.length;
+    const responseRate = sentCount > 0 ? Math.round((responseCount / sentCount) * 1000) / 10 : 0;
+
+    // 満足度集計
+    const meetingScores = [0, 0, 0, 0, 0]; // 1〜5点の分布
+    const clubScores = [0, 0, 0, 0, 0];
+    let meetingSum = 0;
+    let clubSum = 0;
+    let meetingCount = 0;
+    let clubCount = 0;
+
+    const meetingGood = [];
+    const meetingImprove = [];
+    const clubGood = [];
+    const clubImprove = [];
+
+    responses.forEach(r => {
+      // 例会満足度
+      if (r.meetingSatisfaction >= 1 && r.meetingSatisfaction <= 5) {
+        meetingScores[r.meetingSatisfaction - 1]++;
+        meetingSum += r.meetingSatisfaction;
+        meetingCount++;
+      }
+      // 福岡飯塚満足度
+      if (r.clubSatisfaction >= 1 && r.clubSatisfaction <= 5) {
+        clubScores[r.clubSatisfaction - 1]++;
+        clubSum += r.clubSatisfaction;
+        clubCount++;
+      }
+
+      // コメント収集
+      if (r.meetingGoodPoints) meetingGood.push(r.meetingGoodPoints);
+      if (r.meetingImprovements) meetingImprove.push(r.meetingImprovements);
+      if (r.clubGoodPoints) clubGood.push(r.clubGoodPoints);
+      if (r.clubImprovements) clubImprove.push(r.clubImprovements);
+    });
+
+    const meetingAvg = meetingCount > 0 ? Math.round((meetingSum / meetingCount) * 10) / 10 : 0;
+    const clubAvg = clubCount > 0 ? Math.round((clubSum / clubCount) * 10) / 10 : 0;
+
+    return {
+      success: true,
+      eventKey: eventKey,
+      stats: {
+        sentCount: sentCount,
+        responseCount: responseCount,
+        responseRate: responseRate
+      },
+      scores: {
+        meeting: { avg: meetingAvg, distribution: meetingScores },
+        club: { avg: clubAvg, distribution: clubScores }
+      },
+      comments: {
+        meetingGood: meetingGood,
+        meetingImprove: meetingImprove,
+        clubGood: clubGood,
+        clubImprove: clubImprove
+      }
+    };
+
+  } catch (e) {
+    Logger.log('getSurveyResultsForDashboard error: ' + e.message);
+    return { success: false, error: e.message };
+  }
 }
