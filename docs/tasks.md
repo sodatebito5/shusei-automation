@@ -12,6 +12,29 @@
 
 ## 🔥 進行中
 
+### 例会アンケート自動送信機能
+- [x] Phase 1: アンケートWebアプリ作成
+  - [x] web/survey/ ディレクトリ作成
+  - [x] index.html（フォーム画面）
+  - [x] style.css（守成クラブカラー）
+  - [x] app.js（回答送信処理）
+  - [x] Cloudflare Pagesデプロイ（https://shusei-survey.pages.dev/）
+- [x] Phase 2: GAS API作成
+  - [x] gas/attendance/survey.gs 新規作成
+  - [x] handleSurveyPost(): 回答保存API
+  - [x] createSurveySheet_(): アンケート回答シート自動作成
+  - [x] sendSurveyToParticipants(): LINE送信機能
+  - [x] getSurveyResults(): 結果取得API
+  - [x] attendance.gs doPost にmode=survey追加
+  - [x] GASデプロイ（@77）
+- [x] Phase 3: トリガー設定
+  - [x] 開催日ベースのトリガー設定に変更（毎日実行→開催日のみ）
+  - [x] 設定シートD2（現在開催日）の21時にトリガー設定
+  - [x] 送信完了後、次回開催日（G2）のトリガーを自動設定
+  - [ ] setupSurveyTrigger() を1回実行（初回設定）
+
+---
+
 ### [バグ] 会員編集の保存が完了しない問題
 - [ ] 原因調査（Playwrightでデバッグ中）
 - [ ] 保存ボタン押下後、成功メッセージが表示されない
@@ -45,7 +68,11 @@
 - [x] Phase 4: 本番セットアップ
   - LIFF ID発行済: 2009007608-Gp3PtFdJ
   - QRコードURL: https://liff.line.me/2009007608-Gp3PtFdJ
-- [ ] Phase 5: 他会場・ゲスト対応
+- [x] Phase 5: UI改善・キャンセル管理
+  - キャンセル人数をサマリーに表示
+  - スマホ向けカードレイアウト最適化
+  - 履歴タブに出欠情報（チェックインシート連携）追加
+- [ ] Phase 6: 他会場・ゲスト対応
   - 他会場参加者のチェックイン方法検討
   - ゲストのチェックイン方法検討（LINE未登録者）
   - ダッシュボードからの手動チェックインで対応？
@@ -138,6 +165,22 @@ https://docs.google.com/forms/d/e/1FAIpQLScbjVLeSyfusz_b9ANvDL-5win-w8_G0TGxQ7TO
 ---
 
 ## ✅ 完了
+
+### 2026-02-04
+- [x] **ダッシュボードイベントキー切り替え時刻変更**
+  - 11:00 → 19:00に変更（例会終了後まで当日イベントキーを維持）
+  - getDashboardEventKey(), getDashboardEventDate() 修正
+- [x] **チェックイン管理UI改善**
+  - キャンセル人数をサマリーに表示（到着とバッジ貸出中の間）
+  - スマホ向けカードレイアウト最適化
+  - 状態アイコン（✓到着/✗欠席）追加
+  - バッジ欄は到着後のみ展開表示
+  - ボタンを「到着」「欠席」に変更
+- [x] **履歴タブに出欠情報追加**
+  - チェックインシートからキャンセル・出席情報を取得
+  - 出欠列追加（✓出席/✗欠席/-未記録）
+  - 出席・欠席フィルタ追加
+  - サマリーに出席数・欠席数表示
 
 ### 2026-02-01
 - [x] **ダッシュボードキャッシュ複数セル分割対応**
