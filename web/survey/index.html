@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ご意見をお聞かせください | 守成クラブ福岡飯塚</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <header class="header">
+      <p class="greeting">本日の例会お疲れ様でした。</p>
+      <h1>ご意見をお聞かせください</h1>
+      <p class="subtitle">守成クラブ福岡飯塚</p>
+    </header>
+
+    <form id="surveyForm" class="survey-form">
+
+      <!-- Q1: 例会満足度 -->
+      <div class="question-card">
+        <div class="question-number">Q1</div>
+        <h2 class="question-title">本日の例会はいかがでしたか？</h2>
+
+        <div class="emoji-rating" data-name="meetingSatisfaction">
+          <button type="button" class="emoji-btn" data-value="5" aria-label="とても良い">
+            <span class="emoji">😄</span>
+            <span class="emoji-label">とても良い</span>
+          </button>
+          <button type="button" class="emoji-btn" data-value="4" aria-label="良い">
+            <span class="emoji">🙂</span>
+            <span class="emoji-label">良い</span>
+          </button>
+          <button type="button" class="emoji-btn" data-value="3" aria-label="普通">
+            <span class="emoji">😐</span>
+            <span class="emoji-label">普通</span>
+          </button>
+          <button type="button" class="emoji-btn" data-value="2" aria-label="やや不満">
+            <span class="emoji">🙁</span>
+            <span class="emoji-label">やや不満</span>
+          </button>
+          <button type="button" class="emoji-btn" data-value="1" aria-label="不満">
+            <span class="emoji">😢</span>
+            <span class="emoji-label">不満</span>
+          </button>
+        </div>
+        <input type="hidden" name="meetingSatisfaction" id="meetingSatisfaction" required>
+
+        <div class="comment-section">
+          <label class="comment-label">良かった点（任意）</label>
+          <textarea
+            id="meetingGoodPoints"
+            name="meetingGoodPoints"
+            class="comment-input"
+            placeholder="例）名刺交換の時間が充実していた"
+            rows="2"
+          ></textarea>
+        </div>
+
+        <div class="comment-section">
+          <label class="comment-label">改善してほしい点（任意）</label>
+          <textarea
+            id="meetingImprovements"
+            name="meetingImprovements"
+            class="comment-input"
+            placeholder="例）もう少し休憩時間がほしい"
+            rows="2"
+          ></textarea>
+        </div>
+      </div>
+
+      <!-- Q2: 福岡飯塚満足度 -->
+      <div class="question-card">
+        <div class="question-number">Q2</div>
+        <h2 class="question-title">福岡飯塚への満足度</h2>
+        <p class="question-desc">守成クラブ福岡飯塚全体についてお聞かせください</p>
+
+        <div class="emoji-rating" data-name="clubSatisfaction">
+          <button type="button" class="emoji-btn" data-value="5" aria-label="とても良い">
+            <span class="emoji">😄</span>
+            <span class="emoji-label">とても良い</span>
+          </button>
+          <button type="button" class="emoji-btn" data-value="4" aria-label="良い">
+            <span class="emoji">🙂</span>
+            <span class="emoji-label">良い</span>
+          </button>
+          <button type="button" class="emoji-btn" data-value="3" aria-label="普通">
+            <span class="emoji">😐</span>
+            <span class="emoji-label">普通</span>
+          </button>
+          <button type="button" class="emoji-btn" data-value="2" aria-label="やや不満">
+            <span class="emoji">🙁</span>
+            <span class="emoji-label">やや不満</span>
+          </button>
+          <button type="button" class="emoji-btn" data-value="1" aria-label="不満">
+            <span class="emoji">😢</span>
+            <span class="emoji-label">不満</span>
+          </button>
+        </div>
+        <input type="hidden" name="clubSatisfaction" id="clubSatisfaction" required>
+
+        <div class="comment-section">
+          <label class="comment-label">良かった点（任意）</label>
+          <textarea
+            id="clubGoodPoints"
+            name="clubGoodPoints"
+            class="comment-input"
+            placeholder="例）会員同士の雰囲気が良い"
+            rows="2"
+          ></textarea>
+        </div>
+
+        <div class="comment-section">
+          <label class="comment-label">改善してほしい点（任意）</label>
+          <textarea
+            id="clubImprovements"
+            name="clubImprovements"
+            class="comment-input"
+            placeholder="例）新規会員へのサポートを増やしてほしい"
+            rows="2"
+          ></textarea>
+        </div>
+      </div>
+
+      <!-- Q3: システムへの改善要望 -->
+      <div class="question-card">
+        <div class="question-number">Q3</div>
+        <h2 class="question-title">運営システムへのご意見</h2>
+        <p class="question-desc">出欠連絡・売上報告などのシステムについてお聞かせください</p>
+
+        <!-- 出欠連絡について -->
+        <div class="system-section">
+          <h3 class="system-title">出欠連絡について</h3>
+          <div class="checkbox-group" data-name="attendanceSystem">
+            <label class="checkbox-item">
+              <input type="checkbox" name="attendanceSystem" value="使いやすかった">
+              <span class="checkbox-label">使いやすかった</span>
+            </label>
+            <label class="checkbox-item">
+              <input type="checkbox" name="attendanceSystem" value="操作がわかりにくかった">
+              <span class="checkbox-label">操作がわかりにくかった</span>
+            </label>
+            <label class="checkbox-item">
+              <input type="checkbox" name="attendanceSystem" value="通知が多すぎる">
+              <span class="checkbox-label">通知が多すぎる</span>
+            </label>
+            <label class="checkbox-item">
+              <input type="checkbox" name="attendanceSystem" value="通知が少なすぎる">
+              <span class="checkbox-label">通知が少なすぎる</span>
+            </label>
+            <label class="checkbox-item">
+              <input type="checkbox" name="attendanceSystem" value="エラーがあった">
+              <span class="checkbox-label">エラーがあった</span>
+            </label>
+            <label class="checkbox-item">
+              <input type="checkbox" name="attendanceSystem" value="特に問題なし">
+              <span class="checkbox-label">特に問題なし</span>
+            </label>
+          </div>
+          <textarea
+            id="attendanceComment"
+            name="attendanceComment"
+            class="comment-input small"
+            placeholder="出欠連絡について自由にご記入ください（任意）"
+            rows="2"
+          ></textarea>
+        </div>
+
+        <!-- 売上報告について -->
+        <div class="system-section">
+          <h3 class="system-title">売上報告について</h3>
+          <div class="checkbox-group" data-name="salesSystem">
+            <label class="checkbox-item">
+              <input type="checkbox" name="salesSystem" value="使いやすかった">
+              <span class="checkbox-label">使いやすかった</span>
+            </label>
+            <label class="checkbox-item">
+              <input type="checkbox" name="salesSystem" value="入力項目がわかりにくかった">
+              <span class="checkbox-label">入力項目がわかりにくかった</span>
+            </label>
+            <label class="checkbox-item">
+              <input type="checkbox" name="salesSystem" value="エラーがあった">
+              <span class="checkbox-label">エラーがあった</span>
+            </label>
+            <label class="checkbox-item">
+              <input type="checkbox" name="salesSystem" value="特に問題なし">
+              <span class="checkbox-label">特に問題なし</span>
+            </label>
+          </div>
+          <textarea
+            id="salesComment"
+            name="salesComment"
+            class="comment-input small"
+            placeholder="売上報告について自由にご記入ください（任意）"
+            rows="2"
+          ></textarea>
+        </div>
+
+        <!-- その他システム -->
+        <div class="system-section">
+          <h3 class="system-title">その他システムへのご意見（任意）</h3>
+          <textarea
+            id="otherSystemComment"
+            name="otherSystemComment"
+            class="comment-input"
+            placeholder="ゲスト申請、座席表など他のシステムについてご意見があればお書きください"
+            rows="3"
+          ></textarea>
+        </div>
+      </div>
+
+      <!-- Q4: その他 -->
+      <div class="question-card">
+        <div class="question-number">Q4</div>
+        <h2 class="question-title">その他ご意見・ご要望</h2>
+        <p class="question-desc">何でもお気軽にお書きください（任意）</p>
+
+        <textarea
+          id="otherComments"
+          name="otherComments"
+          class="comment-input large"
+          placeholder="例）こんなイベントがあったら参加したい、など"
+          rows="4"
+        ></textarea>
+      </div>
+
+      <!-- 送信ボタン -->
+      <div class="submit-section">
+        <button type="submit" class="submit-btn" id="submitBtn">
+          <span class="btn-text">送信する</span>
+          <span class="btn-loading" style="display: none;">送信中...</span>
+        </button>
+        <p class="privacy-note">※ このアンケートは匿名で収集されます</p>
+      </div>
+    </form>
+
+    <!-- 送信完了画面 -->
+    <div id="thankYou" class="thank-you" style="display: none;">
+      <div class="thank-you-icon">🎉</div>
+      <h2>ご回答ありがとうございました！</h2>
+      <p>いただいたご意見は今後の運営改善に活用させていただきます。</p>
+      <p class="thank-you-footer">守成クラブ福岡飯塚</p>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
