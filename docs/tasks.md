@@ -190,6 +190,31 @@ https://docs.google.com/forms/d/e/1FAIpQLScbjVLeSyfusz_b9ANvDL-5win-w8_G0TGxQ7TO
 
 ## ✅ 完了
 
+### 2026-02-08
+- [x] **会議タブ リデザイン（スコアボード + 統一アクション一覧）**
+  - 3ゾーン構成: スコアボード横スクロール + アクション一覧 + 全体メモ
+  - スキーマ変更: done→status（未着手/進行中/完了）、memo追加
+  - 後方互換: 旧doneデータ自動変換
+  - 自動引き継ぎ: 新規イベントで前回未完了アクションを自動インポート
+  - CSS: meeting-* → mtg-* クラス全面刷新
+  - backend: getCarryOverActions のstatus互換フィルタ
+  - スマホ最適化: 保存バーsticky、タイル横スクロール
+
+- [x] **会議タブ追加（4循環指標 + アクション管理）**
+  - GAS: 会議議事録シート管理（createMeetingMinutesSheet, getMeetingMinutes, saveMeetingMinutes）
+  - GAS: 前回引き継ぎアクション取得（getCarryOverActions）
+  - GAS: 会議指標データ集計（getMeetingIndicators）- 4循環指標を一括取得
+    - 参加循環: 出席率・欠席者・連続欠席者（getConsecutiveAbsentMembers_）
+    - 商談循環: 売上報告数・成約件数・商談ゼロ会員
+    - 紹介循環: ゲスト数・紹介者ランキング（getReferrerDistribution_）
+    - 成長循環: 更新予定者・役職参加率（getOfficerAttendRate_）
+    - アンケート改善: 満足度スコア・改善リクエスト
+  - doGet/doPost: 会議関連エンドポイント追加
+  - HTML: 会議タブUI（5つの循環カード + アクション入力 + 引き継ぎ + メモ + 保存）
+  - JS: initMeetingTab, loadMeetingData, renderMeetingIndicators, renderMeetingActions 等
+  - CSS: 会議タブ固有スタイル（カード・アラートバッジ・アクション入力・引き継ぎセクション）
+  - clasp push --force 完了
+
 ### 2026-02-04
 - [x] **アンケート結果表示機能（概要タブ）**
   - GAS: getSurveyResultsForDashboard() - アンケート結果集計API追加
@@ -198,6 +223,7 @@ https://docs.google.com/forms/d/e/1FAIpQLScbjVLeSyfusz_b9ANvDL-5win-w8_G0TGxQ7TO
     - 回答率プログレスバー（送信数/回答数）
     - 例会満足度・福岡飯塚満足度（5段階平均＋絵文字表示）
     - 良かった点・改善リクエストのコメント一覧（最大5件表示）
+    - その他コメント表示（N列）
   - JS: loadSurveyResults(), renderSurveyResults() 実装
 - [x] **ダッシュボードイベントキー切り替え時刻変更**
   - 11:00 → 19:00に変更（例会終了後まで当日イベントキーを維持）

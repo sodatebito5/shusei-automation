@@ -48,26 +48,64 @@
         </h1>
         <p class="text-xs text-slate-500 mt-0.5">管理ダッシュボード</p>
       </div>
+      <!-- 改善リクエストボタン（一時非表示）
+      <div class="flex items-center gap-3">
+        <button class="request-header-btn" onclick="openRequestModal()" title="改善リクエスト">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        </button>
+      </div>
+      -->
       <div class="text-right">
         <div class="text-xs text-slate-400 mb-1">対象例会</div>
         <div id="eventName" class="event-badge">-</div>
       </div>
     </header>
 
-    <!-- タブボタン -->
-    <div class="tab-container">
-      <button class="tab-btn active" data-tab="summary-tab">概要</button>
-      <button class="tab-btn" data-tab="attend-tab">出欠</button>
-      <button class="tab-btn" data-tab="guest-tab">ゲスト</button>
-      <button class="tab-btn" data-tab="other-venue-tab">他会場</button>
-      <button class="tab-btn" data-tab="sales-tab">売上</button>
-      <button class="tab-btn" data-tab="team-tab">チーム</button>
-      <button class="tab-btn" data-tab="contact-tab">連絡網</button>
-      <button class="tab-btn" data-tab="renew-tab">更新</button>
-      <button class="tab-btn" data-tab="member-tab">会員管理</button>
-      <button class="tab-btn tab-btn-right" data-tab="prep-tab">例会事前準備</button>
-      <button class="tab-btn" data-tab="eventday-tab">例会当日</button>
-      <button class="tab-btn" data-tab="history-tab">履歴</button>
+    <!-- タブナビゲーション（2段構成） -->
+    <div class="tab-nav">
+      <!-- メインカテゴリ -->
+      <div class="tab-main-row">
+        <button class="tab-main-btn active" data-category="data">
+          <span class="tab-main-icon">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 16l4-8 4 4 4-6"/></svg>
+          </span>
+          <span>例会データ</span>
+        </button>
+        <button class="tab-main-btn" data-category="member">
+          <span class="tab-main-icon">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          </span>
+          <span>会員</span>
+        </button>
+        <button class="tab-main-btn" data-category="operation">
+          <span class="tab-main-icon">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          </span>
+          <span>例会運営</span>
+        </button>
+      </div>
+      <!-- サブタブ -->
+      <div class="tab-sub-row">
+        <div class="tab-sub-group active" data-category="data">
+          <button class="tab-btn active" data-tab="summary-tab">概要</button>
+          <button class="tab-btn" data-tab="attend-tab">出欠</button>
+          <button class="tab-btn" data-tab="guest-tab">ゲスト</button>
+          <button class="tab-btn" data-tab="other-venue-tab">他会場</button>
+          <button class="tab-btn" data-tab="sales-tab">売上</button>
+        </div>
+        <div class="tab-sub-group" data-category="member">
+          <button class="tab-btn" data-tab="team-tab">チーム</button>
+          <button class="tab-btn" data-tab="contact-tab">連絡網</button>
+          <button class="tab-btn" data-tab="renew-tab">更新</button>
+          <button class="tab-btn" data-tab="member-tab">会員管理</button>
+        </div>
+        <div class="tab-sub-group" data-category="operation">
+          <button class="tab-btn" data-tab="prep-tab">事前準備</button>
+          <button class="tab-btn" data-tab="eventday-tab">当日</button>
+          <button class="tab-btn" data-tab="meeting-tab">会議</button>
+          <button class="tab-btn" data-tab="history-tab">履歴</button>
+        </div>
+      </div>
     </div>
 
     <!-- タブ中身 -->
@@ -79,111 +117,218 @@
   <!-- 左カラム：参加関連 -->
   <div class="space-y-4">
     <!-- 参加ハイライト -->
-    <div class="highlight-card">
-      <div class="highlight-card-title">
-        参加ハイライト
+    <div class="hl-attend-card">
+      <div class="hl-attend-hero">
+        <div class="hl-attend-hero-main">
+          <span class="hl-attend-hero-label">参加総人数</span>
+          <div class="hl-attend-hero-num">
+            <span id="highlightTotalParticipants" class="hl-attend-hero-value">-</span>
+            <span class="hl-attend-hero-unit">人</span>
+          </div>
+        </div>
+        <div class="hl-attend-rate-ring" id="attendRateRing">
+          <svg viewBox="0 0 80 80" class="hl-attend-rate-svg">
+            <circle cx="40" cy="40" r="34" fill="none" stroke="#e2e8f0" stroke-width="6"/>
+            <circle cx="40" cy="40" r="34" fill="none" stroke="url(#rateGrad)" stroke-width="6"
+                    stroke-linecap="round" stroke-dasharray="213.6" stroke-dashoffset="213.6"
+                    id="attendRateCircle" transform="rotate(-90 40 40)"/>
+            <defs><linearGradient id="rateGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stop-color="var(--color-primary)"/>
+              <stop offset="100%" stop-color="var(--color-primary-light)"/>
+            </linearGradient></defs>
+          </svg>
+          <div class="hl-attend-rate-text">
+            <span id="highlightAttendRate" class="hl-attend-rate-num">-</span>
+            <span class="hl-attend-rate-pct">%</span>
+          </div>
+          <span class="hl-attend-rate-label">参加率</span>
+        </div>
       </div>
-      <div class="stat-group mb-3">
-        <div class="stat-item">
-          <span class="stat-label">参加総人数</span>
-          <span id="highlightTotalParticipants" class="stat-value stat-value-lg">-</span>
-          <span class="stat-unit">人</span>
+      <div class="hl-attend-breakdown">
+        <div class="hl-attend-seg hl-attend-seg--ok">
+          <span class="hl-attend-seg-icon">&#x2714;</span>
+          <span class="hl-attend-seg-label">出席</span>
+          <span id="attendCount" class="hl-attend-seg-val">-</span>
         </div>
-        <div class="stat-item">
-          <span class="stat-label">ゲスト</span>
-          <span id="highlightGuestCount" class="stat-value">-</span>
-          <span class="stat-unit">人</span>
+        <div class="hl-attend-seg hl-attend-seg--no">
+          <span class="hl-attend-seg-icon">&#x2716;</span>
+          <span class="hl-attend-seg-label">欠席</span>
+          <span id="absentCount" class="hl-attend-seg-val">-</span>
         </div>
-        <div class="stat-item">
-          <span class="stat-label">他会場</span>
-          <span id="highlightOtherVenue" class="stat-value">-</span>
-          <span class="stat-unit">人</span>
+        <div class="hl-attend-seg hl-attend-seg--na">
+          <span class="hl-attend-seg-icon">&#x2015;</span>
+          <span class="hl-attend-seg-label">未回答</span>
+          <span id="noAnswerCount" class="hl-attend-seg-val">-</span>
+        </div>
+        <div class="hl-attend-seg hl-attend-seg--party">
+          <span class="hl-attend-seg-icon">&#x1F37B;</span>
+          <span class="hl-attend-seg-label">2部会</span>
+          <span id="afterPartyCount" class="hl-attend-seg-val">-</span>
+        </div>
+        <div class="hl-attend-seg-divider"></div>
+        <div class="hl-attend-seg hl-attend-seg--guest">
+          <span class="hl-attend-seg-icon">&#x1F464;</span>
+          <span class="hl-attend-seg-label">ゲスト</span>
+          <span id="highlightGuestCount" class="hl-attend-seg-val">-</span>
+        </div>
+        <div class="hl-attend-seg hl-attend-seg--other">
+          <span class="hl-attend-seg-icon">&#x1F3E2;</span>
+          <span class="hl-attend-seg-label">他会場</span>
+          <span id="highlightOtherVenue" class="hl-attend-seg-val">-</span>
         </div>
       </div>
-      <div class="stat-group">
-        <div class="stat-item">
-          <span class="stat-label">参加率</span>
-          <span id="highlightAttendRate" class="stat-value" style="color: var(--color-primary);">-</span>
-          <span class="stat-unit">%</span>
+      <div class="hl-attend-members">
+        <div class="hl-attend-members-left">
+          <span class="hl-attend-members-label">稼働会員</span>
+          <span id="memberCountMain" class="hl-attend-members-count">-</span>
+          <span class="hl-attend-members-unit">人</span>
+          <span id="memberDiff" class="hl-attend-members-diff">-</span>
+        </div>
+        <div class="hl-attend-badges">
+          <span class="hl-attend-badge-chip"><span class="badge-icon">🥇</span><span id="goldCount" class="badge-count">-</span></span>
+          <span class="hl-attend-badge-chip"><span class="badge-icon">🔴</span><span id="redCount" class="badge-count">-</span></span>
+          <span class="hl-attend-badge-chip"><span class="badge-icon">🟢</span><span id="greenCount" class="badge-count">-</span></span>
         </div>
       </div>
     </div>
 
-    <!-- 出席・欠席・未回答 3つ横並び -->
-    <div class="grid grid-cols-3 gap-3">
-      <div class="mini-stat-card">
-        <div class="mini-stat-label">出席</div>
-        <div id="attendCount" class="mini-stat-value text-success">-</div>
+    <!-- アンケート結果（スマホ時は売上ハイライトの上に表示） -->
+    <div class="modern-card" id="surveyResultsCard">
+      <div class="modern-card-header">
+        <h2 class="modern-card-title">
+          <span class="modern-card-title-icon">📋</span>
+          アンケート結果
+        </h2>
+        <span id="surveyEventLabel" class="text-xs text-slate-400"></span>
       </div>
-      <div class="mini-stat-card">
-        <div class="mini-stat-label">欠席</div>
-        <div id="absentCount" class="mini-stat-value text-danger">-</div>
-      </div>
-      <div class="mini-stat-card">
-        <div class="mini-stat-label">未回答</div>
-        <div id="noAnswerCount" class="mini-stat-value text-muted">-</div>
-      </div>
-    </div>
 
-    <!-- 会員数・バッジ -->
-    <div class="modern-card" style="padding: 0.875rem 1rem;">
-      <div class="badge-row">
-        <!-- 会員数 -->
-        <div class="badge-item">
-          <span class="text-slate-500 text-sm">稼働会員数</span>
-          <span id="memberCountMain" class="badge-count text-xl">-</span>
-          <span class="text-slate-500 text-sm">人</span>
-          <span id="memberDiff" class="text-xs text-slate-400 ml-1">-</span>
+      <!-- 回答率 -->
+      <div class="mb-4">
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-sm text-slate-600">回答率</span>
+          <span class="text-sm font-semibold">
+            <span id="surveyResponseRate" class="text-teal-600">-</span>%
+            <span class="text-slate-400 font-normal ml-1">(<span id="surveyResponseCount">-</span>/<span id="surveySentCount">-</span>名)</span>
+          </span>
         </div>
-        <div class="flex items-center gap-3 ml-auto">
-          <!-- ゴールド -->
-          <div class="badge-item">
-            <span class="badge-icon">🥇</span>
-            <span id="goldCount" class="badge-count">-</span>
+        <div class="w-full bg-slate-200 rounded-full h-2.5">
+          <div id="surveyProgressBar" class="bg-teal-500 h-2.5 rounded-full transition-all duration-500" style="width: 0%"></div>
+        </div>
+      </div>
+
+      <!-- 満足度（Google口コミ風 横棒グラフ） -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+        <!-- 例会満足度 -->
+        <div class="bg-blue-50 rounded-xl p-3">
+          <div class="flex items-center gap-2 mb-2">
+            <span class="text-xs text-blue-600 font-medium">例会満足度</span>
+            <span id="surveyMeetingScore" class="text-lg font-bold text-blue-700">-</span>
+            <span id="surveyMeetingEmoji" class="text-lg">-</span>
           </div>
-          <!-- 赤バッジ -->
-          <div class="badge-item">
-            <span class="badge-icon">🔴</span>
-            <span id="redCount" class="badge-count">-</span>
-          </div>
-          <!-- 緑バッジ -->
-          <div class="badge-item">
-            <span class="badge-icon">🟢</span>
-            <span id="greenCount" class="badge-count">-</span>
+          <div id="surveyMeetingDistribution" class="space-y-1">
+            <!-- JS で棒グラフを生成 -->
           </div>
         </div>
+        <!-- 福岡飯塚満足度 -->
+        <div class="bg-purple-50 rounded-xl p-3">
+          <div class="flex items-center gap-2 mb-2">
+            <span class="text-xs text-purple-600 font-medium">福岡飯塚満足度</span>
+            <span id="surveyClubScore" class="text-lg font-bold text-purple-700">-</span>
+            <span id="surveyClubEmoji" class="text-lg">-</span>
+          </div>
+          <div id="surveyClubDistribution" class="space-y-1">
+            <!-- JS で棒グラフを生成 -->
+          </div>
+        </div>
+      </div>
+
+      <!-- コメントセクション -->
+      <div class="space-y-3">
+        <!-- 良かった点 -->
+        <div id="surveyGoodSection" class="hidden">
+          <div class="flex items-center gap-2 mb-2">
+            <span class="text-emerald-600">👍</span>
+            <span class="text-sm font-semibold text-slate-700">良かった点</span>
+            <span id="surveyGoodCount" class="text-xs text-slate-400">(-件)</span>
+          </div>
+          <div id="surveyGoodComments" class="space-y-1.5 pl-6"></div>
+        </div>
+
+        <!-- 改善リクエスト -->
+        <div id="surveyImproveSection" class="hidden">
+          <div class="flex items-center gap-2 mb-2">
+            <span class="text-amber-600">📝</span>
+            <span class="text-sm font-semibold text-slate-700">改善リクエスト</span>
+            <span id="surveyImproveCount" class="text-xs text-slate-400">(-件)</span>
+          </div>
+          <div id="surveyImproveComments" class="space-y-1.5 pl-6"></div>
+        </div>
+
+        <!-- その他コメント -->
+        <div id="surveyOtherSection" class="hidden">
+          <div class="flex items-center gap-2 mb-2">
+            <span class="text-slate-500">💬</span>
+            <span class="text-sm font-semibold text-slate-700">その他コメント</span>
+            <span id="surveyOtherCount" class="text-xs text-slate-400">(-件)</span>
+          </div>
+          <div id="surveyOtherComments" class="space-y-1.5 pl-6"></div>
+        </div>
+
+        <!-- コメントなし時のメッセージ -->
+        <div id="surveyNoComments" class="text-center text-slate-400 text-sm py-2 hidden">
+          コメントはまだありません
+        </div>
+      </div>
+
+      <!-- ローディング状態 -->
+      <div id="surveyLoading" class="text-center text-slate-400 py-4">
+        データ取得中...
+      </div>
+
+      <!-- データなし状態 -->
+      <div id="surveyNoData" class="text-center text-slate-400 py-4 hidden">
+        アンケートデータがありません
       </div>
     </div>
   </div>
 
   <!-- 右カラム：売上ハイライト -->
   <div class="space-y-4">
-    <div class="highlight-card">
-      <div class="highlight-card-title">
-        売上ハイライト<span id="salesMonthLabel" class="text-slate-400 text-xs font-normal ml-2"></span>
+    <div class="hl-sales-card">
+      <div class="hl-sales-title">
+        売上ハイライト<span id="salesMonthLabel" class="hl-sales-month-label"></span>
       </div>
-      <div class="stat-group mb-3">
-        <div class="stat-item">
-          <span class="stat-label">報告人数</span>
-          <span id="highlightReporterCount" class="stat-value">-</span>
-          <span class="stat-unit">人</span>
-        </div>
-        <div class="stat-item">
-          <span class="stat-label">商談</span>
-          <span id="highlightMeetingsCount" class="stat-value">-</span>
-          <span class="stat-unit">件</span>
+      <div class="hl-sales-hero">
+        <span class="hl-sales-hero-label">売上合計</span>
+        <div class="hl-sales-hero-num">
+          <span id="highlightSalesTotal" class="hl-sales-hero-value">-</span>
+          <span class="hl-sales-hero-unit">円</span>
         </div>
       </div>
-      <div class="stat-group">
-        <div class="stat-item">
-          <span class="stat-label">成約</span>
-          <span id="highlightDealCount" class="stat-value">-</span>
-          <span class="stat-unit">件</span>
+      <div class="hl-sales-metrics">
+        <div class="hl-sales-metric">
+          <div class="hl-sales-metric-icon hl-sales-metric-icon--reporter">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+          </div>
+          <span class="hl-sales-metric-label">報告</span>
+          <span id="highlightReporterCount" class="hl-sales-metric-val">-</span>
+          <span class="hl-sales-metric-unit">人</span>
         </div>
-        <div class="stat-item">
-          <span class="stat-label">売上</span>
-          <span id="highlightSalesTotal" class="stat-value" style="color: var(--color-primary-dark);">-</span>
-          <span class="stat-unit">円</span>
+        <div class="hl-sales-metric">
+          <div class="hl-sales-metric-icon hl-sales-metric-icon--meeting">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          </div>
+          <span class="hl-sales-metric-label">商談</span>
+          <span id="highlightMeetingsCount" class="hl-sales-metric-val">-</span>
+          <span class="hl-sales-metric-unit">件</span>
+        </div>
+        <div class="hl-sales-metric">
+          <div class="hl-sales-metric-icon hl-sales-metric-icon--deal">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          </div>
+          <span class="hl-sales-metric-label">成約</span>
+          <span id="highlightDealCount" class="hl-sales-metric-val">-</span>
+          <span class="hl-sales-metric-unit">件</span>
         </div>
       </div>
     </div>
@@ -246,96 +391,6 @@
   -->
 </section>
 
-<!-- アンケート結果 -->
-<section class="mt-5">
-  <div class="modern-card" id="surveyResultsCard">
-    <div class="modern-card-header">
-      <h2 class="modern-card-title">
-        <span class="modern-card-title-icon">📋</span>
-        アンケート結果
-      </h2>
-      <span id="surveyEventLabel" class="text-xs text-slate-400"></span>
-    </div>
-
-    <!-- 回答率 -->
-    <div class="mb-4">
-      <div class="flex items-center justify-between mb-2">
-        <span class="text-sm text-slate-600">回答率</span>
-        <span class="text-sm font-semibold">
-          <span id="surveyResponseRate" class="text-teal-600">-</span>%
-          <span class="text-slate-400 font-normal ml-1">(<span id="surveyResponseCount">-</span>/<span id="surveySentCount">-</span>名)</span>
-        </span>
-      </div>
-      <div class="w-full bg-slate-200 rounded-full h-2.5">
-        <div id="surveyProgressBar" class="bg-teal-500 h-2.5 rounded-full transition-all duration-500" style="width: 0%"></div>
-      </div>
-    </div>
-
-    <!-- 満足度（Google口コミ風 横棒グラフ） -->
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-      <!-- 例会満足度 -->
-      <div class="bg-blue-50 rounded-xl p-3">
-        <div class="flex items-center gap-2 mb-2">
-          <span class="text-xs text-blue-600 font-medium">例会満足度</span>
-          <span id="surveyMeetingScore" class="text-lg font-bold text-blue-700">-</span>
-          <span id="surveyMeetingEmoji" class="text-lg">-</span>
-        </div>
-        <div id="surveyMeetingDistribution" class="space-y-1">
-          <!-- JS で棒グラフを生成 -->
-        </div>
-      </div>
-      <!-- 福岡飯塚満足度 -->
-      <div class="bg-purple-50 rounded-xl p-3">
-        <div class="flex items-center gap-2 mb-2">
-          <span class="text-xs text-purple-600 font-medium">福岡飯塚満足度</span>
-          <span id="surveyClubScore" class="text-lg font-bold text-purple-700">-</span>
-          <span id="surveyClubEmoji" class="text-lg">-</span>
-        </div>
-        <div id="surveyClubDistribution" class="space-y-1">
-          <!-- JS で棒グラフを生成 -->
-        </div>
-      </div>
-    </div>
-
-    <!-- コメントセクション -->
-    <div class="space-y-3">
-      <!-- 良かった点 -->
-      <div id="surveyGoodSection" class="hidden">
-        <div class="flex items-center gap-2 mb-2">
-          <span class="text-emerald-600">👍</span>
-          <span class="text-sm font-semibold text-slate-700">良かった点</span>
-          <span id="surveyGoodCount" class="text-xs text-slate-400">(-件)</span>
-        </div>
-        <div id="surveyGoodComments" class="space-y-1.5 pl-6"></div>
-      </div>
-
-      <!-- 改善リクエスト -->
-      <div id="surveyImproveSection" class="hidden">
-        <div class="flex items-center gap-2 mb-2">
-          <span class="text-amber-600">📝</span>
-          <span class="text-sm font-semibold text-slate-700">改善リクエスト</span>
-          <span id="surveyImproveCount" class="text-xs text-slate-400">(-件)</span>
-        </div>
-        <div id="surveyImproveComments" class="space-y-1.5 pl-6"></div>
-      </div>
-
-      <!-- コメントなし時のメッセージ -->
-      <div id="surveyNoComments" class="text-center text-slate-400 text-sm py-2 hidden">
-        コメントはまだありません
-      </div>
-    </div>
-
-    <!-- ローディング状態 -->
-    <div id="surveyLoading" class="text-center text-slate-400 py-4">
-      データ取得中...
-    </div>
-
-    <!-- データなし状態 -->
-    <div id="surveyNoData" class="text-center text-slate-400 py-4 hidden">
-      アンケートデータがありません
-    </div>
-  </div>
-</section>
       </div>
 
       <!-- 出欠タブ -->
@@ -351,6 +406,7 @@
                 <span class="bg-emerald-50 text-emerald-700 px-2 py-1 rounded-full">出席: <span id="attendCountAttend" class="font-semibold">0 名</span></span>
                 <span class="bg-red-50 text-red-700 px-2 py-1 rounded-full">欠席: <span id="attendCountAbsent" class="font-semibold">0 名</span></span>
                 <span class="bg-slate-100 text-slate-600 px-2 py-1 rounded-full">未回答: <span id="attendCountNoAnswer" class="font-semibold">0 名</span></span>
+                <span class="bg-amber-50 text-amber-700 px-2 py-1 rounded-full">2部会: <span id="attendCountAfterParty" class="font-semibold">0 名</span></span>
               </div>
               <button id="reminderManageBtn" onclick="openReminderModal()" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-lg transition-colors">
                 出欠リマインド管理
@@ -1406,6 +1462,101 @@
   </div>
 
   <!-- ★ 履歴タブ -->
+  <!-- 会議タブ -->
+  <div id="meeting-tab" class="tab-panel">
+    <section class="modern-card mt-4">
+      <div class="modern-card-header">
+        <h2 class="modern-card-title">
+          <span class="modern-card-title-icon">📋</span>
+          会議議事録
+        </h2>
+        <div class="flex items-center gap-2">
+          <label class="text-xs text-slate-500">対象例会:</label>
+          <select id="meetingEventSelect" onchange="loadMeetingData(this.value)" class="px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white shadow-sm">
+            <option value="">読み込み中...</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- 読み込み中 -->
+      <div id="meetingLoading" class="text-center text-slate-500 py-8">
+        会議タブを選択してデータを読み込みます
+      </div>
+
+      <!-- メインコンテンツ（読み込み後に表示） -->
+      <div id="meetingContent" style="display:none;">
+
+        <!-- Zone A: スコアボード -->
+        <div class="mtg-scoreboard" id="mtgScoreboard">
+          <div class="mtg-tile mtg-tile--participation" onclick="toggleScoreboardDetail('participation')">
+            <div class="mtg-tile-emoji">📊</div>
+            <div class="mtg-tile-value"><span id="mtgTileParticipation">-</span><span class="mtg-tile-unit">%</span></div>
+            <div class="mtg-tile-label">参加</div>
+          </div>
+          <div class="mtg-tile mtg-tile--business" onclick="toggleScoreboardDetail('business')">
+            <div class="mtg-tile-emoji">💰</div>
+            <div class="mtg-tile-value"><span id="mtgTileBusiness">-</span><span class="mtg-tile-unit">万</span></div>
+            <div class="mtg-tile-label">商談</div>
+          </div>
+          <div class="mtg-tile mtg-tile--referral" onclick="toggleScoreboardDetail('referral')">
+            <div class="mtg-tile-emoji">🤝</div>
+            <div class="mtg-tile-value"><span id="mtgTileReferral">-</span><span class="mtg-tile-unit">人</span></div>
+            <div class="mtg-tile-label">紹介</div>
+          </div>
+          <div class="mtg-tile mtg-tile--growth" onclick="toggleScoreboardDetail('growth')">
+            <div class="mtg-tile-emoji">🌱</div>
+            <div class="mtg-tile-value"><span id="mtgTileGrowth">-</span><span class="mtg-tile-unit">%</span></div>
+            <div class="mtg-tile-label">成長</div>
+          </div>
+          <div class="mtg-tile mtg-tile--survey" onclick="toggleScoreboardDetail('survey')">
+            <div class="mtg-tile-emoji">📝</div>
+            <div class="mtg-tile-value"><span id="mtgTileSurvey">-</span></div>
+            <div class="mtg-tile-label">満足度</div>
+          </div>
+        </div>
+        <!-- 詳細ドロワー（タイルタップで動的挿入） -->
+        <div id="mtgScoreboardDetail"></div>
+
+        <!-- Zone B: アクション一覧 -->
+        <div class="mtg-actions-section">
+          <div class="mtg-actions-header">
+            <span class="mtg-actions-title">アクション</span>
+            <div class="mtg-filter-group">
+              <button class="mtg-filter-btn mtg-filter-btn--active" onclick="filterActions('all')" data-filter="all">すべて</button>
+              <button class="mtg-filter-btn" onclick="filterActions('未着手')" data-filter="未着手">未着手</button>
+              <button class="mtg-filter-btn" onclick="filterActions('進行中')" data-filter="進行中">進行中</button>
+              <button class="mtg-filter-btn" onclick="filterActions('完了')" data-filter="完了">完了</button>
+            </div>
+          </div>
+          <div class="mtg-actions-list" id="mtgActionsList"></div>
+          <div class="mtg-add-area">
+            <select id="mtgAddCategory" class="mtg-add-category-select">
+              <option value="参加循環">参加循環</option>
+              <option value="商談循環">商談循環</option>
+              <option value="紹介循環">紹介循環</option>
+              <option value="成長循環">成長循環</option>
+              <option value="アンケート改善">アンケート改善</option>
+            </select>
+            <button class="mtg-add-btn" onclick="addMeetingAction()">+ アクション追加</button>
+          </div>
+        </div>
+
+        <!-- Zone C: 全体メモ・決定事項 -->
+        <div class="mtg-notes-section">
+          <label class="mtg-notes-label">全体メモ・決定事項</label>
+          <textarea id="meetingNotes" class="mtg-notes-textarea" rows="8" placeholder="会議での決定事項や共有事項を記入..."></textarea>
+        </div>
+
+        <!-- 保存バー -->
+        <div class="mtg-save-bar">
+          <span id="meetingSaveStatus" class="mtg-save-status"></span>
+          <button id="meetingSaveBtn" onclick="saveMeetingMinutesFromUI()" class="mtg-save-btn">保存</button>
+        </div>
+
+      </div>
+    </section>
+  </div>
+
   <div id="history-tab" class="tab-panel">
     <section class="modern-card mt-4">
       <div class="modern-card-header">
@@ -1805,53 +1956,60 @@ async function previewPDF() {
 // タブ切り替え
 console.log('=== DEFINING setupTabs ===');
 function setupTabs() {
-  const tabButtons = document.querySelectorAll('.tab-btn[data-tab]');
-  const tabPanels  = document.querySelectorAll('.tab-panel');
+  const mainBtns = document.querySelectorAll('.tab-main-btn');
+  const subGroups = document.querySelectorAll('.tab-sub-group');
+  const tabPanels = document.querySelectorAll('.tab-panel');
 
-  tabButtons.forEach((btn) => {
+  // メインカテゴリ切り替え
+  mainBtns.forEach(mainBtn => {
+    mainBtn.addEventListener('click', () => {
+      const category = mainBtn.dataset.category;
+
+      // メインボタンのactive切り替え
+      mainBtns.forEach(b => b.classList.remove('active'));
+      mainBtn.classList.add('active');
+
+      // サブグループの表示切り替え
+      subGroups.forEach(g => {
+        if (g.dataset.category === category) {
+          g.classList.add('active');
+        } else {
+          g.classList.remove('active');
+        }
+      });
+
+      // そのカテゴリの最初のサブタブを自動選択
+      const firstSubBtn = document.querySelector('.tab-sub-group.active .tab-btn');
+      if (firstSubBtn) {
+        firstSubBtn.click();
+      }
+    });
+  });
+
+  // サブタブ切り替え
+  const allSubBtns = document.querySelectorAll('.tab-btn[data-tab]');
+  allSubBtns.forEach(btn => {
     btn.addEventListener('click', () => {
       const targetId = btn.dataset.tab;
       if (!targetId) return;
 
-      tabButtons.forEach(b => b.classList.remove('active'));
+      // サブボタンのactive（全カテゴリ横断で1つだけ）
+      allSubBtns.forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
 
+      // パネル切り替え
       tabPanels.forEach(panel => {
-        if (panel.id === targetId) {
-          panel.classList.add('active');
-        } else {
-          panel.classList.remove('active');
-        }
+        panel.classList.toggle('active', panel.id === targetId);
       });
 
-      // ★売上タブに切り替えた時にグラフを描画
+      // ★遅延初期化フック
       if (targetId === 'sales-tab' && dashboardData && dashboardData.monthlySummary) {
-        setTimeout(() => {
-          renderMonthlyChart(dashboardData.monthlySummary);
-        }, 50);
+        setTimeout(() => renderMonthlyChart(dashboardData.monthlySummary), 50);
       }
-
-      // ★履歴タブに切り替えた時に初期化
-      if (targetId === 'history-tab') {
-        setTimeout(() => {
-          initHistoryTab();
-        }, 50);
-      }
-
-      // ★会員管理タブに切り替えた時に初期化
-      if (targetId === 'member-tab') {
-        setTimeout(() => {
-          initMemberTab();
-        }, 50);
-      }
-
-      // ★連絡網タブに切り替えた時に初期化
-      if (targetId === 'contact-tab') {
-        setTimeout(() => {
-          loadContactGroups();
-        }, 50);
-      }
-
+      if (targetId === 'history-tab') setTimeout(() => initHistoryTab(), 50);
+      if (targetId === 'member-tab') setTimeout(() => initMemberTab(), 50);
+      if (targetId === 'contact-tab') setTimeout(() => loadContactGroups(), 50);
+      if (targetId === 'meeting-tab') setTimeout(() => initMeetingTab(), 50);
     });
   });
 }
@@ -1935,6 +2093,553 @@ function escapeHtml(str) {
       default: return s;
     }
   });
+}
+
+/** =========================================================
+ *  会議タブ JavaScript（リデザイン版）
+ * ======================================================= */
+
+let meetingTabInitialized = false;
+let meetingIndicatorsData = null;
+let meetingMinutesData = null;
+let meetingActions = [];
+let meetingMemberNames = [];
+let meetingAssigneeNames = [];
+let meetingCarryOverData = null;
+let mtgActiveFilter = 'all';
+let mtgOpenDetail = null; // 現在開いている詳細カテゴリ
+
+// カテゴリ→CSSクラスマップ
+const MTG_CAT_CLASS = {
+  '参加循環': 'participation',
+  '商談循環': 'business',
+  '紹介循環': 'referral',
+  '成長循環': 'growth',
+  'アンケート改善': 'survey'
+};
+
+function initMeetingTab() {
+  if (meetingTabInitialized) return;
+  meetingTabInitialized = true;
+
+  const select = document.getElementById('meetingEventSelect');
+  select.innerHTML = '<option value="">読み込み中...</option>';
+
+  google.script.run
+    .withSuccessHandler(function(result) {
+      if (!result.success || !result.eventKeys || result.eventKeys.length === 0) {
+        select.innerHTML = '<option value="">データなし</option>';
+        return;
+      }
+      var html = '';
+      result.eventKeys.forEach(function(key) {
+        var name = eventKeyToJapanese_(key);
+        html += '<option value="' + escapeHtml(key) + '">' + escapeHtml(name || key) + '</option>';
+      });
+      select.innerHTML = html;
+      if (result.eventKeys.length > 0) {
+        loadMeetingData(result.eventKeys[0]);
+      }
+    })
+    .withFailureHandler(function(err) {
+      select.innerHTML = '<option value="">読み込みエラー</option>';
+      console.error('getEventKeyList error:', err);
+    })
+    .getEventKeyList();
+}
+
+function eventKeyToJapanese_(eventKey) {
+  if (!eventKey) return '';
+  var match = String(eventKey).match(/^(\d{4})(\d{2})_\d+$/);
+  if (!match) return eventKey;
+  return match[1] + '年' + parseInt(match[2], 10) + '月例会';
+}
+
+function loadMeetingData(eventKey) {
+  if (!eventKey) return;
+
+  var loading = document.getElementById('meetingLoading');
+  var content = document.getElementById('meetingContent');
+  loading.style.display = 'block';
+  loading.textContent = '読み込み中...';
+  content.style.display = 'none';
+  mtgOpenDetail = null;
+  document.getElementById('mtgScoreboardDetail').innerHTML = '';
+
+  // 1回のAPI呼び出しで全データ取得（高速化）
+  google.script.run
+    .withSuccessHandler(function(result) {
+      if (!result || !result.success) {
+        loading.textContent = 'データ取得エラー';
+        console.error('getMeetingAllData error:', result ? result.error : 'unknown');
+        return;
+      }
+
+      // 指標データ
+      meetingIndicatorsData = result.indicators;
+      meetingMemberNames = (result.indicators && result.indicators.memberNames) || [];
+      meetingAssigneeNames = (result.indicators && result.indicators.assigneeNames) || [];
+
+      // 議事録データ
+      meetingMinutesData = result.minutes;
+      meetingActions = (result.minutes && result.minutes.actions) ? result.minutes.actions : [];
+
+      // 引き継ぎデータ
+      meetingCarryOverData = result.carryOver;
+
+      // スキーマ正規化（done→status互換）
+      meetingActions = meetingActions.map(function(a) {
+        return Object.assign({}, a, {
+          status: a.status || (a.done ? '完了' : '未着手'),
+          memo: a.memo || ''
+        });
+      });
+
+      // 自動引き継ぎ: アクションが空の場合、前回未完了を自動インポート
+      if (meetingActions.length === 0 && meetingCarryOverData
+          && meetingCarryOverData.success && meetingCarryOverData.actions
+          && meetingCarryOverData.actions.length > 0) {
+        meetingCarryOverData.actions.forEach(function(a) {
+          meetingActions.push({
+            id: 'act_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+            category: a.category || '',
+            trigger: a.trigger || '',
+            content: a.content || '',
+            assignee: a.assignee || '',
+            deadline: a.deadline || '',
+            status: a.status || (a.done ? '完了' : '未着手'),
+            memo: a.memo || '',
+            carryOver: true
+          });
+        });
+      }
+
+      loading.style.display = 'none';
+      content.style.display = 'block';
+      renderScoreboard(meetingIndicatorsData);
+      renderActionList();
+      document.getElementById('meetingNotes').value = meetingMinutesData ? meetingMinutesData.notes || '' : '';
+      document.getElementById('meetingSaveStatus').textContent =
+        meetingMinutesData && meetingMinutesData.updatedAt
+          ? '最終保存: ' + meetingMinutesData.updatedAt
+          : '';
+    })
+    .withFailureHandler(function(err) {
+      loading.textContent = '読み込みエラー';
+      console.error('getMeetingAllData error:', err);
+    })
+    .getMeetingAllData(eventKey);
+}
+
+/* --- Zone A: スコアボード --- */
+
+function renderScoreboard(data) {
+  if (!data || !data.success) return;
+
+  var p = data.participation || {};
+  var b = data.business || {};
+  var r = data.referral || {};
+  var g = data.growth || {};
+  var s = data.survey || {};
+
+  document.getElementById('mtgTileParticipation').textContent = p.attendRate || 0;
+
+  // 売上を万円単位に（10000で割って小数1桁）
+  var salesMan = b.totalSales ? Math.round(b.totalSales / 10000 * 10) / 10 : 0;
+  document.getElementById('mtgTileBusiness').textContent = salesMan;
+
+  document.getElementById('mtgTileReferral').textContent = r.guestCount || 0;
+  document.getElementById('mtgTileGrowth').textContent = g.officerAttendRate || 0;
+  document.getElementById('mtgTileSurvey').textContent = s.meetingScore || '-';
+}
+
+function toggleScoreboardDetail(category) {
+  var detailEl = document.getElementById('mtgScoreboardDetail');
+
+  // アクティブタイルのトグル
+  var tiles = document.querySelectorAll('.mtg-tile');
+  tiles.forEach(function(t) { t.classList.remove('mtg-tile--active'); });
+
+  if (mtgOpenDetail === category) {
+    // 同じタイルを再タップ → 閉じる
+    mtgOpenDetail = null;
+    detailEl.innerHTML = '';
+    return;
+  }
+
+  mtgOpenDetail = category;
+  var activeTile = document.querySelector('.mtg-tile--' + category);
+  if (activeTile) activeTile.classList.add('mtg-tile--active');
+
+  var html = '';
+  switch (category) {
+    case 'participation': html = buildParticipationDetail(); break;
+    case 'business': html = buildBusinessDetail(); break;
+    case 'referral': html = buildReferralDetail(); break;
+    case 'growth': html = buildGrowthDetail(); break;
+    case 'survey': html = buildSurveyDetail(); break;
+  }
+  detailEl.innerHTML = '<div class="mtg-scoreboard-detail">' + html
+    + '<span class="mtg-detail-close" onclick="closeScoreboardDetail()">閉じる</span></div>';
+}
+
+function closeScoreboardDetail() {
+  mtgOpenDetail = null;
+  document.getElementById('mtgScoreboardDetail').innerHTML = '';
+  document.querySelectorAll('.mtg-tile').forEach(function(t) { t.classList.remove('mtg-tile--active'); });
+}
+
+function buildParticipationDetail() {
+  var data = meetingIndicatorsData;
+  if (!data) return '';
+  var p = data.participation || {};
+  var html = '<div class="mtg-detail-title">📊 参加循環</div>';
+  html += '<div class="mtg-detail-stats">'
+    + '<div class="mtg-detail-stat"><span class="mtg-detail-stat-label">出席率</span><span class="mtg-detail-stat-value">' + (p.attendRate || 0) + '</span><span class="mtg-detail-stat-unit">%</span></div>'
+    + '<div class="mtg-detail-stat"><span class="mtg-detail-stat-label">出席</span><span class="mtg-detail-stat-value">' + (p.attendCount || 0) + '</span><span class="mtg-detail-stat-unit">人</span></div>'
+    + '<div class="mtg-detail-stat"><span class="mtg-detail-stat-label">欠席</span><span class="mtg-detail-stat-value">' + (p.absentCount || 0) + '</span><span class="mtg-detail-stat-unit">人</span></div>'
+    + '<div class="mtg-detail-stat"><span class="mtg-detail-stat-label">未回答</span><span class="mtg-detail-stat-value">' + (p.noAnswerCount || 0) + '</span><span class="mtg-detail-stat-unit">人</span></div>'
+    + '</div>';
+
+  var consAbsent = p.consecutiveAbsent || [];
+  if (consAbsent.length > 0) {
+    html += '<div class="mtg-detail-alert"><div class="mtg-detail-alert-title">連続欠席者</div><div class="mtg-detail-alert-list">';
+    consAbsent.forEach(function(m) {
+      html += '<span class="mtg-detail-badge mtg-detail-badge--danger">' + escapeHtml(m.name) + '（' + m.count + '回）</span>';
+    });
+    html += '</div></div>';
+  }
+
+  var absentMembers = p.absentMembers || [];
+  if (absentMembers.length > 0) {
+    html += '<div class="mtg-detail-subsection"><div class="mtg-detail-subsection-title">欠席者</div><div>';
+    absentMembers.forEach(function(m) {
+      html += '<span class="mtg-detail-chip">' + escapeHtml(m.name) + '</span>';
+    });
+    html += '</div></div>';
+  }
+  return html;
+}
+
+function buildBusinessDetail() {
+  var data = meetingIndicatorsData;
+  if (!data) return '';
+  var b = data.business || {};
+  var html = '<div class="mtg-detail-title">💰 商談循環</div>';
+  html += '<div class="mtg-detail-stats">'
+    + '<div class="mtg-detail-stat"><span class="mtg-detail-stat-label">報告者数</span><span class="mtg-detail-stat-value">' + (b.reporterCount || 0) + '</span><span class="mtg-detail-stat-unit">人</span></div>'
+    + '<div class="mtg-detail-stat"><span class="mtg-detail-stat-label">売上合計</span><span class="mtg-detail-stat-value">' + (b.totalSales || 0).toLocaleString() + '</span><span class="mtg-detail-stat-unit">円</span></div>'
+    + '<div class="mtg-detail-stat"><span class="mtg-detail-stat-label">成約</span><span class="mtg-detail-stat-value">' + (b.dealCount || 0) + '</span><span class="mtg-detail-stat-unit">件</span></div>'
+    + '<div class="mtg-detail-stat"><span class="mtg-detail-stat-label">商談</span><span class="mtg-detail-stat-value">' + (b.meetingsCount || 0) + '</span><span class="mtg-detail-stat-unit">件</span></div>'
+    + '</div>';
+
+  var zeroMembers = b.zeroMembers || [];
+  if (zeroMembers.length > 0) {
+    html += '<div class="mtg-detail-alert"><div class="mtg-detail-alert-title">商談ゼロの会員</div><div class="mtg-detail-alert-list">';
+    zeroMembers.forEach(function(m) {
+      html += '<span class="mtg-detail-badge mtg-detail-badge--warning">' + escapeHtml(m.name) + '</span>';
+    });
+    html += '</div></div>';
+  }
+  return html;
+}
+
+function buildReferralDetail() {
+  var data = meetingIndicatorsData;
+  if (!data) return '';
+  var r = data.referral || {};
+  var html = '<div class="mtg-detail-title">🤝 紹介循環</div>';
+  html += '<div class="mtg-detail-stats">'
+    + '<div class="mtg-detail-stat"><span class="mtg-detail-stat-label">ゲスト数</span><span class="mtg-detail-stat-value">' + (r.guestCount || 0) + '</span><span class="mtg-detail-stat-unit">人</span></div>'
+    + '<div class="mtg-detail-stat"><span class="mtg-detail-stat-label">承認済み</span><span class="mtg-detail-stat-value">' + (r.guestApproved || 0) + '</span><span class="mtg-detail-stat-unit">人</span></div>'
+    + '</div>';
+
+  var ranking = r.referrerRanking || [];
+  if (ranking.length > 0) {
+    html += '<div class="mtg-detail-subsection"><div class="mtg-detail-subsection-title">紹介者ランキング</div><div class="mtg-detail-ranking">';
+    ranking.forEach(function(m, i) {
+      var medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '';
+      html += '<div class="mtg-detail-ranking-item">'
+        + '<span class="mtg-detail-ranking-medal">' + medal + '</span>'
+        + '<span>' + escapeHtml(m.name) + '</span>'
+        + '<span class="mtg-detail-ranking-count">' + m.count + '人</span></div>';
+    });
+    html += '</div></div>';
+  }
+  return html;
+}
+
+function buildGrowthDetail() {
+  var data = meetingIndicatorsData;
+  if (!data) return '';
+  var g = data.growth || {};
+  var html = '<div class="mtg-detail-title">🌱 成長循環</div>';
+  html += '<div class="mtg-detail-stats">'
+    + '<div class="mtg-detail-stat"><span class="mtg-detail-stat-label">役職参加率</span><span class="mtg-detail-stat-value">' + (g.officerAttendRate || 0) + '</span><span class="mtg-detail-stat-unit">%</span></div>'
+    + '</div>';
+
+  // 更新予定者
+  var renewalNext = g.renewalNext || [];
+  if (renewalNext.length > 0) {
+    html += '<div class="mtg-detail-subsection"><div class="mtg-detail-subsection-title">' + escapeHtml(g.nextMonthLabel || '翌月更新') + '</div><div>';
+    renewalNext.forEach(function(m) {
+      var warn = m.hasZeroReferral ? ' <span class="mtg-detail-badge--inline">紹介0</span>' : '';
+      html += '<span class="mtg-detail-chip">' + escapeHtml(m.name) + warn + '</span>';
+    });
+    html += '</div></div>';
+  }
+
+  var renewalNext2 = g.renewalNext2 || [];
+  if (renewalNext2.length > 0) {
+    html += '<div class="mtg-detail-subsection"><div class="mtg-detail-subsection-title">' + escapeHtml(g.next2MonthLabel || '翌々月更新') + '</div><div>';
+    renewalNext2.forEach(function(m) {
+      var warn = m.hasZeroReferral ? ' <span class="mtg-detail-badge--inline">紹介0</span>' : '';
+      html += '<span class="mtg-detail-chip">' + escapeHtml(m.name) + warn + '</span>';
+    });
+    html += '</div></div>';
+  }
+  return html;
+}
+
+function buildSurveyDetail() {
+  var data = meetingIndicatorsData;
+  if (!data) return '';
+  var s = data.survey || {};
+  var html = '<div class="mtg-detail-title">📝 アンケート改善</div>';
+  html += '<div class="mtg-detail-stats">'
+    + '<div class="mtg-detail-stat"><span class="mtg-detail-stat-label">例会満足度</span><span class="mtg-detail-stat-value">' + (s.meetingScore || '-') + '</span></div>'
+    + '<div class="mtg-detail-stat"><span class="mtg-detail-stat-label">会満足度</span><span class="mtg-detail-stat-value">' + (s.clubScore || '-') + '</span></div>'
+    + '</div>';
+
+  var comments = s.improveComments || [];
+  if (comments.length > 0) {
+    html += '<div class="mtg-detail-subsection"><div class="mtg-detail-subsection-title">改善リクエスト</div>';
+    comments.forEach(function(c) {
+      html += '<div class="mtg-detail-improve-item">' + escapeHtml(c) + '</div>';
+    });
+    html += '</div>';
+  }
+  return html;
+}
+
+/* --- Zone B: アクション一覧 --- */
+
+function filterActions(status) {
+  mtgActiveFilter = status;
+  // フィルタボタンのactive切り替え
+  document.querySelectorAll('.mtg-filter-btn').forEach(function(btn) {
+    btn.classList.toggle('mtg-filter-btn--active', btn.dataset.filter === status);
+  });
+  renderActionList();
+}
+
+function renderActionList() {
+  var container = document.getElementById('mtgActionsList');
+  var filtered = meetingActions;
+  if (mtgActiveFilter !== 'all') {
+    filtered = meetingActions.filter(function(a) { return a.status === mtgActiveFilter; });
+  }
+
+  if (filtered.length === 0) {
+    container.innerHTML = '<div class="mtg-empty-state">'
+      + (meetingActions.length === 0 ? 'アクションなし' : '該当するアクションなし')
+      + '</div>';
+    return;
+  }
+
+  var html = '';
+  filtered.forEach(function(action) {
+    var catKey = MTG_CAT_CLASS[action.category] || 'participation';
+    var statusOptions = ['未着手', '進行中', '完了'].map(function(s) {
+      return '<option value="' + s + '"' + (action.status === s ? ' selected' : '') + '>' + s + '</option>';
+    }).join('');
+
+    // 担当者プルダウン（役職ありの会員 + システム管理者）
+    var assigneeOptions = '<option value="">担当者</option>';
+    meetingAssigneeNames.forEach(function(name) {
+      var selected = name === action.assignee ? ' selected' : '';
+      assigneeOptions += '<option value="' + escapeHtml(name) + '"' + selected + '>' + escapeHtml(name) + '</option>';
+    });
+
+    html += '<div class="mtg-action-card" data-status="' + escapeHtml(action.status) + '" data-action-id="' + escapeHtml(action.id) + '">'
+      + '<div class="mtg-action-top-row">'
+      + '<span class="mtg-action-category-tag mtg-cat--' + catKey + '">' + escapeHtml(action.category) + '</span>'
+      + (action.carryOver ? '<span class="mtg-action-carry-badge">引継</span>' : '')
+      + '<select class="mtg-action-status-select" onchange="updateActionField(\'' + action.id + '\', \'status\', this.value); renderActionList();">'
+      + statusOptions + '</select>'
+      + '<button class="mtg-action-delete-btn" onclick="removeMeetingAction(\'' + action.id + '\')" title="削除">&times;</button>'
+      + '</div>'
+      + '<div class="mtg-action-fields">'
+      + '<input type="text" class="mtg-action-content-input" value="' + escapeHtml(action.content || '') + '" '
+      + 'placeholder="対応内容" onchange="updateActionField(\'' + action.id + '\', \'content\', this.value)">'
+      + '<div class="mtg-action-row">'
+      + '<select class="mtg-action-assignee-select" onchange="updateActionField(\'' + action.id + '\', \'assignee\', this.value)">'
+      + assigneeOptions + '</select>'
+      + '<input type="date" class="mtg-action-deadline-input" value="' + escapeHtml(action.deadline || '') + '" '
+      + 'onchange="updateActionField(\'' + action.id + '\', \'deadline\', this.value)">'
+      + '</div>'
+      + '<input type="text" class="mtg-action-memo-input" value="' + escapeHtml(action.memo || '') + '" '
+      + 'placeholder="メモ" onchange="updateActionField(\'' + action.id + '\', \'memo\', this.value)">'
+      + '</div>'
+      + renderCommentSection(action)
+      + '</div>';
+  });
+  container.innerHTML = html;
+}
+
+function addMeetingAction() {
+  var categorySelect = document.getElementById('mtgAddCategory');
+  var category = categorySelect ? categorySelect.value : '参加循環';
+  var action = {
+    id: 'act_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+    category: category,
+    trigger: '',
+    content: '',
+    assignee: '',
+    deadline: '',
+    status: '未着手',
+    memo: '',
+    carryOver: false
+  };
+  meetingActions.push(action);
+  renderActionList();
+}
+
+function removeMeetingAction(id) {
+  meetingActions = meetingActions.filter(function(a) { return a.id !== id; });
+  renderActionList();
+}
+
+function updateActionField(id, field, value) {
+  var action = meetingActions.find(function(a) { return a.id === id; });
+  if (action) {
+    action[field] = value;
+  }
+}
+
+/* --- コメント機能 --- */
+
+function renderCommentSection(action) {
+  var comments = action.comments || [];
+  var count = comments.length;
+  var countBadge = count > 0
+    ? '<span class="mtg-comment-count">' + count + '</span>'
+    : '';
+
+  var html = '<button class="mtg-comment-toggle" onclick="toggleCommentThread(\'' + action.id + '\')">'
+    + '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>'
+    + 'コメント ' + countBadge + '</button>';
+
+  html += '<div class="mtg-comment-thread" id="commentThread_' + action.id + '">';
+
+  // 既存コメント表示
+  comments.forEach(function(c, idx) {
+    html += '<div class="mtg-comment-item">'
+      + '<span class="mtg-comment-author">' + escapeHtml(c.author) + '</span>'
+      + '<div class="mtg-comment-body">'
+      + escapeHtml(c.text)
+      + '<div class="mtg-comment-time">' + escapeHtml(c.time || '') + '</div>'
+      + '</div>'
+      + '<button class="mtg-comment-delete" onclick="deleteComment(\'' + action.id + '\',' + idx + ')" title="削除">&times;</button>'
+      + '</div>';
+  });
+
+  // 投稿欄（名前選択 + 入力 + 送信）
+  var authorOptions = '';
+  meetingAssigneeNames.forEach(function(name) {
+    authorOptions += '<option value="' + escapeHtml(name) + '">' + escapeHtml(name) + '</option>';
+  });
+
+  html += '<div class="mtg-comment-input-row">'
+    + '<select class="mtg-comment-author-select" id="commentAuthor_' + action.id + '">'
+    + authorOptions + '</select>'
+    + '<input type="text" class="mtg-comment-input" id="commentInput_' + action.id + '" placeholder="コメントを入力..."'
+    + ' onkeypress="if(event.key===\'Enter\')addComment(\'' + action.id + '\')">'
+    + '<button class="mtg-comment-send" onclick="addComment(\'' + action.id + '\')">送信</button>'
+    + '</div>';
+
+  html += '</div>';
+  return html;
+}
+
+function toggleCommentThread(actionId) {
+  var el = document.getElementById('commentThread_' + actionId);
+  if (el) el.classList.toggle('open');
+}
+
+function addComment(actionId) {
+  var input = document.getElementById('commentInput_' + actionId);
+  var authorSelect = document.getElementById('commentAuthor_' + actionId);
+  var text = input.value.trim();
+  if (!text) return;
+
+  var action = meetingActions.find(function(a) { return a.id === actionId; });
+  if (!action) return;
+
+  if (!action.comments) action.comments = [];
+  var now = new Date();
+  var timeStr = (now.getMonth() + 1) + '/' + now.getDate() + ' '
+    + ('0' + now.getHours()).slice(-2) + ':' + ('0' + now.getMinutes()).slice(-2);
+
+  action.comments.push({
+    author: authorSelect.value,
+    text: text,
+    time: timeStr
+  });
+
+  renderActionList();
+  // 再描画後にスレッドを開いた状態にする
+  var thread = document.getElementById('commentThread_' + actionId);
+  if (thread) thread.classList.add('open');
+}
+
+function deleteComment(actionId, idx) {
+  var action = meetingActions.find(function(a) { return a.id === actionId; });
+  if (!action || !action.comments) return;
+  action.comments.splice(idx, 1);
+  renderActionList();
+  var thread = document.getElementById('commentThread_' + actionId);
+  if (thread) thread.classList.add('open');
+}
+
+/* --- 保存 --- */
+
+function saveMeetingMinutesFromUI() {
+  var select = document.getElementById('meetingEventSelect');
+  var eventKey = select.value;
+  if (!eventKey) {
+    alert('例会を選択してください');
+    return;
+  }
+
+  var btn = document.getElementById('meetingSaveBtn');
+  btn.disabled = true;
+  btn.textContent = '保存中...';
+
+  var payload = {
+    eventKey: eventKey,
+    actions: meetingActions,
+    notes: document.getElementById('meetingNotes').value,
+    meetingDate: new Date().toISOString().split('T')[0]
+  };
+
+  google.script.run
+    .withSuccessHandler(function(result) {
+      btn.disabled = false;
+      btn.textContent = '保存';
+      if (result.success) {
+        document.getElementById('meetingSaveStatus').textContent =
+          '保存完了 ' + new Date().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
+      } else {
+        alert('保存エラー: ' + (result.error || '不明なエラー'));
+      }
+    })
+    .withFailureHandler(function(err) {
+      btn.disabled = false;
+      btn.textContent = '保存';
+      alert('保存に失敗しました: ' + (err.message || err));
+    })
+    .saveMeetingMinutes(payload);
 }
 
 // バッジ別カードスタイル（通常のカード表示用）
@@ -2433,17 +3138,18 @@ document.addEventListener('DOMContentLoaded', () => {
     const targetTabId = tabParam + '-tab';
     const tabBtn = document.querySelector('.tab-btn[data-tab="' + targetTabId + '"]');
     if (tabBtn) {
+      // メインカテゴリ行を非表示にし、該当サブグループのみ表示
+      const mainRow = document.querySelector('.tab-main-row');
+      if (mainRow) mainRow.style.display = 'none';
+      document.querySelectorAll('.tab-sub-group').forEach(g => g.classList.remove('active'));
+      const parentGroup = tabBtn.closest('.tab-sub-group');
+      if (parentGroup) parentGroup.classList.add('active');
       // 他のタブボタンを非表示
       document.querySelectorAll('.tab-btn').forEach(btn => {
         if (btn.dataset.tab !== targetTabId) {
           btn.style.display = 'none';
         }
       });
-      // タブコンテナのスタイル調整（単独表示用）
-      const tabContainer = document.querySelector('.tab-container');
-      if (tabContainer) {
-        tabContainer.style.justifyContent = 'flex-start';
-      }
       // 該当タブをクリックして表示
       tabBtn.click();
     }
@@ -2624,7 +3330,10 @@ function renderDashboard(data) {
   if (attendCountEl)   attendCountEl.textContent   = att.attend   ?? '-';
   if (absentCountEl)   absentCountEl.textContent   = att.absent   ?? '-';
   if (noAnswerCountEl) noAnswerCountEl.textContent = att.noAnswer ?? '-';
-  
+
+  const afterPartyCountEl = document.getElementById('afterPartyCount');
+  if (afterPartyCountEl) afterPartyCountEl.textContent = att.afterPartyCount ?? '-';
+
   // ------------------------------
   // 3. バッジ集計 + 会員数 + 前月比
   // ------------------------------
@@ -2860,6 +3569,17 @@ if (guestDetailBody) {
   if (hlDeal)              hlDeal.textContent              = dealCount        || '-';
   if (hlSales)             hlSales.textContent             = total ? total.toLocaleString() : '-';
 
+  // 参加率リングアニメーション
+  const rateCircle = document.getElementById('attendRateCircle');
+  if (rateCircle && typeof rateDisplay === 'number') {
+    const circumference = 2 * Math.PI * 34; // r=34
+    const offset = circumference * (1 - rateDisplay / 100);
+    setTimeout(() => {
+      rateCircle.style.transition = 'stroke-dashoffset 1s cubic-bezier(0.4, 0, 0.2, 1)';
+      rateCircle.style.strokeDashoffset = offset;
+    }, 300);
+  }
+
   // ------------------------------
   // 8. 出欠詳細（カード）
   // ------------------------------
@@ -2880,6 +3600,12 @@ if (guestDetailBody) {
   if (countAbsentEl)   countAbsentEl.textContent   = `${absentList.length} 名`;
   if (countNoAnswerEl) countNoAnswerEl.textContent = `${noAnswerList.length} 名`;
 
+  const countAfterPartyEl = document.getElementById('attendCountAfterParty');
+  if (countAfterPartyEl) {
+    const apCount = attendList.filter(m => m.afterParty === '○').length;
+    countAfterPartyEl.textContent = `${apCount} 名`;
+  }
+
   const renderAttendList = (list, container, showTime) => {
     if (!container) return;
     container.innerHTML = '';
@@ -2892,8 +3618,9 @@ if (guestDetailBody) {
       const style = getBadgeStyle(item.badge);
       const div = document.createElement('div');
       div.className = style.cardClass;
+      const partyIcon = item.afterParty === '○' ? ' <span title="2部会参加">🍻</span>' : '';
       div.innerHTML = `
-        <div class="member-card__name">${escapeHtml(item.name || '')}</div>
+        <div class="member-card__name">${escapeHtml(item.name || '')}${partyIcon}</div>
         ${showTime && item.time
           ? `<div class="text-[10px] text-slate-500 mt-0.5">${escapeHtml(item.time)}</div>`
           : '' }
@@ -3237,6 +3964,43 @@ function loadSurveyResults() {
 /**
  * アンケート結果を描画
  */
+/**
+ * コメントを展開可能なリストとして描画（初期5件、ボタンで全件表示）
+ * @param {HTMLElement} container - 描画先コンテナ
+ * @param {Array} items - コメント配列（hasType=true: {type, text}, false: string）
+ * @param {string} color - Tailwindカラー名（emerald, amber, slate）
+ * @param {boolean} hasType - typeラベルの有無
+ */
+function renderExpandableComments(container, items, color, hasType) {
+  const INITIAL_COUNT = 5;
+  const bgClass = color === 'slate' ? 'bg-slate-100 text-slate-700' : `bg-${color}-50 text-${color}-800`;
+  const labelClass = `text-${color}-500`;
+
+  function renderItem(item) {
+    if (hasType) {
+      return `<div class="text-xs ${bgClass} rounded-lg px-3 py-2">
+        <span class="${labelClass} mr-1">[${escapeHtml(item.type)}]</span>
+        ${escapeHtml(item.text)}
+      </div>`;
+    }
+    return `<div class="text-xs ${bgClass} rounded-lg px-3 py-2">${escapeHtml(item)}</div>`;
+  }
+
+  if (items.length <= INITIAL_COUNT) {
+    container.innerHTML = items.map(renderItem).join('');
+    return;
+  }
+
+  // 初期表示：最初の5件 + 「すべて表示」ボタン
+  const initialHtml = items.slice(0, INITIAL_COUNT).map(renderItem).join('');
+  const restHtml = items.slice(INITIAL_COUNT).map(renderItem).join('');
+  const toggleId = 'toggle_' + color + '_' + Date.now();
+
+  container.innerHTML = initialHtml
+    + `<div id="${toggleId}_rest" style="display:none">${restHtml}</div>`
+    + `<button id="${toggleId}_btn" onclick="document.getElementById('${toggleId}_rest').style.display='block';this.style.display='none';" class="text-xs text-blue-500 hover:text-blue-700 pl-1 cursor-pointer mt-1">▼ 他 ${items.length - INITIAL_COUNT}件を表示</button>`;
+}
+
 function renderSurveyResults(data) {
   hideSurveyLoading();
 
@@ -3306,15 +4070,7 @@ function renderSurveyResults(data) {
     if (goodSection) goodSection.classList.remove('hidden');
     if (goodCountEl) goodCountEl.textContent = `(${allGoodComments.length}件)`;
     if (goodContainer) {
-      goodContainer.innerHTML = allGoodComments.slice(0, 5).map(c => `
-        <div class="text-xs bg-emerald-50 text-emerald-800 rounded-lg px-3 py-2">
-          <span class="text-emerald-500 mr-1">[${escapeHtml(c.type)}]</span>
-          ${escapeHtml(c.text)}
-        </div>
-      `).join('');
-      if (allGoodComments.length > 5) {
-        goodContainer.innerHTML += `<div class="text-xs text-slate-400 pl-1">…他 ${allGoodComments.length - 5}件</div>`;
-      }
+      renderExpandableComments(goodContainer, allGoodComments, 'emerald', true);
     }
   } else {
     if (goodSection) goodSection.classList.add('hidden');
@@ -3324,22 +4080,30 @@ function renderSurveyResults(data) {
     if (improveSection) improveSection.classList.remove('hidden');
     if (improveCountEl) improveCountEl.textContent = `(${allImproveComments.length}件)`;
     if (improveContainer) {
-      improveContainer.innerHTML = allImproveComments.slice(0, 5).map(c => `
-        <div class="text-xs bg-amber-50 text-amber-800 rounded-lg px-3 py-2">
-          <span class="text-amber-500 mr-1">[${escapeHtml(c.type)}]</span>
-          ${escapeHtml(c.text)}
-        </div>
-      `).join('');
-      if (allImproveComments.length > 5) {
-        improveContainer.innerHTML += `<div class="text-xs text-slate-400 pl-1">…他 ${allImproveComments.length - 5}件</div>`;
-      }
+      renderExpandableComments(improveContainer, allImproveComments, 'amber', true);
     }
   } else {
     if (improveSection) improveSection.classList.add('hidden');
   }
 
+  // その他コメント
+  const otherComments = comments.otherComments || [];
+  const otherSection = document.getElementById('surveyOtherSection');
+  const otherCountEl = document.getElementById('surveyOtherCount');
+  const otherContainer = document.getElementById('surveyOtherComments');
+
+  if (otherComments.length > 0) {
+    if (otherSection) otherSection.classList.remove('hidden');
+    if (otherCountEl) otherCountEl.textContent = `(${otherComments.length}件)`;
+    if (otherContainer) {
+      renderExpandableComments(otherContainer, otherComments, 'slate', false);
+    }
+  } else {
+    if (otherSection) otherSection.classList.add('hidden');
+  }
+
   // コメントなし
-  if (allGoodComments.length === 0 && allImproveComments.length === 0) {
+  if (allGoodComments.length === 0 && allImproveComments.length === 0 && otherComments.length === 0) {
     if (noComments) noComments.classList.remove('hidden');
   } else {
     if (noComments) noComments.classList.add('hidden');
@@ -7488,6 +8252,93 @@ function initMemberTab() {
     </div>
   </div>
 </div>
+
+<!-- 改善リクエストモーダル -->
+<div id="requestModal" class="request-modal">
+  <div class="request-modal-overlay" onclick="closeRequestModal()"></div>
+  <div class="request-modal-content">
+    <div class="request-modal-title">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      改善リクエスト
+    </div>
+    <div class="request-form-group">
+      <label class="request-form-label">カテゴリ</label>
+      <select id="requestCategory" class="request-form-select">
+        <option value="バグ報告">バグ報告</option>
+        <option value="機能要望">機能要望</option>
+        <option value="改善提案">改善提案</option>
+        <option value="その他">その他</option>
+      </select>
+    </div>
+    <div class="request-form-group">
+      <label class="request-form-label">内容</label>
+      <textarea id="requestContent" class="request-form-textarea" rows="5" placeholder="リクエスト内容を入力してください"></textarea>
+      <p id="requestError" class="request-form-error">内容を入力してください</p>
+    </div>
+    <div class="request-modal-buttons">
+      <button class="request-btn-cancel" onclick="closeRequestModal()">キャンセル</button>
+      <button id="requestSubmitBtn" class="request-btn-submit" onclick="submitRequest()">送信</button>
+    </div>
+  </div>
+</div>
+
+<script>
+function showRequestToast(message, type) {
+  var toast = document.createElement('div');
+  toast.textContent = message;
+  toast.style.cssText = 'position:fixed;bottom:2rem;left:50%;transform:translateX(-50%);padding:0.75rem 1.5rem;border-radius:8px;font-size:0.875rem;font-weight:500;z-index:9999;color:#fff;box-shadow:0 4px 12px rgba(0,0,0,0.15);transition:opacity 0.3s;'
+    + (type === 'error' ? 'background:#dc2626;' : 'background:#0d9488;');
+  document.body.appendChild(toast);
+  setTimeout(function() { toast.style.opacity = '0'; }, 2500);
+  setTimeout(function() { toast.remove(); }, 2800);
+}
+
+function openRequestModal() {
+  document.getElementById('requestModal').classList.add('active');
+  document.getElementById('requestContent').value = '';
+  document.getElementById('requestError').classList.remove('show');
+  document.getElementById('requestSubmitBtn').disabled = false;
+  document.getElementById('requestSubmitBtn').textContent = '送信';
+}
+
+function closeRequestModal() {
+  document.getElementById('requestModal').classList.remove('active');
+}
+
+function submitRequest() {
+  const category = document.getElementById('requestCategory').value;
+  const content = document.getElementById('requestContent').value.trim();
+  const errorEl = document.getElementById('requestError');
+  const submitBtn = document.getElementById('requestSubmitBtn');
+
+  if (!content) {
+    errorEl.classList.add('show');
+    return;
+  }
+  errorEl.classList.remove('show');
+
+  submitBtn.disabled = true;
+  submitBtn.textContent = '送信中...';
+
+  google.script.run
+    .withSuccessHandler(function(result) {
+      if (result && result.success) {
+        closeRequestModal();
+        showRequestToast('リクエストを送信しました', 'success');
+      } else {
+        submitBtn.disabled = false;
+        submitBtn.textContent = '送信';
+        showRequestToast(result && result.error ? result.error : '送信に失敗しました', 'error');
+      }
+    })
+    .withFailureHandler(function(err) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = '送信';
+      showRequestToast('送信中にエラーが発生しました', 'error');
+    })
+    .submitSystemRequest({ category: category, content: content });
+}
+</script>
 
 </body>
 </html>

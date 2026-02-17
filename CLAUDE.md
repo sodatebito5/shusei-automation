@@ -110,23 +110,34 @@ SHUSEI-AUTOMATION/
 
 ### ダッシュボード（GAS）
 
+**確実なデプロイ手順（必ずこの順序で実行）:**
+
 ```bash
 cd gas/dashboard
-npm run push      # テスト環境に反映
-npm run deploy    # 本番デプロイ
+clasp push --force    # 1. コードをGASにアップロード（--force必須）
+npm run deploy        # 2. 本番デプロイ
 ```
 
-テストURL: https://script.google.com/macros/s/AKfycbz5j-qZV2RW5nU2PoYEQYUQKooGSWtboHMPOgjSIQI/dev
-本番URL: https://script.google.com/macros/s/AKfycbzgVIzNjfW_UHihZS5bwrWM7xix0U4dnodZSlq7nPC8eGXGu_Fj6haCzivxiARVDPGL/exec
+> ⚠️ **重要: `--force` を必ずつけること**
+>
+> 通常の `clasp push` は変更がないとスキップされ、`appsscript.json` がアップロードされない。
+> その状態で `deploy` すると「アクセスできるユーザー」が「Googleアカウントを持つユーザー」になってしまう。
+> `--force` をつけることで確実に `appsscript.json` を含む全ファイルがアップロードされる。
 
-> ⚠️ **デプロイ後の必須作業**
+**URL:**
+- テストURL: https://script.google.com/macros/s/AKfycbz5j-qZV2RW5nU2PoYEQYUQKooGSWtboHMPOgjSIQI/dev
+- 本番URL: https://script.google.com/macros/s/AKfycbzgVIzNjfW_UHihZS5bwrWM7xix0U4dnodZSlq7nPC8eGXGu_Fj6haCzivxiARVDPGL/exec
+
+> ✅ **アクセス設定について**
 >
-> GASの本番デプロイ後、Apps Script エディタで以下を確認すること：
-> 1. 「デプロイ」→「デプロイを管理」を開く
-> 2. 最新バージョンの「アクセスできるユーザー」が「全員」になっているか確認
-> 3. 「全員」以外の場合は「デプロイを編集」で変更する
->
-> ※ clasp deploy では「次のユーザーとして実行: 自分」「アクセスできるユーザー: 全員」の設定が引き継がれない場合がある
+> `appsscript.json` で以下の設定を維持すること（変更禁止）:
+> ```json
+> "webapp": {
+>   "executeAs": "USER_DEPLOYING",  // 自分として実行
+>   "access": "ANYONE"              // 全員がアクセス可能
+> }
+> ```
+> `clasp push --force` 後に `deploy` することで「アクセスできるユーザー: 全員」が適用される。
 
 ### 自動配席アプリ（Cloudflare Pages）
 

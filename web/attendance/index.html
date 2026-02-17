@@ -520,6 +520,21 @@
       欠席します
     </button>
 
+    <!-- 2部会（懇親会） -->
+    <div class="booth-section">
+      <div class="booth-title">2部会（懇親会）</div>
+      <div class="booth-options">
+        <div class="booth-option">
+          <input type="radio" name="afterParty" id="afterPartyYes" value="参加する">
+          <label for="afterPartyYes">参加する</label>
+        </div>
+        <div class="booth-option">
+          <input type="radio" name="afterParty" id="afterPartyNo" value="参加しない">
+          <label for="afterPartyNo">参加しない</label>
+        </div>
+      </div>
+    </div>
+
     <!-- ブース出店 -->
     <div class="booth-section">
       <div class="booth-title">ブース出店</div>
@@ -566,6 +581,10 @@
           <span class="result-label">ブース出店</span>
           <span id="resultBooth" class="result-value">-</span>
         </div>
+        <div class="result-item">
+          <span class="result-label">2部会</span>
+          <span id="resultAfterParty" class="result-value">-</span>
+        </div>
       </div>
 
       <button class="btn btn-close" onclick="closeLiff()">閉じる</button>
@@ -593,7 +612,8 @@
           const el = document.getElementById('prevStatus');
           if (cache.status && cache.status !== '未回答') {
             const boothText = cache.booth === '○' ? '・ブース出店' : '';
-            el.innerHTML = `<span class="icon">✅</span><span>${cache.status}で回答済み${boothText}</span>`;
+            const afterPartyText = cache.afterParty === '○' ? '・2部会参加' : '';
+            el.innerHTML = `<span class="icon">✅</span><span>${cache.status}で回答済み${boothText}${afterPartyText}</span>`;
             el.className = 'status-badge answered';
           }
         }
@@ -637,14 +657,14 @@
         .then(res => res.json())
         .then(data => {
           if (data.success) {
-            showPrevStatus(data.eventKey, data.status, data.booth);
+            showPrevStatus(data.eventKey, data.status, data.booth, data.afterParty);
           }
         })
         .catch(err => console.log('前回ステータス取得エラー:', err));
     }
 
     // ステータス表示
-    function showPrevStatus(eventKey, status, booth) {
+    function showPrevStatus(eventKey, status, booth, afterParty) {
       const el = document.getElementById('prevStatus');
       const titleEl = document.getElementById('eventTitle');
 
@@ -658,7 +678,7 @@
 
       // キャッシュに保存
       try {
-        localStorage.setItem(CACHE_KEY, JSON.stringify({ eventKey, status, booth }));
+        localStorage.setItem(CACHE_KEY, JSON.stringify({ eventKey, status, booth, afterParty }));
       } catch (e) { /* ignore */ }
 
       // eventKeyから「○月例会」部分を抽出
@@ -671,7 +691,8 @@
         el.className = 'status-badge unanswered';
       } else {
         const boothText = booth === '○' ? '・ブース出店' : '';
-        el.innerHTML = `<span class="icon">✅</span><span>${status}で回答済み${boothText}</span>`;
+        const afterPartyText = afterParty === '○' ? '・2部会参加' : '';
+        el.innerHTML = `<span class="icon">✅</span><span>${status}で回答済み${boothText}${afterPartyText}</span>`;
         el.className = 'status-badge answered';
       }
 
@@ -692,6 +713,12 @@
 
       const boothInput = document.querySelector('input[name="booth"]:checked');
       const booth = boothInput ? boothInput.value : '出店しません。';
+      const afterPartyInput = document.querySelector('input[name="afterParty"]:checked');
+      if (!afterPartyInput) {
+        alert('2部会の参加表明をお願いします');
+        return;
+      }
+      const afterParty = afterPartyInput.value;
 
       document.getElementById("loading").classList.remove("hidden");
 
@@ -699,7 +726,8 @@
         userId: profile.userId,
         displayName: profile.displayName,
         status: status,
-        booth: booth
+        booth: booth,
+        afterParty: afterParty
       };
 
       fetch(GAS_URL, {
@@ -708,11 +736,11 @@
         headers: { 'Content-Type': 'text/plain' },
         body: JSON.stringify(data)
       })
-      .then(() => showResult(status, booth))
+      .then(() => showResult(status, booth, afterParty))
       .catch(err => alert("通信エラー: " + err));
     }
 
-    function showResult(status, booth) {
+    function showResult(status, booth, afterParty) {
       document.getElementById("selectScreen").classList.add("hidden");
       document.getElementById("resultScreen").classList.remove("hidden");
 
@@ -723,6 +751,9 @@
 
       document.getElementById("resultBooth").textContent =
         booth === '出店したいです。' ? '出店する' : '出店しない';
+
+      document.getElementById("resultAfterParty").textContent =
+        afterParty === '参加する' ? '参加する' : '参加しない';
 
       // 出席の場合は紙吹雪
       if (status === '出席') {

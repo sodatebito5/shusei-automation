@@ -26,8 +26,14 @@ const REFERRAL_SHEET_NAME = '紹介記録';
 const LINE_CHANNEL_ACCESS_TOKEN = 'h0EwnRvQt+stn4OpyTv12UdZCpYa+KOm736YQuULhuygATdHdXaGmXqwLben8m9TxPnT5UZ59Uzd3gchFemLEmbFXHuaF5TRo44nZV+Qvs36njrFWUxfqhf7zoQTxOCHfpOUofjisza9VwhN+ZzNoAdB04t89/1O/w1cDnyilFU=';
 const LINE_MESSAGE_LIMIT = 200;  // LINE無料枠（月200通）
 
+// 管理者メールアドレス（改善リクエスト送信先）
+const ADMIN_EMAIL = 'yohakusha5@gmail.com';
+
 // 役割分担シート名
 const ROLE_ASSIGNMENT_SHEET_NAME = '役割分担';
+
+// 会議議事録シート名
+const MEETING_MINUTES_SHEET_NAME = '会議議事録';
 
 // 参加者名簿アーカイブ用フォルダ（Google Drive）
 const ROSTER_ARCHIVE_FOLDER_ID = '1tp3NCGTpLkwpS9zb3c87b8xZ_Bdlule8';
@@ -1150,6 +1156,51 @@ function doGet(e) {
     }
   }
 
+  // ★会議議事録: 取得
+  if (action === 'getMeetingMinutes') {
+    try {
+      const eventKey = e.parameter.eventKey || '';
+      const result = getMeetingMinutes(eventKey);
+      return ContentService
+        .createTextOutput(JSON.stringify(result))
+        .setMimeType(ContentService.MimeType.JSON);
+    } catch (err) {
+      return ContentService
+        .createTextOutput(JSON.stringify({ success: false, error: err.message }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+
+  // ★会議指標データ: 取得
+  if (action === 'getMeetingIndicators') {
+    try {
+      const eventKey = e.parameter.eventKey || '';
+      const result = getMeetingIndicators(eventKey);
+      return ContentService
+        .createTextOutput(JSON.stringify(result))
+        .setMimeType(ContentService.MimeType.JSON);
+    } catch (err) {
+      return ContentService
+        .createTextOutput(JSON.stringify({ success: false, error: err.message }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+
+  // ★前回引き継ぎアクション: 取得
+  if (action === 'getCarryOverActions') {
+    try {
+      const eventKey = e.parameter.eventKey || '';
+      const result = getCarryOverActions(eventKey);
+      return ContentService
+        .createTextOutput(JSON.stringify(result))
+        .setMimeType(ContentService.MimeType.JSON);
+    } catch (err) {
+      return ContentService
+        .createTextOutput(JSON.stringify({ success: false, error: err.message }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+
   // ★連絡網専用ページ（全会員向け）
   const page = e.parameter.page || '';
   if (page === 'contact') {
@@ -2087,15 +2138,17 @@ function aggregateAttendance_(eventKey, memberCount) {
 
   const idxEventKey = findColumnIndex_(header, ['eventKey', 'イベントキー']);
   const idxStatus   = findColumnIndex_(header, ['status', '出欠', '出欠状況', 'ステータス']);
+  const idxAfterParty = findColumnIndex_(header, ['afterParty', '2部会', '二部会']);
 
   if (idxEventKey === -1 || idxStatus === -1) {
-    return { memberCount, attend: 0, absent: 0, noAnswer: memberCount };
+    return { memberCount, attend: 0, absent: 0, noAnswer: memberCount, afterPartyCount: 0 };
   }
 
   const rows = values.slice(HEADER_ROW_INDEX + 1);
 
   let attend = 0;
   let absent = 0;
+  let afterPartyCount = 0;
 
   rows.forEach(row => {
     const key = String(row[idxEventKey] || '').trim();
@@ -2108,11 +2161,16 @@ function aggregateAttendance_(eventKey, memberCount) {
     } else if (st === '×' || st === '欠席') {
       absent++;
     }
+
+    if (idxAfterParty !== -1) {
+      const ap = String(row[idxAfterParty] || '').trim();
+      if (ap === '○') afterPartyCount++;
+    }
   });
 
   const noAnswer = Math.max(memberCount - attend - absent, 0);
 
-  return { memberCount, attend, absent, noAnswer };
+  return { memberCount, attend, absent, noAnswer, afterPartyCount };
 }
 
 /**
@@ -2149,6 +2207,7 @@ function aggregateAttendanceDetail_(eventKey) {
   const idxStatus   = findColumnIndex_(header, ['status', '出欠', '出欠状況', 'ステータス']);
   const idxUserId   = findColumnIndex_(header, ['userId', 'LINE_userId', 'ユーザーID']);
   const idxNameCol  = findColumnIndex_(header, ['displayName', '氏名', '名前']); // fallback用
+  const idxAfterParty = findColumnIndex_(header, ['afterParty', '2部会', '二部会']);
   const idxTimestamp = 0; // A列：timestamp
 
   const memberMapByUserId = getMemberMapByUserId_();
@@ -2196,7 +2255,8 @@ function aggregateAttendanceDetail_(eventKey) {
       }
     }
 
-    const obj = { name, badge, time: timeStr, timestamp, status };
+    const afterParty = idxAfterParty !== -1 ? String(row[idxAfterParty] || '').trim() : '';
+    const obj = { name, badge, time: timeStr, timestamp, status, afterParty };
 
     if (status === '○' || status === '出席') {
       attendList.push(obj);
@@ -4759,6 +4819,25 @@ function doPost(e) {
         payload.customMessage || '',
         payload.dryRun || false
       );
+      return ContentService
+        .createTextOutput(JSON.stringify(result))
+        .setMimeType(ContentService.MimeType.JSON);
+    } catch (err) {
+      return ContentService
+        .createTextOutput(JSON.stringify({
+          success: false,
+          error: 'invalid JSON: ' + err.message
+        }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+
+  // ★会議議事録: 保存
+  if (action === 'saveMeetingMinutes') {
+    try {
+      const jsonText = (e.postData && e.postData.contents) || '{}';
+      const payload = JSON.parse(jsonText);
+      const result = saveMeetingMinutes(payload);
       return ContentService
         .createTextOutput(JSON.stringify(result))
         .setMimeType(ContentService.MimeType.JSON);
@@ -8624,7 +8703,8 @@ function getSurveyResultsForDashboard(eventKey) {
           meetingGood: [],
           meetingImprove: [],
           clubGood: [],
-          clubImprove: []
+          clubImprove: [],
+          otherComments: []
         }
       };
     }
@@ -8647,7 +8727,8 @@ function getSurveyResultsForDashboard(eventKey) {
           meetingGood: [],
           meetingImprove: [],
           clubGood: [],
-          clubImprove: []
+          clubImprove: [],
+          otherComments: []
         }
       };
     }
@@ -8672,7 +8753,8 @@ function getSurveyResultsForDashboard(eventKey) {
           meetingImprovements: String(row[4] || '').trim(), // E列
           clubSatisfaction: Number(row[10]) || 0,    // K列
           clubGoodPoints: String(row[11] || '').trim(),     // L列
-          clubImprovements: String(row[12] || '').trim()    // M列
+          clubImprovements: String(row[12] || '').trim(),   // M列
+          otherComments: String(row[13] || '').trim()       // N列
         });
       }
     }
@@ -8692,6 +8774,7 @@ function getSurveyResultsForDashboard(eventKey) {
     const meetingImprove = [];
     const clubGood = [];
     const clubImprove = [];
+    const otherComments = [];
 
     responses.forEach(r => {
       // 例会満足度
@@ -8712,6 +8795,7 @@ function getSurveyResultsForDashboard(eventKey) {
       if (r.meetingImprovements) meetingImprove.push(r.meetingImprovements);
       if (r.clubGoodPoints) clubGood.push(r.clubGoodPoints);
       if (r.clubImprovements) clubImprove.push(r.clubImprovements);
+      if (r.otherComments) otherComments.push(r.otherComments);
     });
 
     const meetingAvg = meetingCount > 0 ? Math.round((meetingSum / meetingCount) * 10) / 10 : 0;
@@ -8733,12 +8817,1027 @@ function getSurveyResultsForDashboard(eventKey) {
         meetingGood: meetingGood,
         meetingImprove: meetingImprove,
         clubGood: clubGood,
-        clubImprove: clubImprove
+        clubImprove: clubImprove,
+        otherComments: otherComments
       }
     };
 
   } catch (e) {
     Logger.log('getSurveyResultsForDashboard error: ' + e.message);
     return { success: false, error: e.message };
+  }
+}
+
+/** =========================================================
+ *  会議議事録（会議タブ）
+ * ======================================================= */
+
+/**
+ * 会議議事録シートを作成（なければ新規、あればスキップ）
+ * ★最初に1回だけ手動実行
+ */
+function createMeetingMinutesSheet() {
+  const ss = SpreadsheetApp.openById(CONFIG_SHEET_ID);
+  let sh = ss.getSheetByName(MEETING_MINUTES_SHEET_NAME);
+
+  if (sh) {
+    Logger.log('シート既存: ' + MEETING_MINUTES_SHEET_NAME);
+    return { success: true, message: 'シート既存' };
+  }
+
+  sh = ss.insertSheet(MEETING_MINUTES_SHEET_NAME);
+  const headers = ['eventKey', 'meetingDate', 'actions', 'notes', 'updatedAt'];
+  sh.getRange(1, 1, 1, headers.length).setValues([headers]);
+
+  const headerRange = sh.getRange(1, 1, 1, headers.length);
+  headerRange.setBackground('#4a86e8');
+  headerRange.setFontColor('#ffffff');
+  headerRange.setFontWeight('bold');
+
+  sh.setColumnWidth(1, 120);
+  sh.setColumnWidth(2, 120);
+  sh.setColumnWidth(3, 600);
+  sh.setColumnWidth(4, 300);
+  sh.setColumnWidth(5, 160);
+
+  Logger.log('シート作成完了: ' + MEETING_MINUTES_SHEET_NAME);
+  return { success: true, message: 'シート作成完了' };
+}
+
+/**
+ * 議事録データ取得
+ * @param {string} eventKey - 例会キー
+ * @returns {Object} { success, eventKey, actions, notes, meetingDate, updatedAt }
+ */
+function getMeetingMinutes(eventKey) {
+  try {
+    if (!eventKey) {
+      return { success: false, error: 'eventKeyを指定してください' };
+    }
+
+    const ss = SpreadsheetApp.openById(CONFIG_SHEET_ID);
+    const sh = ss.getSheetByName(MEETING_MINUTES_SHEET_NAME);
+
+    if (!sh) {
+      return { success: true, eventKey: eventKey, actions: [], notes: '', meetingDate: '', updatedAt: '' };
+    }
+
+    const values = sh.getDataRange().getValues();
+    if (values.length < 2) {
+      return { success: true, eventKey: eventKey, actions: [], notes: '', meetingDate: '', updatedAt: '' };
+    }
+
+    for (let i = 1; i < values.length; i++) {
+      const rowKey = String(values[i][0] || '').trim();
+      if (rowKey === eventKey) {
+        let actions = [];
+        try {
+          const actionsJson = String(values[i][2] || '').trim();
+          if (actionsJson) {
+            actions = JSON.parse(actionsJson);
+          }
+        } catch (e) {
+          Logger.log('actions JSON parse error: ' + e.message);
+        }
+
+        const meetingDate = values[i][1] ? Utilities.formatDate(
+          new Date(values[i][1]),
+          Session.getScriptTimeZone() || 'Asia/Tokyo',
+          'yyyy-MM-dd'
+        ) : '';
+
+        const updatedAt = values[i][4] ? Utilities.formatDate(
+          new Date(values[i][4]),
+          Session.getScriptTimeZone() || 'Asia/Tokyo',
+          'yyyy-MM-dd HH:mm'
+        ) : '';
+
+        return {
+          success: true,
+          eventKey: eventKey,
+          actions: actions,
+          notes: String(values[i][3] || ''),
+          meetingDate: meetingDate,
+          updatedAt: updatedAt
+        };
+      }
+    }
+
+    // 該当なし
+    return { success: true, eventKey: eventKey, actions: [], notes: '', meetingDate: '', updatedAt: '' };
+
+  } catch (e) {
+    Logger.log('getMeetingMinutes error: ' + e.message);
+    return { success: false, error: e.message };
+  }
+}
+
+/**
+ * 議事録保存
+ * @param {Object} payload - { eventKey, actions, notes, meetingDate }
+ * @returns {Object} { success, message }
+ */
+function saveMeetingMinutes(payload) {
+  try {
+    const eventKey = String(payload.eventKey || '').trim();
+    if (!eventKey) {
+      return { success: false, error: 'eventKeyを指定してください' };
+    }
+
+    const ss = SpreadsheetApp.openById(CONFIG_SHEET_ID);
+    let sh = ss.getSheetByName(MEETING_MINUTES_SHEET_NAME);
+
+    // シート未存在時は自動作成
+    if (!sh) {
+      createMeetingMinutesSheet();
+      sh = ss.getSheetByName(MEETING_MINUTES_SHEET_NAME);
+    }
+
+    const values = sh.getDataRange().getValues();
+    const now = new Date();
+    const actionsJson = JSON.stringify(payload.actions || []);
+    const notes = String(payload.notes || '');
+    const meetingDate = payload.meetingDate || '';
+
+    // 既存行を検索
+    for (let i = 1; i < values.length; i++) {
+      const rowKey = String(values[i][0] || '').trim();
+      if (rowKey === eventKey) {
+        // 更新
+        sh.getRange(i + 1, 2).setValue(meetingDate);
+        sh.getRange(i + 1, 3).setValue(actionsJson);
+        sh.getRange(i + 1, 4).setValue(notes);
+        sh.getRange(i + 1, 5).setValue(now);
+        return { success: true, message: '議事録を更新しました' };
+      }
+    }
+
+    // 新規追加
+    const lastRow = sh.getLastRow();
+    sh.getRange(lastRow + 1, 1, 1, 5).setValues([
+      [eventKey, meetingDate, actionsJson, notes, now]
+    ]);
+
+    return { success: true, message: '議事録を保存しました' };
+
+  } catch (e) {
+    Logger.log('saveMeetingMinutes error: ' + e.message);
+    return { success: false, error: e.message };
+  }
+}
+
+/**
+ * 前回未完了アクション取得
+ * @param {string} currentEventKey - 現在の例会キー
+ * @returns {Object} { success, actions, fromEventKey }
+ */
+function getCarryOverActions(currentEventKey) {
+  try {
+    if (!currentEventKey) {
+      return { success: true, actions: [], fromEventKey: '' };
+    }
+
+    const ss = SpreadsheetApp.openById(CONFIG_SHEET_ID);
+    const sh = ss.getSheetByName(MEETING_MINUTES_SHEET_NAME);
+
+    if (!sh) {
+      return { success: true, actions: [], fromEventKey: '' };
+    }
+
+    const values = sh.getDataRange().getValues();
+    if (values.length < 2) {
+      return { success: true, actions: [], fromEventKey: '' };
+    }
+
+    // 全eventKeyを収集してソート
+    const entries = [];
+    for (let i = 1; i < values.length; i++) {
+      const key = String(values[i][0] || '').trim();
+      if (key) {
+        entries.push({ key: key, row: i });
+      }
+    }
+    entries.sort((a, b) => a.key.localeCompare(b.key));
+
+    // currentEventKeyの直前のキーを探す
+    let prevEntry = null;
+    for (let i = 0; i < entries.length; i++) {
+      if (entries[i].key === currentEventKey && i > 0) {
+        prevEntry = entries[i - 1];
+        break;
+      }
+      // currentEventKeyが存在しない場合、最新のキーを使う
+      if (entries[i].key > currentEventKey && i > 0) {
+        prevEntry = entries[i - 1];
+        break;
+      }
+    }
+
+    // currentEventKeyがエントリ内に無く、全エントリがcurrentEventKeyより小さい場合
+    if (!prevEntry && entries.length > 0 && entries[entries.length - 1].key < currentEventKey) {
+      prevEntry = entries[entries.length - 1];
+    }
+
+    if (!prevEntry) {
+      return { success: true, actions: [], fromEventKey: '' };
+    }
+
+    // 前回の議事録からアクションを取得
+    const prevRow = values[prevEntry.row];
+    let actions = [];
+    try {
+      const actionsJson = String(prevRow[2] || '').trim();
+      if (actionsJson) {
+        actions = JSON.parse(actionsJson);
+      }
+    } catch (e) {
+      Logger.log('carryOver actions JSON parse error: ' + e.message);
+    }
+
+    // 未完了のみフィルタ（status互換: 新status優先、旧doneフォールバック）
+    const undoneActions = actions.filter(a => {
+      if (a.status) return a.status !== '完了';
+      return !a.done;
+    });
+
+    return {
+      success: true,
+      actions: undoneActions,
+      fromEventKey: prevEntry.key
+    };
+
+  } catch (e) {
+    Logger.log('getCarryOverActions error: ' + e.message);
+    return { success: false, error: e.message, actions: [], fromEventKey: '' };
+  }
+}
+
+/**
+ * 会議タブ一括データ取得（高速版）
+ * スプレッドシートを最小限の回数で開き、指標・議事録・引き継ぎを一括返却
+ * @param {string} eventKey - 例会キー
+ * @returns {Object} { indicators, minutes, carryOver }
+ */
+function getMeetingAllData(eventKey) {
+  try {
+    if (!eventKey) {
+      return { success: false, error: 'eventKeyを指定してください' };
+    }
+
+    const eventName = eventKeyToJapanese(eventKey);
+
+    // ========== スプレッドシートを1回ずつだけ開く ==========
+    const ssAttend = SpreadsheetApp.openById(ATTEND_GUEST_SHEET_ID);
+    const ssConfig = SpreadsheetApp.openById(CONFIG_SHEET_ID);
+    const ssSales  = SpreadsheetApp.openById(SALES_SHEET_ID);
+
+    // --- シートデータの一括取得 ---
+    const memberSheet  = ssAttend.getSheetByName(MEMBER_SHEET_NAME);
+    const attendSheet  = ssAttend.getSheetByName(ATTEND_SHEET_NAME);
+    const guestSheet   = ssAttend.getSheetByName(GUEST_SHEET_NAME);
+    const surveySheet  = ssAttend.getSheetByName(SURVEY_SHEET_NAME);
+    const archiveSheet = ssAttend.getSheetByName(SEATING_ARCHIVE_SHEET_NAME);
+    const minutesSheet = ssConfig.getSheetByName(MEETING_MINUTES_SHEET_NAME);
+    const salesSheet   = ssSales.getSheetByName(SALES_SHEET_NAME);
+
+    // データを一括読み込み（各シート1回だけgetDataRange）
+    const memberValues  = memberSheet  ? memberSheet.getDataRange().getValues()  : [];
+    const attendValues  = attendSheet  ? attendSheet.getDataRange().getValues()  : [];
+    const guestValues   = guestSheet   ? guestSheet.getDataRange().getValues()   : [];
+    const minutesValues = minutesSheet ? minutesSheet.getDataRange().getValues() : [];
+
+    // ========== 会員マスタ（共通で使い回し） ==========
+    const memberHeader = memberValues.length >= 2 ? memberValues[1] : [];
+    const memberRows   = memberValues.length >= 3 ? memberValues.slice(2) : [];
+    const idxMemberName   = findColumnIndex_(memberHeader, ['displayName', '氏名', '名前']);
+    const memberNameCol   = idxMemberName !== -1 ? idxMemberName : 2;
+    const memberBadgeCol  = 1;
+
+    // 全会員リスト
+    const allMembers = [];
+    const memberSeen = {};
+    memberRows.forEach(function(row) {
+      var name = String(row[memberNameCol] || '').trim();
+      if (!name || memberSeen[name]) return;
+      var badge = String(row[memberBadgeCol] || '').trim();
+      allMembers.push({ name: name, badge: badge });
+      memberSeen[name] = true;
+    });
+    var memberCount = allMembers.length;
+    var memberNames = allMembers.map(function(m) { return m.name; });
+
+    // 議事録担当者用: H列（役職）が空でない会員 + システム管理者
+    const MEMBER_POSITION_COL = 7; // H列（0始まり）
+    var assigneeNames = [];
+    var assigneeSeen = {};
+    memberRows.forEach(function(row) {
+      var name = String(row[memberNameCol] || '').trim();
+      var position = String(row[MEMBER_POSITION_COL] || '').trim();
+      if (!name || !position || assigneeSeen[name]) return;
+      assigneeNames.push(name);
+      assigneeSeen[name] = true;
+    });
+    assigneeNames.push('システム管理者');
+
+    // userId→{name,badge}マップ
+    var idxUserId = findColumnIndex_(memberHeader, ['LINE_userId', 'userId', 'ユーザーID']);
+    var memberMapByUserId = {};
+    if (idxUserId !== -1) {
+      memberRows.forEach(function(row) {
+        var uid = String(row[idxUserId] || '').trim();
+        if (!uid) return;
+        var name  = String(row[memberNameCol]  || '').trim();
+        var badge = String(row[memberBadgeCol] || '').trim();
+        memberMapByUserId[uid] = { name: name, badge: badge };
+      });
+    }
+
+    // ========== 1. 参加循環 ==========
+    var attendHeaderIdx = 2;
+    var attendHeader = attendValues.length > attendHeaderIdx ? attendValues[attendHeaderIdx] : [];
+    var attendRows   = attendValues.length > attendHeaderIdx + 1 ? attendValues.slice(attendHeaderIdx + 1) : [];
+    var idxAEventKey = findColumnIndex_(attendHeader, ['eventKey', 'イベントキー']);
+    var idxAStatus   = findColumnIndex_(attendHeader, ['status', '出欠', '出欠状況', 'ステータス']);
+    var idxAUserId   = findColumnIndex_(attendHeader, ['userId', 'LINE_userId', 'ユーザーID']);
+    var idxAName     = findColumnIndex_(attendHeader, ['displayName', '氏名', '名前']);
+
+    var attend = 0, absent = 0;
+    var attendList = [], absentList = [];
+    var repliedNameSet = {};
+
+    if (idxAEventKey !== -1 && idxAStatus !== -1) {
+      attendRows.forEach(function(row) {
+        var key = String(row[idxAEventKey] || '').trim();
+        if (key !== eventName) return;
+
+        var status = String(row[idxAStatus] || '').trim();
+        var userId = idxAUserId !== -1 ? String(row[idxAUserId] || '').trim() : '';
+        var memberInfo = userId ? memberMapByUserId[userId] : null;
+        var name = memberInfo ? memberInfo.name : '';
+        var badge = memberInfo ? memberInfo.badge : '';
+        if (!name && idxAName !== -1) name = String(row[idxAName] || '').trim();
+        if (!name) return;
+
+        var tsRaw = row[0];
+        var timeStr = '';
+        var timestamp = 0;
+        if (tsRaw) {
+          var d = tsRaw instanceof Date ? tsRaw : new Date(tsRaw);
+          if (!isNaN(d)) {
+            timestamp = d.getTime();
+            timeStr = Utilities.formatDate(d, Session.getScriptTimeZone() || 'Asia/Tokyo', 'MM/dd HH:mm');
+          }
+        }
+
+        if (status === '○' || status === '出席') {
+          attend++;
+          attendList.push({ name: name, badge: badge, time: timeStr, timestamp: timestamp });
+          repliedNameSet[name] = true;
+        } else if (status === '×' || status === '欠席') {
+          absent++;
+          absentList.push({ name: name, badge: badge, time: timeStr, timestamp: timestamp });
+          repliedNameSet[name] = true;
+        }
+      });
+    }
+    var noAnswer = Math.max(memberCount - attend - absent, 0);
+    var attendRate = memberCount > 0 ? Math.round((attend / memberCount) * 1000) / 10 : 0;
+    var absentMembers = absentList.map(function(m) { return { name: m.name, badge: m.badge }; });
+
+    // 連続欠席者（出欠データから直接計算、attendValuesを再利用）
+    var consecutiveAbsent = [];
+    if (idxAEventKey !== -1 && idxAStatus !== -1) {
+      // 全eventKeyを収集
+      var eventKeySet = {};
+      attendRows.forEach(function(row) {
+        var k = String(row[idxAEventKey] || '').trim();
+        if (k) eventKeySet[k] = true;
+      });
+      var allEventKeys = Object.keys(eventKeySet).sort(function(a, b) {
+        var toKey = function(name) {
+          var m = String(name).match(/(\d{4})年(\d{1,2})月/);
+          return m ? m[1] + String(m[2]).padStart(2, '0') : name;
+        };
+        return toKey(b).localeCompare(toKey(a));
+      });
+      var curIdx = allEventKeys.indexOf(eventName);
+      var targetKeys = curIdx >= 0 ? allEventKeys.slice(curIdx, curIdx + 6) : allEventKeys.slice(0, 6);
+
+      if (targetKeys.length > 0) {
+        var memAttend = {};
+        attendRows.forEach(function(row) {
+          var k = String(row[idxAEventKey] || '').trim();
+          if (targetKeys.indexOf(k) === -1) return;
+          var st = String(row[idxAStatus] || '').trim();
+          var uid = idxAUserId !== -1 ? String(row[idxAUserId] || '').trim() : '';
+          var mi = uid ? memberMapByUserId[uid] : null;
+          if (!mi) return;
+          if (!memAttend[mi.name]) memAttend[mi.name] = { badge: mi.badge };
+          memAttend[mi.name][k] = st;
+        });
+        Object.keys(memAttend).forEach(function(name) {
+          var data = memAttend[name];
+          var count = 0;
+          for (var i = 0; i < targetKeys.length; i++) {
+            var s = data[targetKeys[i]];
+            if (s === '×' || s === '欠席') count++;
+            else break;
+          }
+          if (count >= 2) {
+            consecutiveAbsent.push({ name: name, count: count, badge: data.badge || '' });
+          }
+        });
+        consecutiveAbsent.sort(function(a, b) { return b.count - a.count; });
+      }
+    }
+
+    // 役職者出席率（memberValues + attendList を再利用）
+    var officers = {};
+    memberRows.forEach(function(row) {
+      var name = String(row[memberNameCol] || '').trim();
+      var role = String(row[6] || '').trim();
+      var retired = String(row[26] || '').trim();
+      if (name && role && !retired) officers[name] = true;
+    });
+    var officerCount = Object.keys(officers).length;
+    var attendedOfficers = 0;
+    var attendNameSet = {};
+    attendList.forEach(function(m) { attendNameSet[m.name] = true; });
+    Object.keys(officers).forEach(function(name) {
+      if (attendNameSet[name]) attendedOfficers++;
+    });
+    var officerAttendRate = officerCount > 0 ? Math.round((attendedOfficers / officerCount) * 1000) / 10 : 0;
+
+    // ========== 2. 商談循環 ==========
+    var salesTotal = 0, dealCount = 0, meetingsCount = 0, reporterCount = 0;
+    var zeroList = [];
+
+    if (salesSheet) {
+      var salesLastRow = salesSheet.getLastRow();
+      if (salesLastRow >= 7) {
+        var monthMatch = eventName.match(/(\d{4})年(\d{1,2})月/);
+        var salesEventKey = '';
+        if (monthMatch) {
+          var prevDate = new Date(Number(monthMatch[1]), Number(monthMatch[2]) - 2, 1);
+          salesEventKey = prevDate.getFullYear() + '年' + (prevDate.getMonth() + 1) + '月_売上報告';
+        }
+        var salesValues = salesSheet.getRange(7, 1, salesLastRow - 6, salesSheet.getLastColumn()).getValues();
+        salesValues.forEach(function(row) {
+          if (String(row[14] || '').trim() !== salesEventKey) return;
+          reporterCount++;
+          var amount   = Number(row[5]) || 0;
+          var deals    = Number(row[4]) || 0;
+          var meetings = Number(row[15]) || 0;
+          var member   = String(row[13] || '').trim();
+          salesTotal += amount;
+          dealCount += deals;
+          meetingsCount += meetings;
+          if (meetings === 0 && amount === 0) {
+            zeroList.push({ name: member, meetings: meetings, deals: deals, amount: amount });
+          }
+        });
+      }
+    }
+
+    // ========== 3. 紹介循環 ==========
+    var guestTotal = 0, guestApproved = 0;
+    var referrerRanking = [];
+
+    if (guestValues.length >= 3) {
+      var gHeaderIdx = 1;
+      var gHeader = guestValues[gHeaderIdx];
+      var gRows   = guestValues.slice(gHeaderIdx + 1);
+      var idxGEvent = findColumnIndex_(gHeader, ['eventKey', 'イベントキー']);
+      var idxGIntro = findColumnIndex_(gHeader, ['紹介者', '紹介者名']);
+      var idxGApprove = findColumnIndex_(gHeader, ['承認']);
+      var cGEvent   = idxGEvent   !== -1 ? idxGEvent   : 2;
+      var cGIntro   = idxGIntro   !== -1 ? idxGIntro   : 7;
+      var cGApprove = idxGApprove !== -1 ? idxGApprove : 10;
+
+      var referrerCount2 = {};
+      gRows.forEach(function(row) {
+        if (String(row[cGEvent] || '').trim() !== eventName) return;
+        guestTotal++;
+        if (row[cGApprove] === true) guestApproved++;
+        var intro = String(row[cGIntro] || '').trim();
+        if (intro) {
+          if (!referrerCount2[intro]) referrerCount2[intro] = 0;
+          referrerCount2[intro]++;
+        }
+      });
+      referrerRanking = Object.keys(referrerCount2).map(function(name) {
+        return { name: name, count: referrerCount2[name] };
+      }).sort(function(a, b) { return b.count - a.count; });
+    }
+
+    // ========== 4. 成長循環（更新予定者） ==========
+    var eventInfo = getCurrentEventInfo_();
+    var ym = parseYearMonthFromEventKey_(eventInfo.key);
+    var renewalNext = [], renewalNext2 = [];
+    var nextMonthLabel = '翌月更新', next2MonthLabel = '翌々月更新';
+    if (ym) {
+      var next  = addMonth_(ym.year, ym.month, 1);
+      var next2 = addMonth_(ym.year, ym.month, 2);
+      nextMonthLabel  = next.month + '月更新';
+      next2MonthLabel = next2.month + '月更新';
+      var idxUpdateMonth = 21; // V列
+      var idxReferralCt  = 18; // Q列
+      memberRows.forEach(function(row) {
+        var name = String(row[memberNameCol] || '').trim();
+        if (!name) return;
+        var badge = String(row[memberBadgeCol] || '').trim();
+        var mRaw = row[idxUpdateMonth];
+        if (mRaw === '' || mRaw == null) return;
+        var n = Number(String(mRaw).trim());
+        if (!Number.isFinite(n)) return;
+        var refCount = Number(row[idxReferralCt]) || 0;
+        var member = { name: name, badge: badge, hasZeroReferral: refCount === 0, referralCount: refCount };
+        if (n === next.month)  renewalNext.push(member);
+        if (n === next2.month) renewalNext2.push(member);
+      });
+    }
+
+    // ========== 5. アンケート ==========
+    var meetingScore = 0, clubScore = 0;
+    var improveComments = [];
+
+    if (surveySheet) {
+      var surveyData = surveySheet.getDataRange().getValues();
+      var surveyEventName = eventName;
+      var surveyResponses = [];
+      for (var si = 1; si < surveyData.length; si++) {
+        var sRow = surveyData[si];
+        var sKey = String(sRow[1] || '').trim();
+        if (sKey === eventKey || sKey === surveyEventName || sKey.indexOf(surveyEventName.replace('例会', '')) !== -1) {
+          surveyResponses.push({
+            meetingSatisfaction: Number(sRow[2]) || 0,
+            meetingImprovements: String(sRow[4] || '').trim(),
+            clubSatisfaction: Number(sRow[10]) || 0,
+            clubImprovements: String(sRow[12] || '').trim()
+          });
+        }
+      }
+      if (surveyResponses.length > 0) {
+        var mSum = 0, mCnt = 0, cSum = 0, cCnt = 0;
+        surveyResponses.forEach(function(r) {
+          if (r.meetingSatisfaction >= 1 && r.meetingSatisfaction <= 5) { mSum += r.meetingSatisfaction; mCnt++; }
+          if (r.clubSatisfaction >= 1 && r.clubSatisfaction <= 5) { cSum += r.clubSatisfaction; cCnt++; }
+          if (r.meetingImprovements) improveComments.push(r.meetingImprovements);
+          if (r.clubImprovements) improveComments.push(r.clubImprovements);
+        });
+        meetingScore = mCnt > 0 ? Math.round((mSum / mCnt) * 10) / 10 : 0;
+        clubScore = cCnt > 0 ? Math.round((cSum / cCnt) * 10) / 10 : 0;
+      }
+    }
+
+    // ========== 議事録データ ==========
+    var minutesResult = { actions: [], notes: '', meetingDate: '', updatedAt: '' };
+    if (minutesValues.length >= 2) {
+      for (var mi2 = 1; mi2 < minutesValues.length; mi2++) {
+        if (String(minutesValues[mi2][0] || '').trim() === eventKey) {
+          var mActions = [];
+          try {
+            var mJson = String(minutesValues[mi2][2] || '').trim();
+            if (mJson) mActions = JSON.parse(mJson);
+          } catch (e) { /* parse error */ }
+          var mDate = minutesValues[mi2][1] ? Utilities.formatDate(new Date(minutesValues[mi2][1]), Session.getScriptTimeZone() || 'Asia/Tokyo', 'yyyy-MM-dd') : '';
+          var mUpdated = minutesValues[mi2][4] ? Utilities.formatDate(new Date(minutesValues[mi2][4]), Session.getScriptTimeZone() || 'Asia/Tokyo', 'yyyy-MM-dd HH:mm') : '';
+          minutesResult = { actions: mActions, notes: String(minutesValues[mi2][3] || ''), meetingDate: mDate, updatedAt: mUpdated };
+          break;
+        }
+      }
+    }
+
+    // ========== 引き継ぎアクション ==========
+    var carryOverResult = { actions: [], fromEventKey: '' };
+    if (minutesValues.length >= 2) {
+      var entries = [];
+      for (var ci = 1; ci < minutesValues.length; ci++) {
+        var ck = String(minutesValues[ci][0] || '').trim();
+        if (ck) entries.push({ key: ck, row: ci });
+      }
+      entries.sort(function(a, b) { return a.key.localeCompare(b.key); });
+      var prevEntry = null;
+      for (var cj = 0; cj < entries.length; cj++) {
+        if (entries[cj].key === eventKey && cj > 0) { prevEntry = entries[cj - 1]; break; }
+        if (entries[cj].key > eventKey && cj > 0) { prevEntry = entries[cj - 1]; break; }
+      }
+      if (!prevEntry && entries.length > 0 && entries[entries.length - 1].key < eventKey) {
+        prevEntry = entries[entries.length - 1];
+      }
+      if (prevEntry) {
+        var cActions = [];
+        try {
+          var cJson = String(minutesValues[prevEntry.row][2] || '').trim();
+          if (cJson) cActions = JSON.parse(cJson);
+        } catch (e) { /* parse error */ }
+        var undone = cActions.filter(function(a) {
+          if (a.status) return a.status !== '完了';
+          return !a.done;
+        });
+        carryOverResult = { actions: undone, fromEventKey: prevEntry.key };
+      }
+    }
+
+    // ========== 結果を一括返却 ==========
+    return {
+      success: true,
+      indicators: {
+        success: true,
+        eventKey: eventKey,
+        participation: {
+          attendRate: attendRate,
+          attendCount: attend,
+          absentCount: absent,
+          noAnswerCount: noAnswer,
+          memberCount: memberCount,
+          absentMembers: absentMembers,
+          consecutiveAbsent: consecutiveAbsent
+        },
+        business: {
+          reporterCount: reporterCount,
+          totalSales: salesTotal,
+          dealCount: dealCount,
+          meetingsCount: meetingsCount,
+          zeroMembers: zeroList
+        },
+        referral: {
+          guestCount: guestTotal,
+          guestApproved: guestApproved,
+          referrerRanking: referrerRanking
+        },
+        growth: {
+          renewalNext: renewalNext,
+          renewalNext2: renewalNext2,
+          nextMonthLabel: nextMonthLabel,
+          next2MonthLabel: next2MonthLabel,
+          officerAttendRate: officerAttendRate
+        },
+        survey: {
+          meetingScore: meetingScore,
+          clubScore: clubScore,
+          improveComments: improveComments
+        },
+        memberNames: memberNames,
+        assigneeNames: assigneeNames
+      },
+      minutes: {
+        success: true,
+        eventKey: eventKey,
+        actions: minutesResult.actions,
+        notes: minutesResult.notes,
+        meetingDate: minutesResult.meetingDate,
+        updatedAt: minutesResult.updatedAt
+      },
+      carryOver: {
+        success: true,
+        actions: carryOverResult.actions,
+        fromEventKey: carryOverResult.fromEventKey
+      }
+    };
+
+  } catch (e) {
+    Logger.log('getMeetingAllData error: ' + e.message);
+    return { success: false, error: e.message };
+  }
+}
+
+/**
+ * 会議用指標データ取得（4循環 + アンケート）
+ * ※ 旧互換用。新規は getMeetingAllData() を使用
+ * @param {string} eventKey - 例会キー
+ * @returns {Object} 4循環の指標データ
+ */
+function getMeetingIndicators(eventKey) {
+  try {
+    if (!eventKey) {
+      return { success: false, error: 'eventKeyを指定してください' };
+    }
+
+    const eventName = eventKeyToJapanese(eventKey);
+    const memberCount = getMemberCount_();
+
+    // === 参加循環 ===
+    // 既存関数はeventName（日本語形式）を期待するものがある
+    const attendance = aggregateAttendance_(eventName, memberCount);
+    const attendDetail = aggregateAttendanceDetail_(eventName);
+    const attendRate = memberCount > 0
+      ? Math.round((attendance.attend / memberCount) * 1000) / 10
+      : 0;
+
+    // 連続欠席者の計算（eventKey形式で検索）
+    const consecutiveAbsent = getConsecutiveAbsentMembers_(eventKey);
+
+    // 欠席者リスト（名前・バッジ）
+    const absentMembers = attendDetail.absentList.map(m => ({
+      name: m.name,
+      badge: m.badge
+    }));
+
+    // === 商談循環 ===
+    const sales = aggregateSales_(eventName);
+
+    // === 紹介循環 ===
+    const guests = aggregateGuests_(eventName);
+    const referrerRanking = getReferrerDistribution_(eventName);
+
+    // === 成長循環 ===
+    const renewals = getRenewalMembers_();
+    const officerAttendRate = getOfficerAttendRate_(eventName);
+
+    // === アンケート ===
+    let survey = { scores: { meeting: { avg: 0 }, club: { avg: 0 } }, comments: { meetingImprove: [], clubImprove: [] } };
+    try {
+      const surveyResult = getSurveyResultsForDashboard(eventKey);
+      if (surveyResult && surveyResult.success !== false) {
+        survey = surveyResult;
+      }
+    } catch (e) {
+      Logger.log('survey fetch error: ' + e.message);
+    }
+
+    // 会員名一覧（担当者プルダウン用）
+    const memberNames = getAllMembers_().map(m => m.name);
+
+    return {
+      success: true,
+      eventKey: eventKey,
+      participation: {
+        attendRate: attendRate,
+        attendCount: attendance.attend,
+        absentCount: attendance.absent,
+        noAnswerCount: attendance.noAnswer,
+        memberCount: memberCount,
+        absentMembers: absentMembers,
+        consecutiveAbsent: consecutiveAbsent
+      },
+      business: {
+        reporterCount: sales.reporterCount,
+        totalSales: sales.total,
+        dealCount: sales.dealCount,
+        meetingsCount: sales.meetingsCount,
+        zeroMembers: sales.zeroList || []
+      },
+      referral: {
+        guestCount: guests.total,
+        guestApproved: guests.approved,
+        referrerRanking: referrerRanking
+      },
+      growth: {
+        renewalNext: renewals.next,
+        renewalNext2: renewals.next2,
+        nextMonthLabel: renewals.nextMonthLabel,
+        next2MonthLabel: renewals.next2MonthLabel,
+        officerAttendRate: officerAttendRate
+      },
+      survey: {
+        meetingScore: survey.scores ? survey.scores.meeting.avg : 0,
+        clubScore: survey.scores ? survey.scores.club.avg : 0,
+        improveComments: [
+          ...(survey.comments ? survey.comments.meetingImprove : []),
+          ...(survey.comments ? survey.comments.clubImprove : [])
+        ]
+      },
+      memberNames: memberNames
+    };
+
+  } catch (e) {
+    Logger.log('getMeetingIndicators error: ' + e.message);
+    return { success: false, error: e.message };
+  }
+}
+
+/**
+ * 連続欠席者を計算（過去6回分）
+ * @param {string} currentEventKey - 現在の例会キー
+ * @returns {Array} [{ name, count, badge }]
+ */
+function getConsecutiveAbsentMembers_(currentEventKey) {
+  try {
+    const ss = SpreadsheetApp.openById(ATTEND_GUEST_SHEET_ID);
+    const sh = ss.getSheetByName(ATTEND_SHEET_NAME);
+    if (!sh) return [];
+
+    const values = sh.getDataRange().getValues();
+    if (values.length < 4) return [];
+
+    const HEADER_ROW_INDEX = 2;
+    const header = values[HEADER_ROW_INDEX];
+    const rows = values.slice(HEADER_ROW_INDEX + 1);
+
+    const idxEventKey = findColumnIndex_(header, ['eventKey', 'イベントキー']);
+    const idxStatus = findColumnIndex_(header, ['status', '出欠', '出欠状況', 'ステータス']);
+    const idxUserId = findColumnIndex_(header, ['userId', 'LINE_userId', 'ユーザーID']);
+
+    if (idxEventKey === -1 || idxStatus === -1) return [];
+
+    // currentEventKeyを日本語形式に変換（出欠シートは日本語形式で格納）
+    const currentEventName = eventKeyToJapanese(currentEventKey);
+
+    // 全eventKeyを収集
+    const eventKeySet = new Set();
+    rows.forEach(row => {
+      const key = String(row[idxEventKey] || '').trim();
+      if (key) eventKeySet.add(key);
+    });
+
+    // 日本語形式のeventKeyをソート可能な形式に変換してソート（降順 = 新しい順）
+    const allEventKeys = Array.from(eventKeySet).sort((a, b) => {
+      // "2025年12月例会" → "202512" のような比較用キーを生成
+      const toSortKey = (name) => {
+        const m = String(name).match(/(\d{4})年(\d{1,2})月/);
+        if (!m) return name;
+        return m[1] + String(m[2]).padStart(2, '0');
+      };
+      return toSortKey(b).localeCompare(toSortKey(a));
+    });
+
+    // currentEventName以前の6回分を取得
+    const currentIdx = allEventKeys.indexOf(currentEventName);
+    const targetKeys = currentIdx >= 0
+      ? allEventKeys.slice(currentIdx, currentIdx + 6)
+      : allEventKeys.slice(0, 6);
+
+    if (targetKeys.length === 0) return [];
+
+    // 会員マスタ情報
+    const memberMapByUserId = getMemberMapByUserId_();
+
+    // 各会員のeventKeyごとの出欠を集計
+    const memberAttendance = {}; // { memberName: { eventKey: status } }
+
+    rows.forEach(row => {
+      const key = String(row[idxEventKey] || '').trim();
+      if (!targetKeys.includes(key)) return;
+
+      const status = String(row[idxStatus] || '').trim();
+      const userId = idxUserId !== -1 ? String(row[idxUserId] || '').trim() : '';
+      const memberInfo = userId ? memberMapByUserId[userId] : null;
+
+      if (!memberInfo) return;
+      const name = memberInfo.name;
+
+      if (!memberAttendance[name]) {
+        memberAttendance[name] = { badge: memberInfo.badge };
+      }
+      memberAttendance[name][key] = status;
+    });
+
+    // 連続欠席をカウント（新しい順で連続「×」の数）
+    const result = [];
+    Object.keys(memberAttendance).forEach(name => {
+      const data = memberAttendance[name];
+      let count = 0;
+
+      for (let i = 0; i < targetKeys.length; i++) {
+        const status = data[targetKeys[i]];
+        if (status === '×' || status === '欠席') {
+          count++;
+        } else {
+          break; // 連続が途切れたら終了
+        }
+      }
+
+      if (count >= 2) {
+        result.push({ name: name, count: count, badge: data.badge || '' });
+      }
+    });
+
+    // 連続欠席数の多い順
+    result.sort((a, b) => b.count - a.count);
+
+    return result;
+
+  } catch (e) {
+    Logger.log('getConsecutiveAbsentMembers_ error: ' + e.message);
+    return [];
+  }
+}
+
+/**
+ * 役職者出席率を計算
+ * @param {string} eventKey - 例会キー
+ * @returns {number} 出席率(%)
+ */
+function getOfficerAttendRate_(eventName) {
+  try {
+    const ss = SpreadsheetApp.openById(ATTEND_GUEST_SHEET_ID);
+
+    // 会員名簿マスターからG列（役割）が空でない会員 = 役職者
+    const memberSheet = ss.getSheetByName(MEMBER_SHEET_NAME);
+    if (!memberSheet) return 0;
+
+    const memberValues = memberSheet.getDataRange().getValues();
+    if (memberValues.length < 3) return 0;
+
+    const officers = new Set(); // 役職者の氏名セット
+    for (let i = 2; i < memberValues.length; i++) {
+      const name = String(memberValues[i][2] || '').trim(); // C列：氏名
+      const role = String(memberValues[i][6] || '').trim(); // G列：役割
+      const retired = String(memberValues[i][26] || '').trim(); // AA列：退会
+      if (name && role && !retired) {
+        officers.add(name);
+      }
+    }
+
+    if (officers.size === 0) return 0;
+
+    // 出欠詳細で当月の出席者を取得
+    const attendDetail = aggregateAttendanceDetail_(eventName);
+    const attendNames = new Set(attendDetail.attendList.map(m => m.name));
+
+    // 出席した役職者をカウント
+    let attendedOfficers = 0;
+    officers.forEach(name => {
+      if (attendNames.has(name)) {
+        attendedOfficers++;
+      }
+    });
+
+    return Math.round((attendedOfficers / officers.size) * 1000) / 10;
+
+  } catch (e) {
+    Logger.log('getOfficerAttendRate_ error: ' + e.message);
+    return 0;
+  }
+}
+
+/**
+ * 紹介者分布（ゲスト紹介者ランキング）
+ * @param {string} eventName - 例会名（例: "2026年1月例会"）
+ * @returns {Array} [{ name, count }]
+ */
+function getReferrerDistribution_(eventName) {
+  try {
+    const ss = SpreadsheetApp.openById(ATTEND_GUEST_SHEET_ID);
+    const sh = ss.getSheetByName(GUEST_SHEET_NAME);
+    if (!sh) return [];
+
+    const values = sh.getDataRange().getValues();
+    if (values.length < 3) return [];
+
+    const HEADER_ROW_INDEX = 1;
+    const header = values[HEADER_ROW_INDEX];
+    const rows = values.slice(HEADER_ROW_INDEX + 1);
+
+    const idxEvent = findColumnIndex_(header, ['eventKey', 'イベントキー']);
+    const idxIntro = findColumnIndex_(header, ['紹介者', '紹介者名']);
+    const cEvent = idxEvent !== -1 ? idxEvent : 2;
+    const cIntro = idxIntro !== -1 ? idxIntro : 7;
+
+    const referrerCount = {};
+
+    rows.forEach(row => {
+      const key = String(row[cEvent] || '').trim();
+      if (key !== eventName) return;
+
+      const intro = String(row[cIntro] || '').trim();
+      if (!intro) return;
+
+      if (!referrerCount[intro]) referrerCount[intro] = 0;
+      referrerCount[intro]++;
+    });
+
+    return Object.entries(referrerCount)
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count);
+
+  } catch (e) {
+    Logger.log('getReferrerDistribution_ error: ' + e.message);
+    return [];
+  }
+}
+
+/** =========================================================
+ *  改善リクエスト送信
+ * ======================================================= */
+
+/**
+ * ダッシュボードから改善リクエストを管理者LINEに送信
+ * @param {Object} payload - { category: string, content: string }
+ * @returns {Object} { success: boolean, error?: string }
+ */
+function submitSystemRequest(payload) {
+  try {
+    if (!payload || !payload.content || !payload.content.trim()) {
+      return { success: false, error: '内容を入力してください' };
+    }
+
+    const category = payload.category || 'その他';
+    const content = payload.content.trim();
+    const now = Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy-MM-dd HH:mm');
+
+    const subject = '【改善リクエスト】' + category;
+    const body = 'カテゴリ: ' + category + '\n'
+      + '内容: ' + content + '\n'
+      + '送信日時: ' + now;
+
+    GmailApp.sendEmail(ADMIN_EMAIL, subject, body);
+
+    return { success: true };
+
+  } catch (e) {
+    Logger.log('submitSystemRequest error: ' + e.message);
+    return { success: false, error: '送信中にエラーが発生しました' };
   }
 }

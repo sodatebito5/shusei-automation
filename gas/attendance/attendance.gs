@@ -123,6 +123,8 @@ function doPost(e) {
 
   if (mode === 'guest') {
     return handleGuestPost(data);
+  } else if (mode === 'survey') {
+    return handleSurveyPost(data);
   } else {
     return handleAttendPost(data);
   }
@@ -179,8 +181,10 @@ function handleAttendPost(data) {
   const name   = String(data.displayName || '').trim();
   const status = String(data.status || '').trim();
   const booth  = String(data.booth || '').trim();
+  const afterParty = String(data.afterParty || '').trim();
 
   const boothMark = (booth === '出店したいです。') ? '○' : '×';
+  const afterPartyMark = (afterParty === '参加する') ? '○' : '×';
 
   if (!userId) {
     return _out({ success:false, error:'userId is required' });
@@ -222,12 +226,12 @@ function handleAttendPost(data) {
     }
     // currentSourceが空欄または「自動→LIFF」の場合はそのまま空欄
 
-    const rowData = [new Date(), eventKey, userId, name, status, boothMark, newSource];
-    sh.getRange(targetRow, 1, 1, 7).setValues([rowData]);
+    const rowData = [new Date(), eventKey, userId, name, status, boothMark, newSource, afterPartyMark];
+    sh.getRange(targetRow, 1, 1, 8).setValues([rowData]);
     action = 'updated';
   } else {
     // 新しいイベントキー or 新規ユーザー → 追加（G列は空欄）
-    const rowData = [new Date(), eventKey, userId, name, status, boothMark, ''];
+    const rowData = [new Date(), eventKey, userId, name, status, boothMark, '', afterPartyMark];
     sh.appendRow(rowData);
     action = 'inserted';
   }
@@ -282,11 +286,13 @@ function getAttendanceStatus(userId) {
     if (rowUserId === userId && rowEventKey === currentEventKey) {
       const status = String(data[i][4] || '').trim();    // E列: status
       const booth = String(data[i][5] || '').trim();     // F列: booth
+      const afterParty = String(data[i][7] || '').trim(); // H列: afterParty
       return _out({
         success: true,
         eventKey: currentEventKey,
         status: status,
-        booth: booth
+        booth: booth,
+        afterParty: afterParty
       });
     }
   }
@@ -296,7 +302,8 @@ function getAttendanceStatus(userId) {
     success: true,
     eventKey: currentEventKey,
     status: '未回答',
-    booth: ''
+    booth: '',
+    afterParty: ''
   });
 }
 
