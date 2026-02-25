@@ -502,6 +502,7 @@
       <table class="modern-table" style="min-width: 900px;">
         <thead>
           <tr>
+            <th style="writing-mode: vertical-rl; text-orientation: upright; white-space: nowrap; padding: 8px 4px; letter-spacing: 0.1em;">ブース</th>
             <th>氏名</th>
             <th>フリガナ</th>
             <th>所属</th>
@@ -514,7 +515,7 @@
         </thead>
         <tbody id="otherVenueDetailBody">
           <tr>
-            <td colspan="8" class="py-3 text-slate-400 text-center">
+            <td colspan="9" class="py-3 text-slate-400 text-center">
               データ取得中...
             </td>
           </tr>
@@ -3522,12 +3523,13 @@ if (guestDetailBody) {
 
     if (!otherDetail.length) {
       otherVenueDetailBody.innerHTML =
-        '<tr><td colspan="8" class="py-2 px-3 text-slate-400">該当する他会場会員がいません。</td></tr>';
+        '<tr><td colspan="9" class="py-2 px-3 text-slate-400">該当する他会場会員がいません。</td></tr>';
     } else {
       otherDetail.forEach(v => {
         const tr = document.createElement('tr');
         tr.className = 'border-b last:border-b-0 hover:bg-slate-50';
         tr.innerHTML = `
+          <td class="py-2 px-3 whitespace-nowrap text-center">${v.booth === '○' ? '○' : ''}</td>
           <td class="py-2 px-3 whitespace-nowrap font-medium">${escapeHtml(v.name || '')}</td>
           <td class="py-2 px-3 whitespace-nowrap">${escapeHtml(v.furigana || '')}</td>
           <td class="py-2 px-3 whitespace-nowrap">${escapeHtml(v.venue || '')}</td>

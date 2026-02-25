@@ -1496,6 +1496,7 @@ function aggregateOtherVenues_(eventName) {
   const idxPosition = findColumnIndex_(header, ['役職']);
   const idxIntro    = findColumnIndex_(header, ['紹介者']);
   const idxBusiness = findColumnIndex_(header, ['営業内容']);
+  const idxBooth   = findColumnIndex_(header, ['ブース']);
 
   // デフォルト値（列が見つからない場合）
   const cEvent    = idxEvent    !== -1 ? idxEvent    : 1;  // B列
@@ -1507,6 +1508,7 @@ function aggregateOtherVenues_(eventName) {
   const cPosition = idxPosition !== -1 ? idxPosition : 8;  // I列
   const cIntro    = idxIntro    !== -1 ? idxIntro    : 9;  // J列
   const cBusiness = idxBusiness !== -1 ? idxBusiness : 10; // K列
+  const cBooth    = idxBooth    !== -1 ? idxBooth    : 12; // M列
 
   const detail = [];
 
@@ -1524,10 +1526,12 @@ function aggregateOtherVenues_(eventName) {
     const position = String(row[cPosition] || '').trim();
     const introName= String(row[cIntro]    || '').trim();
     const business = String(row[cBusiness] || '').trim();
+    const booth    = String(row[cBooth]    || '').trim();
 
     if (!name) return;
 
     detail.push({
+      booth,
       name,
       furigana,
       venue,

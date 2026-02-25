@@ -1,0 +1,791 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>守成クラブ福岡飯塚 ダッシュボード</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <!-- タブ用のシンプルCSS -->
+  <style>
+    .tab-container {
+      display: flex;
+      gap: 8px;
+      border-bottom: 1px solid #e5e7eb;
+      padding: 8px 0;
+      margin-top: 16px;
+      flex-wrap: wrap;
+    }
+
+    .tab-btn {
+      border: none;
+      padding: 6px 12px;
+      border-radius: 999px;
+      background: #e5e7eb;
+      cursor: pointer;
+      font-size: 14px;
+      line-height: 1;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      transition: background 0.2s ease, transform 0.05s ease;
+    }
+
+    .tab-btn:hover {
+      background: #d1d5db;
+      transform: translateY(-1px);
+    }
+
+    .tab-btn.active {
+      background: #2563eb;
+      color: #fff;
+    }
+
+    .tab-panels {
+      margin-top: 16px;
+    }
+
+    .tab-panel {
+      display: none;
+    }
+
+    .tab-panel.active {
+      display: block;
+    }
+
+    /* ===========================
+       1人1カード用のCSS
+       =========================== */
+
+    .member-card {
+      border-radius: 0.5rem;
+      border: 1px solid #e5e7eb;
+      padding: 6px 10px;
+      background-color: #ffffff;
+      box-sizing: border-box;
+    }
+
+    .member-card__badge {
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 9999px;
+      display: inline-flex;
+      align-items: center;
+      gap: 2px;
+      font-weight: 500;
+      margin-bottom: 2px;
+    }
+
+    .member-card__name {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #111827;           /* slate-900 */
+      line-height: 1.2;
+      white-space: normal;
+      overflow: visible;
+      text-overflow: clip;
+    }
+
+    /* ゴールド */
+    .member-card--gold {
+      border-color: #fbbf24;      /* amber-400 */
+      background-color: #fffbeb;  /* amber-50 */
+    }
+    .member-card--gold .member-card__badge {
+      background-color: #fef3c7;  /* amber-100 */
+      color: #92400e;             /* amber-800 */
+    }
+
+    /* 赤 */
+    .member-card--red {
+      border-color: #fca5a5;      /* red-300 */
+      background-color: #fef2f2;  /* red-50 */
+    }
+    .member-card--red .member-card__badge {
+      background-color: #fee2e2;  /* red-100 */
+      color: #b91c1c;             /* red-700 */
+    }
+
+    /* 緑 */
+    .member-card--green {
+      border-color: #6ee7b7;      /* emerald-300 */
+      background-color: #ecfdf5;  /* emerald-50 */
+    }
+    .member-card--green .member-card__badge {
+      background-color: #d1fae5;  /* emerald-100 */
+      color: #065f46;             /* emerald-800 */
+    }
+
+    /* バッジなし（デフォルト） */
+    .member-card--default {
+      border-color: #e5e7eb;
+      background-color: #f9fafb;  /* slate-50 */
+    }
+    .member-card--default .member-card__badge {
+      background-color: #e5e7eb;
+      color: #374151;             /* slate-700 */
+    }
+  </style>
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body class="bg-slate-100 text-slate-900">
+  <div class="max-w-6xl mx-auto px-4 py-6 space-y-6">
+    <!-- ヘッダー -->
+    <header class="flex items-center justify-between">
+      <div>
+        <h1 class="text-xl md:text-2xl font-bold">
+          守成クラブ 福岡飯塚 ダッシュボード
+        </h1>
+        <p class="text-sm text-slate-500 mt-1">
+          現在の例会の出欠状況・売上・ゲスト申請の状況を表示します。
+        </p>
+      </div>
+      <div class="text-right">
+        <div class="text-xs text-slate-500">対象例会</div>
+        <div id="eventName" class="text-sm font-semibold">-</div>
+      </div>
+    </header>
+
+    <!-- タブボタン -->
+    <div class="tab-container">
+      <button class="tab-btn active" data-tab="summary-tab">📊 概要</button>
+      <button class="tab-btn" data-tab="attend-tab">✅ 出欠</button>
+      <button class="tab-btn" data-tab="guest-tab">👥 ゲスト</button>
+      <button class="tab-btn" data-tab="sales-tab">💰 売上</button>
+      <button class="tab-btn" data-tab="team-tab">🧩 チーム</button>
+      <button class="tab-btn" data-tab="renew-tab">🔁 更新</button>
+      <button class="tab-btn" data-tab="meeting-day-tab">📋 例会当日</button>
+    </div>
+
+    <!-- タブ中身 -->
+    <div class="tab-panels">
+      <!-- 📊 概要タブ -->
+      <div id="summary-tab" class="tab-panel active">
+        <!-- 今月のハイライト -->
+        <section class="bg-white rounded-xl shadow p-4 border border-slate-200 mb-4">
+          <div class="text-base md:text-lg font-semibold mb-2">
+            今月のハイライト
+          </div>
+          <div class="flex flex-wrap gap-x-6 gap-y-2 text-xs md:text-sm">
+            <div>
+              [ 参加率
+              <span id="highlightAttendRate" class="text-xl md:text-2xl font-extrabold mx-1">-</span>
+              % ]
+            </div>
+            <div>
+              [ ゲスト
+              <span id="highlightGuestCount" class="text-xl md:text-2xl font-extrabold mx-1">-</span>
+              人 ]
+            </div>
+            <div>
+              [ 商談
+              <span id="highlightDealCount" class="text-xl md:text-2xl font-extrabold mx-1">-</span>
+              件 ]
+            </div>
+            <div>
+              [ 売上
+              <span id="highlightSalesTotal" class="text-xl md:text-2xl font-extrabold mx-1">-</span>
+              円 ]
+            </div>
+          </div>
+        </section>
+
+        <!-- 4つのサマリーカード -->
+        <section class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
+          <div class="bg-white rounded-xl shadow p-4">
+            <div class="text-xs text-slate-500 mb-1">出席</div>
+            <div id="attendCount" class="text-2xl font-extrabold text-green-600">-</div>
+            <div id="memberCount" class="text-xs text-slate-400 mt-1">会員数 -</div>
+          </div>
+          <div class="bg-white rounded-xl shadow p-4">
+            <div class="text-xs text-slate-500 mb-1">欠席</div>
+            <div id="absentCount" class="text-2xl font-extrabold text-red-600">-</div>
+          </div>
+          <div class="bg-white rounded-xl shadow p-4">
+            <div class="text-xs text-slate-500 mb-1">未回答</div>
+            <div id="noAnswerCount" class="text-2xl font-extrabold text-slate-400">-</div>
+          </div>
+          <div class="bg-white rounded-xl shadow p-4">
+            <div class="text-xs text-slate-500 mb-2">会員バッジ</div>
+            <div class="flex flex-col gap-1 text-xs">
+              <div class="flex items-center gap-1">
+                <span>🥇 ゴールド</span>
+                <span id="goldCount" class="font-bold">-</span>
+                <span>人</span>
+              </div>
+              <div class="flex items-center gap-1">
+                <span>🔴 赤バッジ</span>
+                <span id="redCount" class="font-bold">-</span>
+                <span>人</span>
+              </div>
+              <div class="flex items-center gap-1">
+                <span>🟢 緑バッジ</span>
+                <span id="greenCount" class="font-bold">-</span>
+                <span>人</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 2カラム：売上 & ゲスト -->
+        <section class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+          <div class="bg-white rounded-xl shadow p-4">
+            <h2 class="text-sm font-semibold mb-3">会員別 売上ランキング</h2>
+            <div id="salesRankingBody" class="space-y-2">
+              <div class="text-xs text-slate-400">データ取得中...</div>
+            </div>
+          </div>
+          <div class="bg-white rounded-xl shadow p-4">
+            <div class="flex items-center justify-between mb-2">
+              <h2 class="text-sm font-semibold">ゲスト申請状況</h2>
+              <div id="guestSummary" class="text-xs text-slate-500">-</div>
+            </div>
+            <table class="w-full text-xs md:text-sm">
+              <thead>
+                <tr class="text-left text-slate-500 border-b">
+                  <th class="py-1 pr-2">ゲスト名</th>
+                  <th class="py-1 pr-2">紹介者</th>
+                  <th class="py-1">承認</th>
+                </tr>
+              </thead>
+              <tbody id="guestListBody">
+                <tr>
+                  <td colspan="3" class="py-2 text-slate-400">データ取得中...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+
+      <!-- 出欠タブ -->
+<div id="attend-tab" class="tab-panel">
+  <section class="bg-white rounded-xl shadow p-4 mt-4">
+    <div class="flex items-center justify-between mb-2">
+      <h2 class="text-sm font-semibold">出欠管理（詳細）</h2>
+      <div class="flex flex-wrap gap-3 text-xs text-slate-500">
+        <span>出席: <span id="attendCountAttend">0 名</span></span>
+        <span>欠席: <span id="attendCountAbsent">0 名</span></span>
+        <span>未回答: <span id="attendCountNoAnswer">0 名</span></span>
+      </div>
+    </div>
+    <p class="text-xs text-slate-500 mb-3">
+      出席・欠席は回答時間の早い順に表示しています。右側にはまだ回答がない会員を表示します。
+    </p>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+      <!-- 出席 -->
+      <div class="bg-slate-50 border border-slate-200 rounded-xl p-3">
+        <h3 class="text-sm font-semibold text-emerald-700 mb-2">✅ 出席</h3>
+        <div id="attendListAttend" class="grid grid-cols-2 gap-2 text-xs md:text-sm"></div>
+      </div>
+
+      <!-- 欠席 -->
+      <div class="bg-slate-50 border border-slate-200 rounded-xl p-3">
+        <h3 class="text-sm font-semibold text-red-700 mb-2">❌ 欠席</h3>
+        <div id="attendListAbsent" class="grid grid-cols-2 gap-2 text-xs md:text-sm"></div>
+      </div>
+
+      <!-- 未回答 -->
+      <div class="bg-slate-50 border border-slate-200 rounded-xl p-3">
+        <h3 class="text-sm font-semibold text-slate-700 mb-2">🕒 未回答</h3>
+        <div id="attendListNoAnswer" class="grid grid-cols-2 gap-2 text-xs md:text-sm"></div>
+      </div>
+    </div>
+  </section>
+</div>
+
+
+      <!-- ゲストタブ -->
+      <div id="guest-tab" class="tab-panel">
+        <section class="bg-white rounded-xl shadow p-4 mt-4">
+          <h2 class="text-sm font-semibold mb-2">ゲスト管理（詳細）</h2>
+          <p class="text-xs text-slate-500">
+            ここにゲスト一覧や紹介者別集計などを後で配置します。
+          </p>
+        </section>
+      </div>
+
+      <!-- 売上タブ -->
+      <div id="sales-tab" class="tab-panel">
+        <section class="bg-white rounded-xl shadow p-4 mt-4">
+          <h2 class="text-sm font-semibold mb-2">売上集計（詳細）</h2>
+          <p class="text-xs text-slate-500">
+            ここに売上の詳細表や月次推移などを後で配置します。
+          </p>
+        </section>
+      </div>
+
+      <!-- 🔁 更新タブ -->
+      <div id="renew-tab" class="tab-panel">
+        <section class="bg-white rounded-xl shadow p-4 mt-4">
+          <h2 class="text-sm font-semibold mb-2">更新予定</h2>
+          <p class="text-xs text-slate-500 mb-3">
+            翌月・翌々月に更新を迎える会員を表示しています。
+          </p>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <!-- 来月 -->
+            <div>
+              <div class="flex items-center justify-between mb-2">
+                <h3 id="nextMonthLabel" class="text-sm font-semibold text-slate-800">
+                  来月更新
+                </h3>
+                <span id="nextMonthCount" class="text-xs text-slate-500">0 名</span>
+              </div>
+              <div id="nextMonthContainer" class="grid grid-cols-2 lg:grid-cols-3 gap-2"></div>
+            </div>
+            <!-- 再来月 -->
+            <div>
+              <div class="flex items-center justify-between mb-2">
+                <h3 id="next2MonthLabel" class="text-sm font-semibold text-slate-800">
+                  再来月更新
+                </h3>
+                <span id="next2MonthCount" class="text-xs text-slate-500">0 名</span>
+              </div>
+              <div id="next2MonthContainer" class="grid grid-cols-2 lg:grid-cols-3 gap-2"></div>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <!-- チームタブ -->
+      <div id="team-tab" class="tab-panel">
+        <section class="bg-white rounded-xl shadow p-4 mt-4">
+          <h2 class="text-sm font-semibold mb-2">チーム構成</h2>
+          <p class="text-xs text-slate-500 mb-3">
+            チーム毎にグルーピングしています。どこにも所属してない会員は「未配属」に表示されます。
+          </p>
+          <div id="teamContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+        </section>
+      </div>
+
+      <!-- 例会当日タブ -->
+      <div id="meeting-day-tab" class="tab-panel">
+        <section class="bg-white rounded-xl shadow p-4 mt-4">
+          <h2 class="text-sm font-semibold mb-2">テーブルマスター（TM）一覧</h2>
+          <p class="text-xs text-slate-500 mb-3">
+            配席アーカイブから各テーブルのテーブルマスターを表示します。
+          </p>
+          <div id="tmTableContainer" class="overflow-x-auto">
+            <table class="w-full text-sm border-collapse">
+              <thead>
+                <tr class="bg-slate-100 border-b border-slate-200">
+                  <th class="py-2 px-3 text-left font-semibold text-slate-700">テーブル</th>
+                  <th class="py-2 px-3 text-left font-semibold text-slate-700">TM</th>
+                </tr>
+              </thead>
+              <tbody id="tmTableBody">
+                <tr>
+                  <td colspan="2" class="py-3 px-3 text-slate-400 text-center">データ取得中...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // タブ切り替え
+    function setupTabs() {
+      const tabButtons = document.querySelectorAll('.tab-btn');
+      const tabPanels  = document.querySelectorAll('.tab-panel');
+
+      tabButtons.forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const targetId = btn.dataset.tab;
+
+          tabButtons.forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+
+          tabPanels.forEach(panel => {
+            if (panel.id === targetId) {
+              panel.classList.add('active');
+            } else {
+              panel.classList.remove('active');
+            }
+          });
+        });
+      });
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      setupTabs();
+      google.script.run
+        .withSuccessHandler(renderDashboard)
+        .getDashboardData();
+      // 例会当日タブ用データ取得
+      google.script.run
+        .withSuccessHandler(renderMeetingDayData)
+        .getMeetingDayData();
+    });
+
+    // 例会当日タブのデータ描画
+    function renderMeetingDayData(data) {
+      if (!data) return;
+
+      const tbody = document.getElementById('tmTableBody');
+      if (!tbody) return;
+
+      const tableMasters = data.tableMasters || [];
+
+      if (tableMasters.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="2" class="py-3 px-3 text-slate-400 text-center">
+              配席データがありません
+            </td>
+          </tr>
+        `;
+        return;
+      }
+
+      tbody.innerHTML = tableMasters.map(tm => `
+        <tr class="border-b border-slate-100 hover:bg-slate-50">
+          <td class="py-2 px-3 font-medium text-slate-800">${tm.table}</td>
+          <td class="py-2 px-3 text-slate-700">${tm.name}</td>
+        </tr>
+      `).join('');
+    }
+
+    // バッジ別クラス
+    function getBadgeStyle(badge) {
+      switch (badge) {
+        case 'ゴ':
+          return {
+            cardClass: 'member-card member-card--gold'
+          };
+        case '正':
+          return {
+            cardClass: 'member-card member-card--red'
+          };
+        case '準':
+          return {
+            cardClass: 'member-card member-card--green'
+          };
+        default:
+          return {
+            cardClass: 'member-card member-card--default'
+          };
+      }
+    }
+
+    // ダッシュボード描画
+    function renderDashboard(data) {
+      if (!data) return;
+
+      // 対象例会
+      document.getElementById('eventName').textContent =
+        data.eventName || '-';
+
+      // 出欠サマリ
+      const att = data.attendance || {};
+      document.getElementById('attendCount').textContent   = att.attend   ?? '-';
+      document.getElementById('absentCount').textContent   = att.absent   ?? '-';
+      document.getElementById('noAnswerCount').textContent = att.noAnswer ?? '-';
+      document.getElementById('memberCount').textContent =
+        att.memberCount ? `会員数 ${att.memberCount} 名` : '会員数 -';
+
+      const attendNum = att.attend != null ? Number(att.attend) : 0;
+      const memberNum = att.memberCount != null ? Number(att.memberCount) : 0;
+
+      // バッジ集計
+      const badges = data.badges || {};
+      document.getElementById('goldCount').textContent  = badges.gold  ?? '-';
+      document.getElementById('redCount').textContent   = badges.red   ?? '-';
+      document.getElementById('greenCount').textContent = badges.green ?? '-';
+
+      // 売上
+      const sales = data.sales || {};
+      const total     = sales.total || 0;
+      const dealCount = sales.dealCount || 0;
+
+      const rankingDiv = document.getElementById('salesRankingBody');
+      rankingDiv.innerHTML = '';
+
+      if (sales.ranking && sales.ranking.length) {
+        sales.ranking.forEach((item, index) => {
+          const div = document.createElement('div');
+          div.className = 'flex items-center gap-2 text-sm';
+          div.innerHTML = `
+            <span class="font-bold text-slate-600">${index + 1}位</span>
+            <span class="text-slate-800">${item.name}</span>
+          `;
+          rankingDiv.appendChild(div);
+        });
+      } else {
+        rankingDiv.innerHTML =
+          '<div class="text-xs text-slate-400">データなし</div>';
+      }
+
+      // ゲスト
+      const guests = data.guests || {};
+      const guestSummaryText =
+        `申請 ${guests.total || 0} 名 / 承認 ${guests.approved || 0} / 保留 ${guests.pending || 0}`;
+      document.getElementById('guestSummary').textContent = guestSummaryText;
+
+      const tbodyGuest = document.getElementById('guestListBody');
+      tbodyGuest.innerHTML = '';
+
+      if (guests.list && guests.list.length) {
+        guests.list.forEach(g => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td class="py-1 pr-2">${g.guestName || ''}</td>
+            <td class="py-1 pr-2">${g.introName || ''}</td>
+            <td class="py-1">${g.approved ? '✔︎' : ''}</td>
+          `;
+          tbodyGuest.appendChild(tr);
+        });
+      } else {
+        tbodyGuest.innerHTML =
+          '<tr><td colspan="3" class="py-2 text-slate-400">ゲスト申請なし</td></tr>';
+      }
+
+      const guestTotalNum = guests.total != null ? Number(guests.total) : 0;
+
+      // 今月のハイライト
+      let rateDisplay = '-';
+      if (attendNum > 0 && memberNum > 0) {
+        const rate = Math.round((attendNum / memberNum) * 100);
+        rateDisplay = rate;
+      }
+      document.getElementById('highlightAttendRate').textContent = rateDisplay;
+      document.getElementById('highlightGuestCount').textContent  =
+        guestTotalNum || '-';
+      document.getElementById('highlightDealCount').textContent   =
+        dealCount || '-';
+      document.getElementById('highlightSalesTotal').textContent  =
+        total ? total.toLocaleString() : '-';
+
+      // ===== 出欠詳細（カード表示） =====
+      const attendanceDetail = data.attendanceDetail || {};
+      const attendList   = Array.isArray(attendanceDetail.attendList)   ? attendanceDetail.attendList   : [];
+      const absentList   = Array.isArray(attendanceDetail.absentList)   ? attendanceDetail.absentList   : [];
+      const noAnswerList = Array.isArray(attendanceDetail.noAnswerList) ? attendanceDetail.noAnswerList : [];
+
+      const colAttend   = document.getElementById('attendListAttend');
+      const colAbsent   = document.getElementById('attendListAbsent');
+      const colNoAnswer = document.getElementById('attendListNoAnswer');
+
+      const countAttendEl   = document.getElementById('attendCountAttend');
+      const countAbsentEl   = document.getElementById('attendCountAbsent');
+      const countNoAnswerEl = document.getElementById('attendCountNoAnswer');
+
+      if (countAttendEl)   countAttendEl.textContent   = `${attendList.length} 名`;
+      if (countAbsentEl)   countAbsentEl.textContent   = `${absentList.length} 名`;
+      if (countNoAnswerEl) countNoAnswerEl.textContent = `${noAnswerList.length} 名`;
+
+      if (colAttend && colAbsent && colNoAnswer) {
+        const renderList = (list, container) => {
+          container.innerHTML = '';
+          if (!list.length) {
+            container.innerHTML =
+              '<div class="text-xs text-slate-400">該当者なし</div>';
+            return;
+          }
+
+          list.forEach(item => {
+            const style = getBadgeStyle(item.badge);
+            const div = document.createElement('div');
+            div.className = style.cardClass;
+            div.innerHTML = `
+              <div class="member-card__name">${item.name}</div>
+              ${item.time ? `<div class="text-[10px] text-slate-500 mt-0.5">${item.time}</div>` : ''}
+            `;
+            container.appendChild(div);
+          });
+        };
+
+        // 左：出席
+        renderList(attendList, colAttend);
+
+        // 中：欠席
+        renderList(absentList, colAbsent);
+
+        // 右：未回答（時間表示なし）
+        renderList(noAnswerList, colNoAnswer);
+      }
+
+      // ===== 更新予定（翌月・翌々月） =====
+      const renewals = data.renewals || {};
+      const nextArr  = Array.isArray(renewals.next)  ? renewals.next  : [];
+      const next2Arr = Array.isArray(renewals.next2) ? renewals.next2 : [];
+
+      const nextLabelEl  = document.getElementById('nextMonthLabel');
+      const next2LabelEl = document.getElementById('next2MonthLabel');
+      const nextCountEl  = document.getElementById('nextMonthCount');
+      const next2CountEl = document.getElementById('next2MonthCount');
+      const nextContainer  = document.getElementById('nextMonthContainer');
+      const next2Container = document.getElementById('next2MonthContainer');
+
+      if (nextContainer && next2Container) {
+        nextContainer.innerHTML = '';
+        next2Container.innerHTML = '';
+
+        // 見出しラベル（そのまま使う）
+        if (nextLabelEl) {
+          nextLabelEl.textContent = renewals.nextMonthLabel || '来月更新';
+        }
+        if (next2LabelEl) {
+          next2LabelEl.textContent = renewals.next2MonthLabel || '再来月更新';
+        }
+
+        if (nextCountEl)  nextCountEl.textContent  = `${nextArr.length} 名`;
+        if (next2CountEl) next2CountEl.textContent = `${next2Arr.length} 名`;
+
+        // 来月
+        if (nextArr.length === 0) {
+          nextContainer.innerHTML =
+            '<div class="text-xs text-slate-400">該当者なし</div>';
+        } else {
+          let hasZeroNext = false;
+
+          nextArr.forEach(m => {
+            const style = getBadgeStyle(m.badge);
+            const div = document.createElement('div');
+            div.className = style.cardClass;
+
+            const displayName = (m.hasZeroReferral ? '⚠️' : '') + m.name;
+            if (m.hasZeroReferral) hasZeroNext = true;
+
+            div.innerHTML = `
+              <div class="member-card__name">${displayName}</div>
+            `;
+            nextContainer.appendChild(div);
+          });
+
+          // 紹介在籍人数 0 の人がいる場合、注意書きを一番下に表示
+          if (hasZeroNext) {
+            const warn = document.createElement('div');
+            warn.className = 'col-span-full text-[11px] text-red-600 mt-1';
+            warn.textContent = '⚠️紹介在籍人数が0人です。';
+            nextContainer.appendChild(warn);
+          }
+        }
+
+        // 再来月
+        if (next2Arr.length === 0) {
+          next2Container.innerHTML =
+            '<div class="text-xs text-slate-400">該当者なし</div>';
+        } else {
+          let hasZeroNext2 = false;
+
+          next2Arr.forEach(m => {
+            const style = getBadgeStyle(m.badge);
+            const div = document.createElement('div');
+            div.className = style.cardClass;
+
+            const displayName = (m.hasZeroReferral ? '⚠️' : '') + m.name;
+            if (m.hasZeroReferral) hasZeroNext2 = true;
+
+            div.innerHTML = `
+              <div class="member-card__name">${displayName}</div>
+            `;
+            next2Container.appendChild(div);
+          });
+
+          if (hasZeroNext2) {
+            const warn = document.createElement('div');
+            warn.className = 'col-span-full text-[11px] text-red-600 mt-1';
+            warn.textContent = '⚠️紹介在籍人数が0人です。';
+            next2Container.appendChild(warn);
+          }
+        }
+      }
+
+      // ===== チーム表示（1人1カード） =====
+      const teamData = data.teams || { teams: [], unassigned: [] };
+      const teamContainer = document.getElementById('teamContainer');
+      if (!teamContainer) return;
+
+      teamContainer.innerHTML = '';
+
+      const hasTeams      = Array.isArray(teamData.teams) && teamData.teams.length > 0;
+      const hasUnassigned = Array.isArray(teamData.unassigned) && teamData.unassigned.length > 0;
+
+      if (!hasTeams && !hasUnassigned) {
+        teamContainer.innerHTML =
+          '<div class="text-xs text-slate-400">チーム情報が登録されていません。</div>';
+        return;
+      }
+
+      // チームごと
+      if (hasTeams) {
+        teamData.teams.forEach(team => {
+          const card = document.createElement('div');
+          card.className = 'bg-white rounded-xl shadow p-4 border border-slate-200';
+
+          const members = Array.isArray(team.members) ? team.members : [];
+          const totalMembers = members.length;
+
+          let membersHtml = '';
+
+          if (totalMembers === 0) {
+            membersHtml = '<div class="text-xs text-slate-400">メンバー未登録</div>';
+          } else {
+            membersHtml = members.map(m => {
+              const style = getBadgeStyle(m.badge);
+              return `
+                <div class="${style.cardClass}">
+                  <div class="member-card__name">${m.name}</div>
+                </div>
+              `;
+            }).join('');
+          }
+
+          card.innerHTML = `
+            <div class="flex items-center justify-between mb-3">
+              <h3 class="text-sm font-semibold text-slate-800">${team.teamName || 'チーム名未設定'}</h3>
+              <span class="text-xs text-slate-500">${totalMembers} 名</span>
+            </div>
+            <div class="grid grid-cols-2 md:grid-cols-3 gap-2">
+              ${membersHtml}
+            </div>
+          `;
+          teamContainer.appendChild(card);
+        });
+      }
+
+      // 未配属
+      if (hasUnassigned) {
+        const card = document.createElement('div');
+        card.className =
+          'bg-white rounded-xl shadow p-4 border border-dashed border-amber-300';
+
+        const members = teamData.unassigned;
+        const totalMembers = members.length;
+
+        let membersHtml = '';
+
+        if (totalMembers === 0) {
+          membersHtml = '<div class="text-xs text-amber-400">未配属メンバーなし</div>';
+        } else {
+          membersHtml = members.map(m => {
+            const style = getBadgeStyle(m.badge);
+            return `
+              <div class="${style.cardClass}">
+                <div class="member-card__name">${m.name}</div>
+              </div>
+            `;
+          }).join('');
+        }
+
+        card.innerHTML = `
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="text-sm font-semibold text-amber-800">未配属</h3>
+            <span class="text-xs text-amber-700">${totalMembers} 名</span>
+          </div>
+          <div class="grid grid-cols-2 md:grid-cols-3 gap-2">
+            ${membersHtml}
+          </div>
+        `;
+        teamContainer.appendChild(card);
+      }
+    }
+  </script>
+</body>
+</html>

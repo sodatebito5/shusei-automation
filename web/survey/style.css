@@ -1,0 +1,465 @@
+/* ============================================
+   例会アンケート - 守成クラブ福岡飯塚
+   ============================================ */
+
+:root {
+  /* 守成クラブカラー */
+  --primary-color: #1a5c38;       /* 緑（メイン） */
+  --primary-light: #2d8a56;
+  --primary-dark: #0f3d24;
+  --accent-color: #c9a227;        /* ゴールド */
+  --accent-light: #e6c55a;
+
+  /* UI Colors */
+  --bg-color: #f5f7f6;
+  --card-bg: #ffffff;
+  --text-primary: #1a1a1a;
+  --text-secondary: #666666;
+  --text-muted: #999999;
+  --border-color: #e0e0e0;
+  --error-color: #d32f2f;
+  --success-color: #2e7d32;
+
+  /* Spacing */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 32px;
+
+  /* Border Radius */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Hiragino Sans', 'Noto Sans JP', sans-serif;
+  background-color: var(--bg-color);
+  color: var(--text-primary);
+  line-height: 1.6;
+  min-height: 100vh;
+}
+
+.container {
+  max-width: 520px;
+  margin: 0 auto;
+  padding: var(--spacing-md);
+  padding-bottom: var(--spacing-xl);
+}
+
+/* ============================================
+   Header
+   ============================================ */
+.header {
+  text-align: center;
+  padding: var(--spacing-lg) var(--spacing-md);
+  background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
+  color: white;
+  border-radius: var(--radius-lg);
+  margin-bottom: var(--spacing-lg);
+  box-shadow: 0 4px 12px rgba(26, 92, 56, 0.3);
+}
+
+.greeting {
+  font-size: 0.9rem;
+  opacity: 0.95;
+  margin-bottom: var(--spacing-sm);
+}
+
+.header h1 {
+  font-size: 1.4rem;
+  font-weight: 700;
+  margin-bottom: var(--spacing-xs);
+}
+
+.subtitle {
+  font-size: 0.875rem;
+  opacity: 0.9;
+}
+
+/* ============================================
+   Question Card
+   ============================================ */
+.question-card {
+  background: var(--card-bg);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-lg);
+  margin-bottom: var(--spacing-md);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.question-number {
+  display: inline-block;
+  background: var(--primary-color);
+  color: white;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border-radius: var(--radius-sm);
+  margin-bottom: var(--spacing-sm);
+}
+
+.question-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: var(--spacing-xs);
+  color: var(--text-primary);
+}
+
+.question-desc {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  margin-bottom: var(--spacing-md);
+}
+
+/* ============================================
+   Emoji Rating with Labels
+   ============================================ */
+.emoji-rating {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--spacing-xs);
+  margin-bottom: var(--spacing-md);
+}
+
+.emoji-btn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: var(--spacing-sm) var(--spacing-xs);
+  background: var(--bg-color);
+  border: 2px solid var(--border-color);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.emoji-btn .emoji {
+  font-size: 1.8rem;
+  line-height: 1;
+  margin-bottom: var(--spacing-xs);
+}
+
+.emoji-btn .emoji-label {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  text-align: center;
+  line-height: 1.2;
+}
+
+.emoji-btn:hover {
+  border-color: var(--primary-light);
+  transform: scale(1.03);
+}
+
+.emoji-btn:active {
+  transform: scale(0.97);
+}
+
+.emoji-btn.selected {
+  border-color: var(--primary-color);
+  background: rgba(26, 92, 56, 0.1);
+  box-shadow: 0 0 0 3px rgba(26, 92, 56, 0.2);
+}
+
+.emoji-btn.selected .emoji-label {
+  color: var(--primary-color);
+  font-weight: 600;
+}
+
+.emoji-btn:focus {
+  outline: none;
+  border-color: var(--primary-color);
+}
+
+/* Rating validation error */
+.emoji-rating.error .emoji-btn {
+  border-color: var(--error-color);
+}
+
+.emoji-rating.error::after {
+  content: '選択してください';
+  display: block;
+  width: 100%;
+  color: var(--error-color);
+  font-size: 0.75rem;
+  margin-top: var(--spacing-sm);
+  text-align: center;
+}
+
+/* ============================================
+   Comment Section
+   ============================================ */
+.comment-section {
+  margin-top: var(--spacing-md);
+}
+
+.comment-section:first-of-type {
+  padding-top: var(--spacing-md);
+  border-top: 1px solid var(--border-color);
+}
+
+.comment-label {
+  display: block;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  margin-bottom: var(--spacing-sm);
+  font-weight: 500;
+}
+
+.comment-input {
+  width: 100%;
+  padding: var(--spacing-md);
+  font-size: 1rem;
+  font-family: inherit;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  resize: vertical;
+  transition: border-color 0.2s ease;
+}
+
+.comment-input:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(26, 92, 56, 0.1);
+}
+
+.comment-input.small {
+  padding: var(--spacing-sm) var(--spacing-md);
+  font-size: 0.9rem;
+}
+
+.comment-input.large {
+  min-height: 100px;
+}
+
+.comment-input::placeholder {
+  color: #aaa;
+}
+
+/* ============================================
+   System Section (Q2)
+   ============================================ */
+.system-section {
+  margin-bottom: var(--spacing-lg);
+  padding-bottom: var(--spacing-lg);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.system-section:last-child {
+  margin-bottom: 0;
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.system-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: var(--spacing-md);
+  padding-left: var(--spacing-sm);
+  border-left: 3px solid var(--primary-color);
+}
+
+/* ============================================
+   Checkbox Group
+   ============================================ */
+.checkbox-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-md);
+}
+
+.checkbox-item {
+  display: flex;
+  align-items: center;
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--bg-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.checkbox-item:hover {
+  border-color: var(--primary-light);
+}
+
+.checkbox-item input[type="checkbox"] {
+  display: none;
+}
+
+.checkbox-item input[type="checkbox"]:checked + .checkbox-label {
+  color: var(--primary-color);
+  font-weight: 600;
+}
+
+.checkbox-item:has(input:checked) {
+  background: rgba(26, 92, 56, 0.1);
+  border-color: var(--primary-color);
+}
+
+.checkbox-label {
+  font-size: 0.875rem;
+  color: var(--text-primary);
+}
+
+.checkbox-label::before {
+  content: '';
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  margin-right: var(--spacing-sm);
+  border: 2px solid var(--border-color);
+  border-radius: 4px;
+  vertical-align: middle;
+  transition: all 0.2s ease;
+}
+
+.checkbox-item input[type="checkbox"]:checked + .checkbox-label::before {
+  background: var(--primary-color);
+  border-color: var(--primary-color);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='white'%3E%3Cpath d='M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z'/%3E%3C/svg%3E");
+  background-size: 14px;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+/* ============================================
+   Submit Section
+   ============================================ */
+.submit-section {
+  text-align: center;
+  padding: var(--spacing-lg) 0;
+}
+
+.submit-btn {
+  width: 100%;
+  max-width: 320px;
+  padding: var(--spacing-md) var(--spacing-lg);
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: white;
+  background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-light) 100%);
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 12px rgba(26, 92, 56, 0.3);
+}
+
+.submit-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(26, 92, 56, 0.4);
+}
+
+.submit-btn:active {
+  transform: translateY(0);
+}
+
+.submit-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.privacy-note {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  margin-top: var(--spacing-md);
+}
+
+/* ============================================
+   Thank You Screen
+   ============================================ */
+.thank-you {
+  text-align: center;
+  padding: var(--spacing-xl);
+  background: var(--card-bg);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+}
+
+.thank-you-icon {
+  font-size: 4rem;
+  margin-bottom: var(--spacing-md);
+  animation: bounce 0.6s ease;
+}
+
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+.thank-you h2 {
+  font-size: 1.5rem;
+  color: var(--primary-color);
+  margin-bottom: var(--spacing-md);
+}
+
+.thank-you p {
+  color: var(--text-secondary);
+  margin-bottom: var(--spacing-sm);
+}
+
+.thank-you-footer {
+  margin-top: var(--spacing-lg);
+  padding-top: var(--spacing-md);
+  border-top: 1px solid var(--border-color);
+  font-weight: 600;
+  color: var(--primary-color);
+}
+
+/* ============================================
+   Responsive
+   ============================================ */
+@media (max-width: 400px) {
+  .emoji-btn .emoji {
+    font-size: 1.5rem;
+  }
+
+  .emoji-btn .emoji-label {
+    font-size: 0.55rem;
+  }
+
+  .header h1 {
+    font-size: 1.2rem;
+  }
+
+  .checkbox-item {
+    width: 100%;
+  }
+}
+
+/* ============================================
+   Animation
+   ============================================ */
+.question-card {
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.question-card:nth-child(1) { animation-delay: 0.0s; }
+.question-card:nth-child(2) { animation-delay: 0.1s; }
+.question-card:nth-child(3) { animation-delay: 0.2s; }
+.question-card:nth-child(4) { animation-delay: 0.3s; }
