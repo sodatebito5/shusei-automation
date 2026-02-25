@@ -2143,9 +2143,11 @@ function aggregateAttendance_(eventKey, memberCount) {
   const idxEventKey = findColumnIndex_(header, ['eventKey', 'イベントキー']);
   const idxStatus   = findColumnIndex_(header, ['status', '出欠', '出欠状況', 'ステータス']);
   const idxAfterParty = findColumnIndex_(header, ['afterParty', '2部会', '二部会']);
+  const idxBoothFound = findColumnIndex_(header, ['booth', 'ブース']);
+  const idxBooth      = idxBoothFound !== -1 ? idxBoothFound : 5; // F列（aggregatePrep_と同じ）
 
   if (idxEventKey === -1 || idxStatus === -1) {
-    return { memberCount, attend: 0, absent: 0, noAnswer: memberCount, afterPartyCount: 0 };
+    return { memberCount, attend: 0, absent: 0, noAnswer: memberCount, afterPartyCount: 0, boothCount: 0 };
   }
 
   const rows = values.slice(HEADER_ROW_INDEX + 1);
@@ -2153,6 +2155,7 @@ function aggregateAttendance_(eventKey, memberCount) {
   let attend = 0;
   let absent = 0;
   let afterPartyCount = 0;
+  let boothCount = 0;
 
   rows.forEach(row => {
     const key = String(row[idxEventKey] || '').trim();
@@ -2170,11 +2173,16 @@ function aggregateAttendance_(eventKey, memberCount) {
       const ap = String(row[idxAfterParty] || '').trim();
       if (ap === '○') afterPartyCount++;
     }
+
+    if (idxBooth !== -1) {
+      const b = String(row[idxBooth] || '').trim();
+      if (b === '○') boothCount++;
+    }
   });
 
   const noAnswer = Math.max(memberCount - attend - absent, 0);
 
-  return { memberCount, attend, absent, noAnswer, afterPartyCount };
+  return { memberCount, attend, absent, noAnswer, afterPartyCount, boothCount };
 }
 
 /**
@@ -2212,6 +2220,8 @@ function aggregateAttendanceDetail_(eventKey) {
   const idxUserId   = findColumnIndex_(header, ['userId', 'LINE_userId', 'ユーザーID']);
   const idxNameCol  = findColumnIndex_(header, ['displayName', '氏名', '名前']); // fallback用
   const idxAfterParty = findColumnIndex_(header, ['afterParty', '2部会', '二部会']);
+  const idxBoothFound2 = findColumnIndex_(header, ['booth', 'ブース']);
+  const idxBooth2      = idxBoothFound2 !== -1 ? idxBoothFound2 : 5; // F列
   const idxTimestamp = 0; // A列：timestamp
 
   const memberMapByUserId = getMemberMapByUserId_();
@@ -2260,7 +2270,8 @@ function aggregateAttendanceDetail_(eventKey) {
     }
 
     const afterParty = idxAfterParty !== -1 ? String(row[idxAfterParty] || '').trim() : '';
-    const obj = { name, badge, time: timeStr, timestamp, status, afterParty };
+    const booth = String(row[idxBooth2] || '').trim();
+    const obj = { name, badge, time: timeStr, timestamp, status, afterParty, booth };
 
     if (status === '○' || status === '出席') {
       attendList.push(obj);

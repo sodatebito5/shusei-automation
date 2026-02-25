@@ -144,6 +144,7 @@
           <span class="hl-attend-rate-label">参加率</span>
         </div>
       </div>
+      <!-- 出欠内訳（上段） -->
       <div class="hl-attend-breakdown">
         <div class="hl-attend-seg hl-attend-seg--ok">
           <span class="hl-attend-seg-icon">&#x2714;</span>
@@ -165,7 +166,9 @@
           <span class="hl-attend-seg-label">2部会</span>
           <span id="afterPartyCount" class="hl-attend-seg-val">-</span>
         </div>
-        <div class="hl-attend-seg-divider"></div>
+      </div>
+      <!-- 参加者内訳 + ブース（下段） -->
+      <div class="hl-attend-breakdown">
         <div class="hl-attend-seg hl-attend-seg--guest">
           <span class="hl-attend-seg-icon">&#x1F464;</span>
           <span class="hl-attend-seg-label">ゲスト</span>
@@ -175,6 +178,17 @@
           <span class="hl-attend-seg-icon">&#x1F3E2;</span>
           <span class="hl-attend-seg-label">他会場</span>
           <span id="highlightOtherVenue" class="hl-attend-seg-val">-</span>
+        </div>
+        <div class="hl-attend-seg-divider"></div>
+        <div class="hl-attend-seg hl-attend-seg--booth">
+          <span class="hl-attend-seg-icon">&#x1F3EA;</span>
+          <span class="hl-attend-seg-label">飯塚ブース</span>
+          <span id="highlightLocalBooth" class="hl-attend-seg-val">-</span>
+        </div>
+        <div class="hl-attend-seg hl-attend-seg--other-booth">
+          <span class="hl-attend-seg-icon">&#x1F4CD;</span>
+          <span class="hl-attend-seg-label">他ブース</span>
+          <span id="highlightOtherBooth" class="hl-attend-seg-val">-</span>
         </div>
       </div>
       <div class="hl-attend-members">
@@ -3571,6 +3585,16 @@ if (guestDetailBody) {
   if (hlDeal)              hlDeal.textContent              = dealCount        || '-';
   if (hlSales)             hlSales.textContent             = total ? total.toLocaleString() : '-';
 
+  // ブース出店者数
+  const localBoothCount = Number(att.boothCount) || 0;
+  const otherVenueDetail = (data.otherVenues && data.otherVenues.detail) || [];
+  const otherBoothCount = otherVenueDetail.filter(v => v.booth === '○').length;
+
+  const hlLocalBooth = document.getElementById('highlightLocalBooth');
+  const hlOtherBooth = document.getElementById('highlightOtherBooth');
+  if (hlLocalBooth) hlLocalBooth.textContent = localBoothCount || '-';
+  if (hlOtherBooth) hlOtherBooth.textContent = otherBoothCount || '-';
+
   // 参加率リングアニメーション
   const rateCircle = document.getElementById('attendRateCircle');
   if (rateCircle && typeof rateDisplay === 'number') {
@@ -3621,8 +3645,9 @@ if (guestDetailBody) {
       const div = document.createElement('div');
       div.className = style.cardClass;
       const partyIcon = item.afterParty === '○' ? ' <span title="2部会参加">🍻</span>' : '';
+      const boothIcon = item.booth === '○' ? ' <span title="ブース出店">🏪</span>' : '';
       div.innerHTML = `
-        <div class="member-card__name">${escapeHtml(item.name || '')}${partyIcon}</div>
+        <div class="member-card__name">${escapeHtml(item.name || '')}${boothIcon}${partyIcon}</div>
         ${showTime && item.time
           ? `<div class="text-[10px] text-slate-500 mt-0.5">${escapeHtml(item.time)}</div>`
           : '' }
