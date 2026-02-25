@@ -276,3 +276,16 @@ web/[機能名]/*     # フロントエンド（API呼び出し側）
 - Google Sheets: （URLを記載）
 - LIFF管理: https://developers.line.biz/console/
 - clasp: https://github.com/google/clasp
+
+## 司令塔連携（yohaku-dashboard）
+
+このプロジェクトは [yohaku-dashboard](https://yohaku-dashboard.vercel.app) で統合管理されている。
+
+- **Project ID**: `62fecd7d-1545-410a-ae88-d798631b2ce5`
+- **Supabase**: `xuosvuojykjljgajvgyw`（fruit-takao 相乗り）
+
+### Claude Code 作業ルール
+1. **ナレッジ登録**: 再利用可能な技術知見を得たら `dash_knowledge` に INSERT（Supabase MCP 使用）
+   - `discovered_in` にこのプロジェクトの Project ID をセット
+   - 発見元PJは `dash_knowledge_status` に `applied` で登録
+2. **タスク更新**: 作業完了時に `dash_tasks` のステータスを更新
