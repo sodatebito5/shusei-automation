@@ -7366,7 +7366,7 @@ function logMemberChange_(operationType, memberId, memberName, changes) {
  */
 function getUnrespondedMembersForReminder() {
   try {
-    // 1. 設定シートから次回例会情報を取得
+    // 1. 設定シートから例会情報を取得
     const ss = SpreadsheetApp.openById(CONFIG_SHEET_ID);
     const configSheet = ss.getSheetByName(CONFIG_SHEET_NAME);
 
@@ -7374,28 +7374,45 @@ function getUnrespondedMembersForReminder() {
       return { success: false, message: '設定シートが見つかりません' };
     }
 
-    // F2: 次回イベントキー、G2: 次回開催日、J2: 回答期限
+    // 出欠フォームと同じイベントキーを使用
+    // H2（出欠専用イベントキー）を優先、なければダッシュボード切替ロジック
+    const attendanceEventKey = String(configSheet.getRange('H2').getValue() || '').trim();
+    const currentEventKey = String(configSheet.getRange('A2').getValue() || '').trim();
     const nextEventKey = String(configSheet.getRange('F2').getValue() || '').trim();
-    const nextEventDateRaw = configSheet.getRange('G2').getValue();
-    const deadlineRaw = configSheet.getRange('J2').getValue();
 
-    if (!nextEventKey) {
-      return { success: false, message: '次回イベントキーが設定されていません（設定シートF2）' };
+    let targetEventKey;
+    if (attendanceEventKey) {
+      targetEventKey = attendanceEventKey;
+    } else {
+      // H2が空の場合はダッシュボードと同じ切替ロジック
+      targetEventKey = getDashboardEventKey();
     }
 
-    const nextEventDate = nextEventDateRaw ? new Date(nextEventDateRaw) : null;
+    if (!targetEventKey) {
+      return { success: false, message: 'イベントキーが設定されていません' };
+    }
+
+    // 対象イベントの開催日を取得（現在 or 次回を判定）
+    let targetEventDate;
+    if (targetEventKey === currentEventKey) {
+      const currentDateRaw = configSheet.getRange('P2').getValue();
+      targetEventDate = currentDateRaw ? new Date(currentDateRaw) : null;
+    } else {
+      const nextDateRaw = configSheet.getRange('G2').getValue();
+      targetEventDate = nextDateRaw ? new Date(nextDateRaw) : null;
+    }
 
     // 回答期限: J2が有効な日付なら使用、そうでなければ開催月の前月末日
+    const deadlineRaw = configSheet.getRange('J2').getValue();
     let deadline = null;
     if (deadlineRaw && deadlineRaw instanceof Date && !isNaN(deadlineRaw.getTime())) {
       deadline = deadlineRaw;
-    } else if (nextEventDate) {
-      // new Date(year, month, 0) で前月末日を取得（2月例会→1/31）
-      deadline = new Date(nextEventDate.getFullYear(), nextEventDate.getMonth(), 0);
+    } else if (targetEventDate) {
+      deadline = new Date(targetEventDate.getFullYear(), targetEventDate.getMonth(), 0);
     }
 
     // イベントキーを日本語形式に変換（2026年2月例会）
-    const eventKeyJp = eventKeyToJapanese_(nextEventKey);
+    const eventKeyJp = eventKeyToJapanese_(targetEventKey);
 
     // 日付をフォーマット
     const formatDate = (date) => {
@@ -7405,9 +7422,9 @@ function getUnrespondedMembersForReminder() {
     };
 
     const eventInfo = {
-      eventKey: nextEventKey,
+      eventKey: targetEventKey,
       eventKeyJp: eventKeyJp,
-      eventDate: formatDate(nextEventDate),
+      eventDate: formatDate(targetEventDate),
       deadline: formatDate(deadline)
     };
 
@@ -7484,7 +7501,15 @@ function getUnrespondedMembersForReminder() {
       eventInfo: eventInfo,
       members: membersWithLineId,
       noLineIdMembers: membersNoLineId,
-      answeredCount: answeredUserIds.size
+      answeredCount: answeredUserIds.size,
+      // デバッグ情報（原因特定後に削除）
+      _debug: {
+        h2: attendanceEventKey,
+        a2: currentEventKey,
+        f2: nextEventKey,
+        targetEventKey: targetEventKey,
+        eventKeyJp: eventKeyJp
+      }
     };
 
   } catch (e) {
