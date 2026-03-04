@@ -98,7 +98,13 @@
       "Bash(cmd.exe /c \"node -e \"\"const {execSync} = require\\(''child_process''\\); const r = execSync\\(''npx clasp push --force'', {cwd: ''C:\\\\\\\\Users\\\\\\\\Owner\\\\\\\\shusei-automation\\\\\\\\gas\\\\\\\\dashboard'', encoding: ''utf-8'', stdio: ''pipe''}\\); console.log\\(r\\);\"\" 2>&1\")",
       "Bash(powershell.exe -Command \"Set-Location ''C:\\\\Users\\\\Owner\\\\shusei-automation\\\\gas\\\\dashboard''; npx clasp push --force 2>&1\")",
       "WebFetch(domain:ifttt.com)",
-      "WebFetch(domain:docs.google.com)"
+      "WebFetch(domain:docs.google.com)",
+      "Bash(cd:*)",
+      "Bash(cd /c/Users/Owner/projects/shusei-automation/gas/dashboard && clasp login 2>&1)",
+      "Bash(clasp pull:*)",
+      "Bash(npx:*)",
+      "Bash(clasp:*)",
+      "WebFetch(domain:script.googleusercontent.com)"
     ]
   }
 }
